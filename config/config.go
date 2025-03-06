@@ -1,9 +1,5 @@
 package config
 
-import (
-	"bytes"
-)
-
 type Config struct {
 	User     User     `yaml:"user" json:"user"`
 	Database Database `yaml:"database" json:"database"`
@@ -32,11 +28,11 @@ type Profile struct {
 		Month int `yaml:"month" json:"month"`
 		Day   int `yaml:"day" json:"day"`
 	}
-	Avatar      bytes.Buffer `yaml:"avatar" json:"avatar"`
-	Description string       `yaml:"description" json:"description"`
-	Location    string       `yaml:"location" json:"location"`
-	Interests   []string     `yaml:"interests" json:"interests"`
-	LikedBy     []int        `yaml:"likedBy" json:"likedBy"`
+	Avatar      string   `yaml:"avatar" json:"avatar"`
+	Description string   `yaml:"description" json:"description"`
+	Location    string   `yaml:"location" json:"location"`
+	Interests   []string `yaml:"interests" json:"interests"`
+	LikedBy     []int    `yaml:"likedBy" json:"likedBy"`
 	Preferences struct {
 		PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
 		Interests     []string `yaml:"interests" json:"interests"`

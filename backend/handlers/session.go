@@ -56,9 +56,10 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	api.sessions[SID] = user.Id
 
 	cookie := &http.Cookie{
-		Name:    "session_id",
-		Value:   SID,
-		Expires: time.Now().Add(10 * time.Hour),
+		Name:     "session_id for { user.Id}",
+		Value:    SID,
+		HttpOnly: true,
+		Expires:  time.Now().Add(10 * time.Hour),
 	}
 	http.SetCookie(w, cookie)
 

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
 	"time"
 
@@ -100,7 +99,7 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 5,
 			Day:   15,
 		},
-		Avatar:      bytes.Buffer{},
+		Avatar:      "",
 		Description: "A tech enthusiast.",
 		Location:    "New York",
 		Interests:   []string{"Technology", "Reading", "Traveling"},
@@ -148,7 +147,7 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 8,
 			Day:   22,
 		},
-		Avatar:      bytes.Buffer{},
+		Avatar:      "",
 		Description: "A nature lover.",
 		Location:    "California",
 		Interests:   []string{"Hiking", "Photography", "Art"},
@@ -196,7 +195,7 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 2,
 			Day:   10,
 		},
-		Avatar:      bytes.Buffer{},
+		Avatar:      "",
 		Description: "A foodie and traveler.",
 		Location:    "Los Angeles",
 		Interests:   []string{"Cooking", "Traveling", "Fitness"},
