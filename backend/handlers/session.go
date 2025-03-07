@@ -30,7 +30,6 @@ func RandStringRunes(n int) string {
 }
 
 func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
-
 	login := r.FormValue("login")
 	password := r.FormValue("password")
 
