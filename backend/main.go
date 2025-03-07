@@ -24,8 +24,8 @@ func main() {
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 
-	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
-	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
+	r.HandleFunc("/profiles", getHandler.GetProfile).Methods("GET")
+	r.HandleFunc("/profiles/{id}", getHandler.GetProfiles).Methods("GET")
 
 	server := http.Server{
 		Addr:         ":8080",
