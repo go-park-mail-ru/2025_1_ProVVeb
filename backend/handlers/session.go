@@ -80,7 +80,7 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	delete(api.sessions, session.Value)
 
-	session.Expires = time.Now().AddDate(0, 0, -1)
+	session.Expires = time.Now().AddDate(-1, 0, 0)
 	http.SetCookie(w, session)
 
 	http.Redirect(w, r, "/", http.StatusFound)

@@ -17,19 +17,45 @@ var users = utils.InitUserMap()
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user config.User
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&user); err != nil {
-		http.Error(w, "Invalid user data", http.StatusBadRequest)
+
+	contentType := r.Header.Get("Content-Type")
+
+	if contentType == "application/json" {
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&user); err != nil {
+			http.Error(w, "Invalid JSON data", http.StatusBadRequest)
+			return
+		}
+	} else if contentType == "application/x-www-form-urlencoded" {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Invalid form data", http.StatusBadRequest)
+			return
+		}
+		user.Email = r.PostForm.Get("email")
+		user.Password = r.PostForm.Get("password")
+	} else {
+		http.Error(w, "Unsupported content type", http.StatusUnsupportedMediaType)
 		return
 	}
 
-	if _, exists := users[user.Id]; exists {
+	if user.Email == "" || user.Password == "" {
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		return
+	}
+
+	login, err := strconv.Atoi(user.Email)
+	if err != nil {
+		http.Error(w, "Invalid email", http.StatusBadRequest)
+		return
+	}
+
+	if _, exists := users[login]; exists {
 		http.Error(w, "User already exists", http.StatusConflict)
 		return
 	}
 
-	users[user.Id] = user
-	profiles[user.Id] = config.Profile{}
+	users[login] = user
+	profiles[login] = config.Profile{}
 
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
