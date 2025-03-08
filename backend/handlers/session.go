@@ -45,7 +45,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Password != password {
+	if user.Password != utils.EncryptPasswordSHA256(password) {
 		http.Error(w, "Invalid password", http.StatusBadRequest)
 		return
 	}
@@ -55,9 +55,10 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	api.sessions[SID] = user.Id
 
 	cookie := &http.Cookie{
-		Name:     "session_id for { user.Id}",
+		Name:     "session_id",
 		Value:    SID,
 		HttpOnly: true,
+		Secure:   false,
 		Expires:  time.Now().Add(10 * time.Hour),
 	}
 	http.SetCookie(w, cookie)
