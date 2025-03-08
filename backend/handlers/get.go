@@ -15,8 +15,6 @@ type GetHandler struct{}
 var profiles = utils.InitProfileMap()
 
 func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	// vars := mux.Vars(r)
-	// id := vars["id"]
 	id := r.FormValue("id")
 
 	profileID, err := strconv.Atoi(id)
