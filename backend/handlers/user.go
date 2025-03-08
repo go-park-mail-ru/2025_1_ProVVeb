@@ -16,8 +16,6 @@ type UserHandler struct{}
 var users = utils.InitUserMap()
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	// принимать и отдавать только json
-	// проверить валидацию данных
 	var user config.User
 
 	decoder := json.NewDecoder(r.Body)
