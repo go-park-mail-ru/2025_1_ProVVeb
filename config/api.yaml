@@ -15,7 +15,21 @@ paths:
       - user
       summary: Create user
       description: Creating, signing up new user
-      operationId: createUser
+      operationId: createUser 
+      parameters:
+      - name: email
+        in: query
+        description: The email for login
+        required: true
+        schema:
+          type: string
+          format: email
+      - name: password
+        in: query
+        description: The password for login in clear text
+        required: true
+        schema:
+          type: string
       requestBody:
         description: Created user object
         content:
