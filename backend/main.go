@@ -12,20 +12,17 @@ import (
 func main() {
 	r := mux.NewRouter()
 
-	LayoutHandler := handlers.LayoutHandler{}
 	getHandler := &handlers.GetHandler{}
 	sessionHandler := &handlers.SessionHandler{}
 	userHandler := &handlers.UserHandler{}
 
-	r.HandleFunc("/main", LayoutHandler.MainPage)
-
-	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
+	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST") 
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
-
-	r.HandleFunc("/profiles", getHandler.GetProfile).Methods("GET")
-	r.HandleFunc("/profiles/{id}", getHandler.GetProfiles).Methods("GET")
+	
+	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
+	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
 	server := http.Server{
 		Addr:         ":8080",

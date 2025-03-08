@@ -15,7 +15,7 @@ type GetHandler struct{}
 var profiles = utils.InitProfileMap()
 
 func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	id := r.FormValue("id")
+	id := mux.Vars(r)["id"]
 
 	profileID, err := strconv.Atoi(id)
 	if err != nil {
@@ -30,15 +30,16 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(profile)
 }
 
 func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	profileId, err := strconv.Atoi(id)
+	var userId string
+
+	userId = r.URL.Query().Get("forUser")
+
+	profileId, err := strconv.Atoi(userId)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return

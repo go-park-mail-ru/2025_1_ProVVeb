@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -30,8 +31,17 @@ func RandStringRunes(n int) string {
 }
 
 func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	login := r.FormValue("login")
-	password := r.FormValue("password")
+	var gotData struct {
+		Login    string
+		Password string
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&gotData); err != nil {
+		http.Error(w, "Invalid login or password", http.StatusBadRequest)
+	}
+
+	login, password := gotData.Login, gotData.Password
 
 	userId, err := strconv.Atoi(login)
 	if err != nil {
@@ -51,7 +61,6 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SID := RandStringRunes(32)
-
 	api.sessions[SID] = user.Id
 
 	cookie := &http.Cookie{
@@ -61,15 +70,15 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		Expires:  time.Now().Add(10 * time.Hour),
 	}
-	http.SetCookie(w, cookie)
 
-	w.Write([]byte(SID))
+	http.SetCookie(w, cookie)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		http.Redirect(w, r, "/", http.StatusFound)
+		http.Error(w, "No cookies got", http.StatusBadRequest)
 		return
 	}
 
@@ -82,6 +91,6 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	session.Expires = time.Now().AddDate(-1, 0, 0)
 	http.SetCookie(w, session)
-
-	http.Redirect(w, r, "/", http.StatusFound)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out"})
 }

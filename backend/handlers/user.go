@@ -16,25 +16,13 @@ type UserHandler struct{}
 var users = utils.InitUserMap()
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	// принимать и отдавать только json
+	// проверить валидацию данных
 	var user config.User
 
-	contentType := r.Header.Get("Content-Type")
-
-	if contentType == "application/json" {
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&user); err != nil {
-			http.Error(w, "Invalid JSON data", http.StatusBadRequest)
-			return
-		}
-	} else if contentType == "application/x-www-form-urlencoded" {
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Invalid form data", http.StatusBadRequest)
-			return
-		}
-		user.Email = r.PostForm.Get("email")
-		user.Password = r.PostForm.Get("password")
-	} else {
-		http.Error(w, "Unsupported content type", http.StatusUnsupportedMediaType)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&user); err != nil {
+		http.Error(w, "Invalid JSON data", http.StatusBadRequest)
 		return
 	}
 
@@ -56,10 +44,10 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	users[login] = user
 	profiles[login] = config.Profile{}
-
 	w.WriteHeader(http.StatusCreated)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(map[string]string{"id": user.Email, "email": user.Email})
 }
 
 func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -81,5 +69,8 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	delete(profiles, userId)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("User with ID %d deleted", userId)))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": fmt.Sprintf("User with ID %d deleted", userId),
+	})
 }
