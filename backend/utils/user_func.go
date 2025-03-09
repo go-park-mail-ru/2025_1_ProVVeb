@@ -25,25 +25,30 @@ func ValidateLogin(login string) error {
 }
 
 func ValidatePassword(password string) error {
-	if (len(password) < 8) || (len(password) > 50) {
+	if (len(password) < 8) || (len(password) > 64) {
 		return fmt.Errorf("incorrect size of password")
 	}
 
-	reDigit := regexp.MustCompile(`[0-9]`)
-	if !reDigit.MatchString(password) {
-		return fmt.Errorf("password must contain at least one digit")
+	// reDigit := regexp.MustCompile(`[0-9]`)
+	// if !reDigit.MatchString(password) {
+	// 	return fmt.Errorf("password must contain at least one digit")
+	// }
+
+	reLettersDigits := regexp.MustCompile(`[a-zA-Z0-9]*`)
+	if !reLettersDigits.MatchString(password) {
+		return fmt.Errorf("password must contain only letters and digits")
 	}
 
-	reSpecial := regexp.MustCompile(`[!@#$%^&*]`)
-	if !reSpecial.MatchString(password) {
-		return fmt.Errorf("password must contain at least one special character")
-	}
+	// reSpecial := regexp.MustCompile(`[!@#$%^&*]`)
+	// if !reSpecial.MatchString(password) {
+	// 	return fmt.Errorf("password must contain at least one special character")
+	// }
 
-	reValidChars := regexp.MustCompile(`^[A-Za-z\d!@#$%^&*]{8,50}$`)
-	if !reValidChars.MatchString(password) {
-		return fmt.Errorf("password contains invalid characters")
-	}
-	return nil
+	// reValidChars := regexp.MustCompile(`^[A-Za-z\d!@#$%^&*]{8,50}$`)
+	// if !reValidChars.MatchString(password) {
+	// 	return fmt.Errorf("password contains invalid characters")
+	// }
+	// return nil
 }
 
 func (u User) PrintUser() string {
