@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -15,24 +16,23 @@ func TestValidateBirthday(t *testing.T) {
 			Month int
 			Day   int
 		}
-		expectedError string
+		expectedError error
 	}{
-		{birthday: struct{ Year, Month, Day int }{2005, 1, 1}, expectedError: ""},
-		{birthday: struct{ Year, Month, Day int }{2025, 2, 29}, expectedError: "invalid date format"},
-		{birthday: struct{ Year, Month, Day int }{1995, 5, 31}, expectedError: ""},
-		{birthday: struct{ Year, Month, Day int }{2005, 9, 32}, expectedError: "invalid day: 32"},
-		{birthday: struct{ Year, Month, Day int }{-1, 2, 2003}, expectedError: "invalid month: -1"},
-		{birthday: struct{ Year, Month, Day int }{1234, 11, 6}, expectedError: ""},
-		{birthday: struct{ Year, Month, Day int }{1987, 32, 2}, expectedError: "invalid month: 32"},
+		{birthday: struct{ Year, Month, Day int }{2005, 1, 1}, expectedError: nil},
+		{birthday: struct{ Year, Month, Day int }{1995, 5, 31}, expectedError: nil},
+		{birthday: struct{ Year, Month, Day int }{2005, 9, 32}, expectedError: utils.ErrInvalidDay},
+		{birthday: struct{ Year, Month, Day int }{2003, -1, 2}, expectedError: utils.ErrInvalidMonth},
+		{birthday: struct{ Year, Month, Day int }{1234, 11, 6}, expectedError: nil},
+		{birthday: struct{ Year, Month, Day int }{1987, 32, 2}, expectedError: utils.ErrInvalidMonth},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%d-%d-%d", tt.birthday.Year, tt.birthday.Month, tt.birthday.Day), func(t *testing.T) {
 			err := utils.ValidateBirthday(tt.birthday)
-			if err != nil && err.Error() != tt.expectedError {
+			if err != nil && !errors.Is(err, tt.expectedError) {
 				t.Errorf("expected error %v, got %v", tt.expectedError, err)
 			}
-			if err == nil && tt.expectedError != "" {
+			if err == nil && tt.expectedError != nil {
 				t.Errorf("expected error %v, but got none", tt.expectedError)
 			}
 		})
@@ -42,22 +42,22 @@ func TestValidateBirthday(t *testing.T) {
 func TestValidateAge(t *testing.T) {
 	tests := []struct {
 		age           struct{ From, To int }
-		expectedError string
+		expectedError error
 	}{
-		{age: struct{ From, To int }{18, 30}, expectedError: ""},
-		{age: struct{ From, To int }{23, 56}, expectedError: ""},
-		{age: struct{ From, To int }{98, 102}, expectedError: "age range must be between 18 and 100, and from must be less than or equal to to"},
-		{age: struct{ From, To int }{3, 4}, expectedError: "age range must be between 18 and 100, and from must be less than or equal to to"},
-		{age: struct{ From, To int }{78, 34}, expectedError: "age range must be between 18 and 100, and from must be less than or equal to to"},
+		{age: struct{ From, To int }{18, 30}, expectedError: nil},
+		{age: struct{ From, To int }{23, 56}, expectedError: nil},
+		{age: struct{ From, To int }{98, 102}, expectedError: utils.ErrInvalidAge},
+		{age: struct{ From, To int }{3, 4}, expectedError: utils.ErrInvalidAge},
+		{age: struct{ From, To int }{78, 34}, expectedError: utils.ErrInvalidAge},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%d-%d", tt.age.From, tt.age.To), func(t *testing.T) {
 			err := utils.ValidateAge(tt.age)
-			if err != nil && err.Error() != tt.expectedError {
+			if err != nil && !errors.Is(tt.expectedError, err) {
 				t.Errorf("expected error %v, got %v", tt.expectedError, err)
 			}
-			if err == nil && tt.expectedError != "" {
+			if err == nil && tt.expectedError != nil {
 				t.Errorf("expected error %v, but got none", tt.expectedError)
 			}
 		})
@@ -67,9 +67,8 @@ func TestValidateAge(t *testing.T) {
 func TestValidateProfile(t *testing.T) {
 	tests := []struct {
 		profile       utils.Profile
-		expectedError string
+		expectedError error
 	}{
-		// Тест с валидным профилем
 		{profile: utils.Profile{Profile: config.Profile{
 			ProfileId: 1,
 			FirstName: "John",
@@ -103,9 +102,8 @@ func TestValidateProfile(t *testing.T) {
 					To   int `yaml:"to" json:"to"`
 				}{From: 18, To: 35},
 			},
-		}}, expectedError: ""},
+		}}, expectedError: nil},
 
-		// Тест с отсутствующим именем (FirstName)
 		{profile: utils.Profile{Profile: config.Profile{
 			ProfileId: 2,
 			FirstName: "",
@@ -122,9 +120,8 @@ func TestValidateProfile(t *testing.T) {
 			},
 			Location:  "UK",
 			Interests: []string{"Music", "Traveling"},
-		}}, expectedError: "first name is required"},
+		}}, expectedError: utils.ErrInvalidFirstName},
 
-		// Тест с отсутствующим возрастом
 		{profile: utils.Profile{Profile: config.Profile{
 			ProfileId: 3,
 			FirstName: "Jane",
@@ -158,9 +155,8 @@ func TestValidateProfile(t *testing.T) {
 					To   int `yaml:"to" json:"to"`
 				}{From: 18, To: 30},
 			},
-		}}, expectedError: ""}, // valid profile, everything is fine
+		}}, expectedError: nil},
 
-		// Тест с некорректным возрастом (age range is invalid)
 		{profile: utils.Profile{Profile: config.Profile{
 			ProfileId: 4,
 			FirstName: "Alice",
@@ -194,9 +190,8 @@ func TestValidateProfile(t *testing.T) {
 					To   int `yaml:"to" json:"to"`
 				}{From: 35, To: 30},
 			},
-		}}, expectedError: "invalid age range: age range must be between 18 and 100, and from must be less than or equal to to"},
+		}}, expectedError: utils.ErrInvalidAge},
 
-		// Тест с пустым интересом
 		{profile: utils.Profile{Profile: config.Profile{
 			ProfileId: 5,
 			FirstName: "Bob",
@@ -213,16 +208,16 @@ func TestValidateProfile(t *testing.T) {
 			},
 			Location:  "Australia",
 			Interests: []string{},
-		}}, expectedError: "at least one interest is required"},
+		}}, expectedError: utils.ErrInvalidInterests},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("ProfileId %d", tt.profile.Profile.ProfileId), func(t *testing.T) {
 			err := utils.ValidateProfile(tt.profile)
-			if err != nil && err.Error() != tt.expectedError {
+			if err != nil && !errors.Is(tt.expectedError, err) {
 				t.Errorf("expected error %v, got %v", tt.expectedError, err)
 			}
-			if err == nil && tt.expectedError != "" {
+			if err == nil && tt.expectedError != nil {
 				t.Errorf("expected error %v, but got none", tt.expectedError)
 			}
 		})

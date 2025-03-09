@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
@@ -14,6 +13,10 @@ import (
 var Se = struct {
 	users map[int]config.User
 }{users: utils.InitUserMap()}
+
+var Testapi = struct {
+	Sessions map[int]string
+}{Sessions: make(map[int]string)}
 
 var api = struct {
 	sessions map[string]int
@@ -32,7 +35,7 @@ func RandStringRunes(n int) string {
 
 func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var gotData struct {
-		Login    string
+		Email    string
 		Password string
 	}
 
@@ -41,27 +44,28 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid login or password", http.StatusBadRequest)
 	}
 
-	login, password := gotData.Login, gotData.Password
+	emal, password := gotData.Email, gotData.Password
 
-	userId, err := strconv.Atoi(login)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	var foundUser *config.User
+	for _, user := range Se.users {
+		if user.Email == emal {
+			foundUser = &user
+			break
+		}
+	}
+	if foundUser == nil {
+		http.Error(w, "No such user", http.StatusBadRequest)
 		return
 	}
 
-	user, ok := Se.users[userId]
-	if !ok {
-		http.Error(w, "No such user", http.StatusNotFound)
-		return
-	}
-
-	if user.Password != utils.EncryptPasswordSHA256(password) {
+	if foundUser.Password != utils.EncryptPasswordSHA256(password) {
 		http.Error(w, "Invalid password", http.StatusBadRequest)
 		return
 	}
 
 	SID := RandStringRunes(32)
-	api.sessions[SID] = user.Id
+	api.sessions[SID] = foundUser.Id
+	Testapi.Sessions[foundUser.Id] = SID // для теста Logout
 
 	cookie := &http.Cookie{
 		Name:     "session_id",

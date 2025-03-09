@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,21 +12,32 @@ type Profile struct {
 	Profile config.Profile
 }
 
+var (
+	ErrInvalidMonth     = errors.New("invalid mounth")
+	ErrInvalidDay       = errors.New("invalid day")
+	ErrInvalidAge       = errors.New("age range must be between 18 and 100, and from must be less than or equal to to")
+	ErrInvalidFirstName = errors.New("first name is required")
+	ErrInvalidLastName  = errors.New("last name is required")
+	ErrInvalidLocation  = errors.New("location is required")
+	ErrInvalidHeight    = errors.New("height must be greater than 0")
+	ErrInvalidInterests = errors.New("at least one interest is required")
+)
+
 func ValidateBirthday(birthday struct {
 	Year  int
 	Month int
 	Day   int
 }) error {
 	if birthday.Month < 1 || birthday.Month > 12 {
-		return fmt.Errorf("invalid month: %d", birthday.Month)
+		return ErrInvalidMonth
 	}
 	if birthday.Day < 1 || birthday.Day > 31 {
-		return fmt.Errorf("invalid day: %d", birthday.Day)
+		return ErrInvalidDay
 	}
 
 	_, err := time.Parse("2006-01-02", fmt.Sprintf("%d-%02d-%02d", birthday.Year, birthday.Month, birthday.Day))
 	if err != nil {
-		return fmt.Errorf("invalid date format: %v", err)
+		return err
 	}
 
 	return nil
@@ -36,7 +48,7 @@ func ValidateAge(age struct {
 	To   int
 }) error {
 	if age.From < 18 || age.To > 100 || age.From > age.To {
-		return fmt.Errorf("age range must be between 18 and 100, and from must be less than or equal to to")
+		return ErrInvalidAge
 	}
 
 	return nil
@@ -45,13 +57,13 @@ func ValidateAge(age struct {
 func ValidateProfile(p Profile) error {
 	profile := p.Profile
 	if profile.FirstName == "" {
-		return fmt.Errorf("first name is required")
+		return ErrInvalidFirstName
 	}
 	if profile.LastName == "" {
-		return fmt.Errorf("last name is required")
+		return ErrInvalidLastName
 	}
 	if profile.Location == "" {
-		return fmt.Errorf("location is required")
+		return ErrInvalidLocation
 	}
 
 	err := ValidateBirthday(struct {
@@ -60,15 +72,15 @@ func ValidateProfile(p Profile) error {
 		Day   int
 	}(p.Profile.Birthday))
 	if err != nil {
-		return fmt.Errorf("invalid birthday: %v", err)
+		return err
 	}
 
 	if profile.Height <= 0 {
-		return fmt.Errorf("height must be greater than 0")
+		return ErrInvalidHeight
 	}
 
 	if len(profile.Interests) == 0 {
-		return fmt.Errorf("at least one interest is required")
+		return ErrInvalidInterests
 	}
 
 	err = ValidateAge(struct {
@@ -76,7 +88,7 @@ func ValidateProfile(p Profile) error {
 		To   int
 	}(p.Profile.Preferences.Age))
 	if err != nil {
-		return fmt.Errorf("invalid age range: %v", err)
+		return err
 	}
 
 	return nil

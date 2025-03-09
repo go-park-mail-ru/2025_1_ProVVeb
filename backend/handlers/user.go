@@ -11,41 +11,61 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type UserResponse struct {
+	ID string `json:"id"`
+}
+
 type UserHandler struct{}
 
 var users = utils.InitUserMap()
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user config.User
+	var input struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&user); err != nil {
+	if err := decoder.Decode(&input); err != nil {
 		http.Error(w, "Invalid JSON data", http.StatusBadRequest)
 		return
 	}
 
-	if user.Email == "" || user.Password == "" {
+	if input.Email == "" || input.Password == "" {
 		http.Error(w, "Email and password are required", http.StatusBadRequest)
 		return
 	}
 
-	login, err := strconv.Atoi(user.Email)
-	if err != nil {
-		http.Error(w, "Invalid email", http.StatusBadRequest)
+	if (utils.ValidateEmail(input.Email) != nil) || (utils.ValidatePassword(input.Password) != nil) {
+		http.Error(w, "Invalid email or password", http.StatusBadRequest)
 		return
 	}
 
-	if _, exists := users[login]; exists {
-		http.Error(w, "User already exists", http.StatusConflict)
-		return
+	for _, existingUser := range users {
+		if existingUser.Email == input.Email {
+			http.Error(w, "User already exists", http.StatusConflict)
+			return
+		}
 	}
 
-	users[login] = user
-	profiles[login] = config.Profile{}
+	id := len(users) + 1
+	user := config.User{
+		Id:       id,
+		Email:    input.Email,
+		Password: utils.EncryptPasswordSHA256(input.Password),
+	}
+
+	users[id] = user
+	profiles[id] = config.Profile{}
 	w.WriteHeader(http.StatusCreated)
 
+	response := UserResponse{
+		ID: fmt.Sprint(user.Id),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": user.Email, "email": user.Email})
+	json.NewEncoder(w).Encode(response)
+
 }
 
 func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {

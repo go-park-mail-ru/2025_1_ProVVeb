@@ -35,12 +35,11 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
-	var userId string
-
-	userId = r.URL.Query().Get("forUser")
+	var userId string = r.URL.Query().Get("forUser")
 
 	profileId, err := strconv.Atoi(userId)
 	if err != nil {
+
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
