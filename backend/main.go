@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -16,17 +17,26 @@ func main() {
 	sessionHandler := &handlers.SessionHandler{}
 	userHandler := &handlers.UserHandler{}
 
-	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST") 
+	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
-	
+
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
+		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	handler := corsMiddleware.Handler(r)
+
 	server := http.Server{
 		Addr:         ":8080",
-		Handler:      r,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
