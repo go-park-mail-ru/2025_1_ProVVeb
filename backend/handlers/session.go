@@ -10,10 +10,6 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 )
 
-var Se = struct {
-	users map[int]config.User
-}{users: utils.InitUserMap()}
-
 var Testapi = struct {
 	Sessions map[int]string
 }{Sessions: make(map[int]string)}
@@ -35,31 +31,44 @@ func RandStringRunes(n int) string {
 
 func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var gotData struct {
-		Email    string
-		Password string
+		Login    string `json:"login"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&gotData); err != nil {
-		http.Error(w, "Invalid login or password", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid JSON data"})
 	}
 
-	emal, password := gotData.Email, gotData.Password
+	if (utils.ValidateLogin(gotData.Login) != nil) || (utils.ValidatePassword(gotData.Password) != nil) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "invalid login or password"})
+		return
+	}
+
+	login, password := gotData.Login, gotData.Password
 
 	var foundUser *config.User
-	for _, user := range Se.users {
-		if user.Email == emal {
+	for _, user := range Users {
+		if user.Login == login {
 			foundUser = &user
 			break
 		}
 	}
 	if foundUser == nil {
-		http.Error(w, "No such user", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "no such user"})
 		return
 	}
 
 	if foundUser.Password != utils.EncryptPasswordSHA256(password) {
-		http.Error(w, "Invalid password", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "invalid login or password"})
 		return
 	}
 
@@ -77,18 +86,32 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, cookie)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logged in"})
+
+	response := struct {
+		Message string `json:"message"`
+		UserId  int    `json:"id"`
+	}{
+		Message: "Logged in",
+		UserId:  foundUser.Id,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		http.Error(w, "No cookies got", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "No cookies got"})
 		return
 	}
 
 	if _, ok := api.sessions[session.Value]; !ok {
-		http.Error(w, "Session not found", http.StatusUnauthorized)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Session not found"})
 		return
 	}
 

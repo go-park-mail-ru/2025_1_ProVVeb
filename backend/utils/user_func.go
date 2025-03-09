@@ -12,14 +12,14 @@ type User struct {
 	User config.User
 }
 
-func ValidateEmail(email string) error {
-	if (len(email) < 3) || (len(email) > 50) {
-		return fmt.Errorf("incorrect size of email")
+func ValidateLogin(login string) error {
+	if (len(login) < 3) || (len(login) > 50) {
+		return fmt.Errorf("incorrect size of login")
 	}
 
 	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !re.MatchString(email) {
-		return fmt.Errorf("incorrect format of email")
+	if !re.MatchString(login) {
+		return fmt.Errorf("incorrect format of login")
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func ValidatePassword(password string) error {
 }
 
 func (u User) PrintUser() string {
-	return fmt.Sprintf("Current user ID: %d, Email: %s", u.User.Id, u.User.Email)
+	return fmt.Sprintf("Current user ID: %d, Login: %s", u.User.Id, u.User.Login)
 }
 
 func EncryptPasswordSHA256(password string) string {
@@ -56,11 +56,11 @@ func EncryptPasswordSHA256(password string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func CreateUser(id int, email string, password string) (User, error) {
+func CreateUser(id int, login string, password string) (User, error) {
 	if id < 0 {
 		return User{}, fmt.Errorf("error while creating user: invalid id")
 	}
-	err := ValidateEmail(email)
+	err := ValidateLogin(login)
 	if err != nil {
 		return User{}, fmt.Errorf("error while creating user: %v", err)
 	}
@@ -72,7 +72,7 @@ func CreateUser(id int, email string, password string) (User, error) {
 
 	user := config.User{
 		Id:       id,
-		Email:    email,
+		Login:    login,
 		Password: password,
 	}
 

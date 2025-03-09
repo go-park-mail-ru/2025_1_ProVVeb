@@ -11,61 +11,60 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type UserResponse struct {
-	ID string `json:"id"`
-}
-
 type UserHandler struct{}
 
-var users = utils.InitUserMap()
+var Users = utils.InitUserMap()
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Email    string `json:"email"`
+		Login    string `json:"login"`
 		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&input); err != nil {
-		http.Error(w, "Invalid JSON data", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "invalid JSON data"})
 		return
 	}
 
-	if input.Email == "" || input.Password == "" {
-		http.Error(w, "Email and password are required", http.StatusBadRequest)
+	if input.Login == "" || input.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "login and password are required"})
 		return
 	}
 
-	if (utils.ValidateEmail(input.Email) != nil) || (utils.ValidatePassword(input.Password) != nil) {
-		http.Error(w, "Invalid email or password", http.StatusBadRequest)
+	if (utils.ValidateLogin(input.Login) != nil) || (utils.ValidatePassword(input.Password) != nil) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "invalid email or password"})
 		return
 	}
 
-	for _, existingUser := range users {
-		if existingUser.Email == input.Email {
-			http.Error(w, "User already exists", http.StatusConflict)
+	for _, existingUser := range Users {
+		if existingUser.Login == input.Login {
+			w.WriteHeader(http.StatusConflict)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"message": "user already exists"})
 			return
 		}
 	}
 
-	id := len(users) + 1
+	id := len(Users) + 1
 	user := config.User{
 		Id:       id,
-		Email:    input.Email,
+		Login:    input.Login,
 		Password: utils.EncryptPasswordSHA256(input.Password),
 	}
 
-	users[id] = user
+	Users[id] = user
 	profiles[id] = config.Profile{}
-	w.WriteHeader(http.StatusCreated)
 
-	response := UserResponse{
-		ID: fmt.Sprint(user.Id),
-	}
-
+	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-
+	json.NewEncoder(w).Encode(map[string]string{"message": "user created"})
 }
 
 func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -74,16 +73,20 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	userId, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
 		return
 	}
 
-	if _, exists := users[userId]; !exists {
-		http.Error(w, "User not found", http.StatusNotFound)
+	if _, exists := Users[userId]; !exists {
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "User not found"})
 		return
 	}
 
-	delete(users, userId)
+	delete(Users, userId)
 	delete(profiles, userId)
 
 	w.WriteHeader(http.StatusOK)

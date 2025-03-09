@@ -19,13 +19,17 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	profileID, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
 		return
 	}
 
 	profile, exists := profiles[profileID]
 	if !exists {
-		http.Error(w, "Profile not found", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Profile not found"})
 		return
 	}
 
@@ -39,8 +43,9 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(userId)
 	if err != nil {
-
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
 		return
 	}
 	profileList := make([]config.Profile, 0, len(profiles))
@@ -50,7 +55,7 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(profileList)
 }

@@ -8,7 +8,7 @@ type Config struct {
 
 type User struct {
 	Id       int    `yaml:"id" json:"id"`
-	Email    string `yaml:"email" json:"email"`
+	Login    string `yaml:"login" json:"login"`
 	Password string `yaml:"password" json:"password"`
 }
 

@@ -89,7 +89,7 @@ func TestCreateUser(t *testing.T) {
 	}{
 		{
 			user: config.User{
-				Email:    "testuser@mail.com",
+				Login:    "testuser@mail.com",
 				Password: "validpassword#123",
 			},
 			expectedCode: http.StatusCreated,
@@ -97,7 +97,7 @@ func TestCreateUser(t *testing.T) {
 		},
 		{
 			user: config.User{
-				Email:    "invalid-email",
+				Login:    "invalid-email",
 				Password: "validpassword123",
 			},
 			expectedCode: http.StatusBadRequest,
@@ -105,7 +105,7 @@ func TestCreateUser(t *testing.T) {
 		},
 		{
 			user: config.User{
-				Email:    "heckra@example.com",
+				Login:    "heckra@example.com",
 				Password: "StrongPass1!",
 			},
 			expectedCode: http.StatusConflict,
@@ -114,7 +114,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("CreateUser Email=%s", tt.user.Email), func(t *testing.T) {
+		t.Run(fmt.Sprintf("CreateUser Login=%s", tt.user.Login), func(t *testing.T) {
 			userJSON, err := json.Marshal(tt.user)
 			if err != nil {
 				t.Fatalf("Failed to marshal user: %v", err)
@@ -171,7 +171,7 @@ func TestDeleteUser(t *testing.T) {
 		t.Run(fmt.Sprintf("DeleteUser ID=%s", tt.id), func(t *testing.T) {
 			if tt.id == "1" {
 				testUsers[1] = config.User{
-					Email:    "userToDelete@mail.com",
+					Login:    "userToDelete@mail.com",
 					Password: "password123",
 				}
 			}
@@ -231,7 +231,7 @@ func TestLoginUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Login with login=%s password=%s", tt.emai, tt.password), func(t *testing.T) {
-			r := httptest.NewRequest("POST", "/users/login", strings.NewReader(fmt.Sprintf(`{"Email":"%s","Password":"%s"}`, tt.emai, tt.password)))
+			r := httptest.NewRequest("POST", "/users/login", strings.NewReader(fmt.Sprintf(`{"Login":"%s","Password":"%s"}`, tt.emai, tt.password)))
 			w := httptest.NewRecorder()
 
 			h := &handlers.SessionHandler{}
