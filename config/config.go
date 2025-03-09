@@ -1,5 +1,10 @@
 package config
 
+var MinPasswordLength = 8
+var MaxPasswordLength = 64
+var MinLoginLength = 7
+var MaxLoginLength = 15
+
 type Config struct {
 	User     User     `yaml:"user" json:"user"`
 	Database Database `yaml:"database" json:"database"`

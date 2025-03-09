@@ -13,7 +13,7 @@ type User struct {
 }
 
 func ValidateLogin(login string) error {
-	if (len(login) < 7) || (len(login) > 15) {
+	if (len(login) < config.MinLoginLength) || (len(login) > config.MaxLoginLength) {
 		return fmt.Errorf("incorrect size of login")
 	}
 
@@ -25,7 +25,7 @@ func ValidateLogin(login string) error {
 }
 
 func ValidatePassword(password string) error {
-	if (len(password) < 8) || (len(password) > 64) {
+	if (len(password) < config.MinPasswordLength) || (len(password) > config.MaxPasswordLength) {
 		return fmt.Errorf("incorrect size of password")
 	}
 
