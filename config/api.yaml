@@ -120,9 +120,11 @@ paths:
           description: successful operation
           content:
             application/json:
-              # пофиксить здесь, что мы не отдаем джейсон, а лишь отдаем куки
               schema:
-                type: string
+                type: object
+                properties:
+                  message:
+                    type: string
         '400':
           description: Invalid email/password supplied
         '403':
@@ -145,7 +147,6 @@ paths:
       parameters:
       - name: session_id
         in: cookie
-        # проверить, корректно ли вообще сказать in: cookie
         required: true
         description: SID to expire session
         schema:

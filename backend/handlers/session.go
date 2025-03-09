@@ -73,6 +73,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, cookie)
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Logged in"})
 }
 
 func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
