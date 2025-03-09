@@ -17,45 +17,57 @@ paths:
       description: Creating, signing up new user
       operationId: createUser
       parameters:
-      - name: email
+      - name: login
         in: query
-        description: The email for login
+        description: The login to sign up
         required: true
         schema:
           type: string
-          format: email
       - name: password
         in: query
-        description: The password for login in clear text
+        description: The password for sign up in clear text
         required: true
         schema:
           type: string
       requestBody:
-        description: Created user object
+        description: User data
         content:
           application/json:
             schema:
               type: object
               properties:
-                id:
+                login:
                   type: string
-                email:
+                password:
                   type: string
-                  format: email
       responses:
-        default:
+        '200':
           description: successful operation
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
+                  message:
                     type: string
-                  email:
+        '400':
+          description: Invalid JSON / login / password
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
                     type: string
-                    format: email
-
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
   /users/{id}:
     delete:
       tags:
@@ -83,9 +95,23 @@ paths:
                     type: string
 
         '400':
-          description: Invalid session
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         '500':
           description: Internal server error
         '501':
@@ -102,19 +128,29 @@ paths:
       description: ''
       operationId: loginUser
       parameters:
-      - name: email
+      - name: login
         in: query
-        description: The email for login
+        description: The login for log in
         required: true
         schema:
           type: string
-          format: email
       - name: password
         in: query
         description: The password for login in clear text
         required: true
         schema:
           type: string
+      requestBody:
+        description: User data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                password:
+                  type: string
       responses:
         '200':
           description: successful operation
@@ -125,8 +161,17 @@ paths:
                 properties:
                   message:
                     type: string
+                  id:
+                    type: integer
         '400':
           description: Invalid email/password supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         '403':
           description: Forbidden (user is banned)
         '404':
@@ -164,8 +209,22 @@ paths:
                     type: string
         '400':
           description: Invalid session
-        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
           description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         '408':
           description: User not logged in
         '403':
@@ -185,13 +244,13 @@ paths:
       description: Show the profiles to the logged in user
       operationId: getProfiles
       parameters:
-        - name: forUser
-          in: query
-          description: The id of the user to get profiles for
-          required: true
-          schema:
-            type: integer
-            format: int64
+      - name: forUser
+        in: query
+        description: The id of the user to get profiles for
+        required: true
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: successful operation
@@ -202,7 +261,14 @@ paths:
                 items:
                   $ref: '#/components/schemas/Profile'
         '400':
-          description: No profiles can be shown to user.
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
         '500':
           description: Internal server error
         '503':
@@ -234,7 +300,25 @@ paths:
                 type: object
                 $ref: '#/components/schemas/Profile'
         '400':
-          description: No profiles can be shown to user.
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
         '500':
           description: Internal server error
         '503':
