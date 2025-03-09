@@ -13,11 +13,11 @@ type User struct {
 }
 
 func ValidateLogin(login string) error {
-	if (len(login) < 3) || (len(login) > 50) {
+	if (len(login) < 7) || (len(login) > 15) {
 		return fmt.Errorf("incorrect size of login")
 	}
 
-	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]$`)
 	if !re.MatchString(login) {
 		return fmt.Errorf("incorrect format of login")
 	}
