@@ -34,7 +34,7 @@ func ValidatePassword(password string) error {
 	// 	return fmt.Errorf("password must contain at least one digit")
 	// }
 
-	reLettersDigits := regexp.MustCompile(`[a-zA-Z0-9]*`)
+	reLettersDigits := regexp.MustCompile(`^[a-zA-Z0-9]*$`)
 	if !reLettersDigits.MatchString(password) {
 		return fmt.Errorf("password must contain only letters and digits")
 	}
@@ -87,35 +87,35 @@ func CreateUser(id int, login string, password string) (User, error) {
 func InitUserMap() map[int]config.User {
 	users := make(map[int]config.User)
 
-	user, err := CreateUser(1, "heckranot1", "StrongPass1!")
+	user, err := CreateUser(1, "heckranot1", "StrongPass1")
 	if err != nil {
 		fmt.Println("Error creating user 1:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(2, "kostritsy", "StrongPass2!")
+	user, err = CreateUser(2, "kostritsy", "StrongPass2")
 	if err != nil {
 		fmt.Println("Error creating user 2:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(3, "evaecom", "StrongPass3!")
+	user, err = CreateUser(3, "evaecom", "StrongPass3")
 	if err != nil {
 		fmt.Println("Error creating user 3:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(4, "smart_girl", "StrongPass4!")
+	user, err = CreateUser(4, "smart_girl", "StrongPass4")
 	if err != nil {
 		fmt.Println("Error creating user 4:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(5, "catecatecate", "StrongPass5!")
+	user, err = CreateUser(5, "catecatecate", "StrongPass5")
 	if err != nil {
 		fmt.Println("Error creating user 5:", err)
 		return nil
