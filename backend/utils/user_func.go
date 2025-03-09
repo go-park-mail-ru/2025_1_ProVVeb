@@ -48,7 +48,7 @@ func ValidatePassword(password string) error {
 	// if !reValidChars.MatchString(password) {
 	// 	return fmt.Errorf("password contains invalid characters")
 	// }
-	// return nil
+	return nil
 }
 
 func (u User) PrintUser() string {
