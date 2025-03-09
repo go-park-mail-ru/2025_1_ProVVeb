@@ -17,7 +17,7 @@ func ValidateLogin(login string) error {
 		return fmt.Errorf("incorrect size of login")
 	}
 
-	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]$`)
+	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
 	if !re.MatchString(login) {
 		return fmt.Errorf("incorrect format of login")
 	}
@@ -87,35 +87,35 @@ func CreateUser(id int, login string, password string) (User, error) {
 func InitUserMap() map[int]config.User {
 	users := make(map[int]config.User)
 
-	user, err := CreateUser(1, "heckra@example.com", "StrongPass1!")
+	user, err := CreateUser(1, "heckranot1", "StrongPass1!")
 	if err != nil {
 		fmt.Println("Error creating user 1:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(2, "kostritskoy@example.com", "StrongPass2!")
+	user, err = CreateUser(2, "kostritsy", "StrongPass2!")
 	if err != nil {
 		fmt.Println("Error creating user 2:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(3, "eva@example.com", "StrongPass3!")
+	user, err = CreateUser(3, "evaecom", "StrongPass3!")
 	if err != nil {
 		fmt.Println("Error creating user 3:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(4, "smart_girl@example.com", "StrongPass4!")
+	user, err = CreateUser(4, "smart_girl", "StrongPass4!")
 	if err != nil {
 		fmt.Println("Error creating user 4:", err)
 		return nil
 	}
 	users[user.User.Id] = user.User
 
-	user, err = CreateUser(5, "cat@example.com", "StrongPass5!")
+	user, err = CreateUser(5, "catecatecate", "StrongPass5!")
 	if err != nil {
 		fmt.Println("Error creating user 5:", err)
 		return nil
