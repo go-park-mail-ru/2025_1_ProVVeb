@@ -99,8 +99,8 @@ func InitProfileMap() map[int]config.Profile {
 
 	profile1 := config.Profile{
 		ProfileId: 1,
-		FirstName: "Хэкря",
-		LastName:  "Тимофеев",
+		FirstName: "Лиза",
+		LastName:  "Тимофеева",
 		Height:    180,
 		Birthday: struct {
 			Year  int `yaml:"year" json:"year"`
@@ -111,8 +111,8 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 5,
 			Day:   15,
 		},
-		Avatar:      "avatars/hec.png",
-		Card:        "cards/hec.png",
+		Avatar:      "avatars/liza.png",
+		Card:        "cards/liza.png",
 		Description: "Специалист по IT",
 		Location:    "New York",
 		Interests:   []string{"Technology", "Reading", "Traveling"},
@@ -148,8 +148,8 @@ func InitProfileMap() map[int]config.Profile {
 
 	profile2 := config.Profile{
 		ProfileId: 2,
-		FirstName: "Алекс",
-		LastName:  "Кострицкий",
+		FirstName: "Катя",
+		LastName:  "Кострицкая",
 		Height:    165,
 		Birthday: struct {
 			Year  int `yaml:"year" json:"year"`
@@ -160,8 +160,8 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 8,
 			Day:   22,
 		},
-		Avatar:      "avatars/man.png",
-		Card:        "cards/man.png",
+		Avatar:      "avatars/katya.png",
+		Card:        "cards/katya.png",
 		Description: "Любитель хорошего кода",
 		Location:    "California",
 		Interests:   []string{"Hiking", "Photography", "Art"},
@@ -209,8 +209,8 @@ func InitProfileMap() map[int]config.Profile {
 			Month: 2,
 			Day:   10,
 		},
-		Avatar:      "avarars/eve.png",
-		Card:        "cards/eve.png",
+		Avatar:      "avarars/eva.png",
+		Card:        "cards/eva.png",
 		Description: "Студентка ИУ7",
 		Location:    "Los Angeles",
 		Interests:   []string{"Cooking", "Traveling", "Fitness"},
