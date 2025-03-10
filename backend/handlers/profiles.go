@@ -33,6 +33,9 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	profile.Avatar = "/static/" + profile.Avatar
+	profile.Card = "/static/" + profile.Card
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(profile)
@@ -51,6 +54,8 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	profileList := make([]config.Profile, 0, len(profiles))
 	for i, profile := range profiles {
 		if i != profileId {
+			profile.Avatar = "/static/" + profile.Avatar
+			profile.Card = "/static/" + profile.Card
 			profileList = append(profileList, profile)
 		}
 	}

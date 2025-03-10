@@ -34,6 +34,7 @@ type Profile struct {
 		Day   int `yaml:"day" json:"day"`
 	}
 	Avatar      string   `yaml:"avatar" json:"avatar"`
+	Card		string   `yaml:"card" json:"card"`
 	Description string   `yaml:"description" json:"description"`
 	Location    string   `yaml:"location" json:"location"`
 	Interests   []string `yaml:"interests" json:"interests"`

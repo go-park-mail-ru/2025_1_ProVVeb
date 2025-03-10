@@ -17,6 +17,8 @@ func main() {
 	sessionHandler := &handlers.SessionHandler{}
 	userHandler := &handlers.UserHandler{}
 
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
