@@ -64,6 +64,15 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		FirstName:   input.Login,
 		LastName:    "Иванов",
 		Description: "lalalalalalalala",
+		Birthday: struct {
+			Year  int `yaml:"year" json:"year"`
+			Month int `yaml:"month" json:"month"`
+			Day   int `yaml:"day" json:"day"`
+		}{
+			Year:  2005,
+			Month: 3,
+			Day:   28,
+		},
 	}
 
 	w.WriteHeader(http.StatusOK)
