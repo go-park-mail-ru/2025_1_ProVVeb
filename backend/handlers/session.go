@@ -103,14 +103,14 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "No cookies got"})
 		return
 	}
 
 	userId, ok := api.sessions[session.Value]
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Session not found"})
 		return
 	}
