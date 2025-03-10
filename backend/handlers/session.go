@@ -83,8 +83,6 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		Expires:  time.Now().Add(10 * time.Hour),
 		Path:     "/",
-		// Domain:   "localhost",
-		// SameSite: http.SameSiteNoneMode,
 	}
 
 	http.SetCookie(w, cookie)
@@ -137,9 +135,19 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	delete(api.sessions, session.Value)
+	delete(Testapi.Sessions, api.sessions[session.Value])
 
-	session.Expires = time.Now().AddDate(-1, 0, 0)
-	http.SetCookie(w, session)
+	expiredCookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   false,
+		Expires:  time.Now().AddDate(-1, 0, 0),
+		Path:     "/",
+	}
+
+	http.SetCookie(w, expiredCookie)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out"})
 }
