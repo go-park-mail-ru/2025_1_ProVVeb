@@ -4,33 +4,23 @@ info:
   version: 1.0.11
 
 tags:
-- name: user
-  description: Operations about user
-- name: profile
-  description: Operations about profiles
+  - name: user
+    description: Operations about user
+  - name: profile
+    description: Operations about profiles
+  - name: session
+    description: Operations for user sessions
+
 paths:
   /users:
     post:
       tags:
-      - user
+        - user
       summary: Create user
-      description: Creating, signing up new user
+      description: Creating, signing up a new user
       operationId: createUser
-      parameters:
-      - name: login
-        in: query
-        description: The login to sign up
-        required: true
-        schema:
-          type: string
-      - name: password
-        in: query
-        description: The password for sign up in clear text
-        required: true
-        schema:
-          type: string
       requestBody:
-        description: User data
+        description: User data for registration
         content:
           application/json:
             schema:
@@ -38,11 +28,13 @@ paths:
               properties:
                 login:
                   type: string
+                  description: The login to sign up
                 password:
                   type: string
+                  description: The password for sign up
       responses:
         '200':
-          description: successful operation
+          description: User created successfully
           content:
             application/json:
               schema:
@@ -50,8 +42,9 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "User created"
         '400':
-          description: Invalid JSON / login / password
+          description: Invalid input (login or password)
           content:
             application/json:
               schema:
@@ -59,6 +52,7 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "Invalid login or password"
         '409':
           description: User already exists
           content:
@@ -68,80 +62,23 @@ paths:
                 properties:
                   message:
                     type: string
-  /users/{id}:
-    delete:
-      tags:
-      - user
-      summary: Delete user
-      description: This can only be done by the logged in user.
-      operationId: deleteUser
-      parameters:
-      - name: id
-        in: path
-        description: The id of the user to delete
-        required: true
-        schema:
-          type: integer
-          format: int64
-      responses:
-        '200':
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-
-        '400':
-          description: Invalid user id
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                    example: "User already exists"
         '500':
           description: Internal server error
-        '501':
-          description: Not implemented
         '503':
           description: Service unavailable
         '504':
-          description: Service timeout
+           description: Service timeout
+
   /users/login:
     post:
       tags:
-      - user
+        - session
       summary: Logs user into the system
-      description: ''
+      description: Logs in with provided login and password
       operationId: loginUser
-      parameters:
-      - name: login
-        in: query
-        description: The login for log in
-        required: true
-        schema:
-          type: string
-      - name: password
-        in: query
-        description: The password for login in clear text
-        required: true
-        schema:
-          type: string
       requestBody:
-        description: User data
+        description: User data for login
         content:
           application/json:
             schema:
@@ -149,11 +86,13 @@ paths:
               properties:
                 login:
                   type: string
+                  description: The login for log in
                 password:
                   type: string
+                  description: The password for login in clear text
       responses:
         '200':
-          description: successful operation
+          description: Successfully logged in
           content:
             application/json:
               schema:
@@ -161,8 +100,10 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "Logged in"
                   id:
                     type: integer
+                    example: 10
         '400':
           description: Invalid email/password supplied
           content:
@@ -172,34 +113,9 @@ paths:
                 properties:
                   message:
                     type: string
-        '403':
-          description: Forbidden (user is banned)
+                    example: "Invalid login or password"
         '404':
           description: User not registered
-        '500':
-          description: Internal server error
-        '503':
-          description: Service unavailable
-        '504':
-          description: Service timeout
-  /users/logout:
-    post:
-      tags:
-      - user
-      summary: Logs out current logged in user session
-      description: ''
-      operationId: logoutUser
-      parameters:
-      - name: session_id
-        in: cookie
-        required: true
-        description: SID to expire session
-        schema:
-          type: string
-
-      responses:
-        '200':
-          description: successful operation
           content:
             application/json:
               schema:
@@ -207,6 +123,31 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "No such user"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/logout:
+    post:
+      tags:
+        - session
+      summary: Logs out current logged-in user session
+      operationId: logoutUser
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out"
         '400':
           description: Invalid session
           content:
@@ -216,7 +157,59 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "No cookies got"
         '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Session not found"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/{id}:
+    delete:
+      tags:
+        - user
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully deleted user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User with ID 1 deleted"
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid user ID"
+        '404':
           description: User not found
           content:
             application/json:
@@ -225,43 +218,23 @@ paths:
                 properties:
                   message:
                     type: string
-        '408':
-          description: User not logged in
-        '403':
-          description: Forbidden (user is banned)
+                    example: "User not found"
         '500':
           description: Internal server error
         '503':
           description: Service unavailable
         '504':
-          description: Service timeout
+           description: Service timeout
 
-  /profiles:
+  /users/checkSession:
     get:
       tags:
-      - profile
-      summary: Get profiles
-      description: Show the profiles to the logged in user
-      operationId: getProfiles
-      parameters:
-      - name: forUser
-        in: query
-        description: The id of the user to get profiles for
-        required: true
-        schema:
-          type: integer
-          format: int64
+        - session
+      summary: Check if the user is logged in
+      operationId: checkSession
       responses:
         '200':
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Profile'
-        '400':
-          description: Invalid user id
+          description: Session status check
           content:
             application/json:
               schema:
@@ -269,38 +242,43 @@ paths:
                 properties:
                   message:
                     type: string
+                    example: "Logged in"
+                  inSession:
+                    type: boolean
+                    example: true
+                  userId:
+                    type: integer
+                    example: 1
+
         '500':
           description: Internal server error
         '503':
           description: Service unavailable
         '504':
-          description: Service timeout
+           description: Service timeout
 
   /profiles/{id}:
     get:
       tags:
-      - profile
-      summary: Get profile
-      description: Show the profile of user
+        - profile
+      summary: Get profile by user ID
       operationId: getProfile
       parameters:
-      - name: id
-        in: path
-        description: The id of the user to get profiles for
-        required: true
-        schema:
-          type: integer
-          format: int64
+        - name: id
+          in: path
+          description: The ID of the user to retrieve the profile for
+          required: true
+          schema:
+            type: integer
       responses:
         '200':
-          description: successful operation
+          description: Successfully retrieved profile
           content:
             application/json:
               schema:
-                type: object
                 $ref: '#/components/schemas/Profile'
         '400':
-          description: Invalid user id
+          description: Invalid user ID
           content:
             application/json:
               schema:
@@ -308,7 +286,7 @@ paths:
                 properties:
                   message:
                     type: string
-
+                    example: "Invalid user ID"
         '404':
           description: Profile not found
           content:
@@ -318,13 +296,52 @@ paths:
                 properties:
                   message:
                     type: string
-
+                    example: "Profile not found"
         '500':
           description: Internal server error
         '503':
           description: Service unavailable
         '504':
-          description: Service timeout
+           description: Service timeout
+
+  /profiles:
+    get:
+      tags:
+        - profile
+      summary: Get profiles of users (for a given user)
+      operationId: getProfiles
+      parameters:
+        - name: forUser
+          in: query
+          description: The ID of the user to get profiles for
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully retrieved list of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid user ID"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
 
 components:
   schemas:
@@ -333,87 +350,83 @@ components:
       properties:
         id:
           type: integer
-          format: int64
           example: 10
-        email:
+        login:
           type: string
-          format: email
-          example: john@email.com
+          example: johnyAnime
         password:
           type: string
-          example: '12345'
+          example: StrongPass4
 
     Profile:
       type: object
       properties:
-        profile_id:
+        profileId:
           type: integer
-          format: int64
           example: 15
-        first_name:
+        firstName:
           type: string
           example: Anton
-        last_name:
+        lastName:
           type: string
           example: Antonov
         height:
           type: integer
-          format: int32
           example: 175
         birthday:
           type: object
           properties:
-            day:
-              type: integer
-              format: int32
-              example: 28
-            month:
-              type: integer
-              format: int32
-              example: 3
             year:
               type: integer
-              format: int64
               example: 2005
+            month:
+              type: integer
+              example: 3
+            day:
+              type: integer
+              example: 28
         avatar:
-          type: object
+          type: string
+          example: avatars/eva.png
+        card:
+          type: string
+          example: cards/eva.png
         description:
           type: string
+          example: "Description of the user"
         location:
           type: string
+          example: "Moscow"
         interests:
           type: array
           items:
             type: string
             example: "playing football"
+        likedBy:
+          type: array
+          items:
+            type: integer
+            example: 12356
         preferences:
           type: object
           properties:
-            preferences_id:
+            preferencesId:
               type: integer
-              format: int64
               example: 123
             interests:
               type: array
               items:
                 type: string
                 example: "singing"
+            location:
+              type: string
+              example: "Moscow"
             age:
               type: object
               properties:
                 from:
                   type: integer
-                  format: int32
                   example: 18
                 to:
                   type: integer
-                  format: int32
                   example: 20
-            location:
-              type: string
-        liked_by:
-          type: array
-          items:
-            type: integer
-            format: int64
-            example: 12356
