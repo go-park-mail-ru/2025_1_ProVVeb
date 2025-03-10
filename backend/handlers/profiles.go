@@ -33,8 +33,8 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.Avatar = "/static/" + profile.Avatar
-	profile.Card = "/static/" + profile.Card
+	profile.Avatar = "http://213.219.214.83:8080/static/" + profile.Avatar
+	profile.Card = "http://213.219.214.83:8080/static/" + profile.Card
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -54,8 +54,8 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	profileList := make([]config.Profile, 0, len(profiles))
 	for i, profile := range profiles {
 		if i != profileId {
-			profile.Avatar = "/static/" + profile.Avatar
-			profile.Card = "/static/" + profile.Card
+			profile.Avatar = "http://213.219.214.83:8080/static/" + profile.Avatar
+			profile.Card = "http://213.219.214.83:8080/static/" + profile.Card
 			profileList = append(profileList, profile)
 		}
 	}

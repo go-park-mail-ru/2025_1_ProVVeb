@@ -80,7 +80,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_id",
 		Value:    SID,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   true,
 		Expires:  time.Now().Add(10 * time.Hour),
 		Path: 	"/",
 	}
