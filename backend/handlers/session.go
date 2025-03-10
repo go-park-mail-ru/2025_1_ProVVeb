@@ -82,7 +82,8 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   true,
 		Expires:  time.Now().Add(10 * time.Hour),
-		Path: 	"/",
+		Path:     "/",
+		SameSite: http.SameSiteNoneMode,
 	}
 
 	http.SetCookie(w, cookie)
