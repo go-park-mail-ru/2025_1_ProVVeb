@@ -23,6 +23,7 @@ func main() {
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
+	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
