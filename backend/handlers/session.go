@@ -104,26 +104,44 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "No cookies got"})
+		response := struct {
+			Message   string `json:"message"`
+			InSession bool   `json:"inSession"`
+		}{
+			Message:   "No cookies got",
+			InSession: false,
+		}
+
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	userId, ok := api.sessions[session.Value]
 	if !ok {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Session not found"})
+		response := struct {
+			Message   string `json:"message"`
+			InSession bool   `json:"inSession"`
+		}{
+			Message:   "Session not found",
+			InSession: false,
+		}
+
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	response := struct {
-		Message string `json:"message"`
-		UserId  int    `json:"id"`
+		Message   string `json:"message"`
+		InSession bool   `json:"inSession"`
+		UserId    int    `json:"id"`
 	}{
-		Message: "Logged in",
-		UserId:  userId,
+		Message:   "Logged in",
+		InSession: true,
+		UserId:    userId,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
