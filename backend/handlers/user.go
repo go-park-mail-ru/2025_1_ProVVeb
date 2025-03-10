@@ -60,7 +60,11 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Users[id] = user
-	profiles[id] = config.Profile{}
+	profiles[id] = config.Profile{
+		FirstName:   input.Login,
+		LastName:    "Иванов",
+		Description: "lalalalalalalala",
+	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
