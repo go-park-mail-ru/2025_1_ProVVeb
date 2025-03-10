@@ -108,14 +108,24 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := api.sessions[session.Value]; !ok {
+	userId, ok := api.sessions[session.Value]
+	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Session not found"})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Session found"})
+	response := struct {
+		Message string `json:"message"`
+		UserId  int    `json:"id"`
+	}{
+		Message: "Logged in",
+		UserId:  userId,
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
