@@ -83,6 +83,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		Expires:  time.Now().Add(10 * time.Hour),
 		Path:     "/",
+		Domain:   "localhost",
 		// SameSite: http.SameSiteNoneMode,
 	}
 
