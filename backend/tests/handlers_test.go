@@ -40,7 +40,7 @@ func TestGetProfile(t *testing.T) {
 		{
 			id:           "1",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"profileId":1,"firstName":"Xhr","lastName":"Timofeev","height":180,"Birthday":{"year":1990,"month":5,"day":15},"avatar":"","description":"A tech enthusiast.","location":"New York","interests":["Technology","Reading","Traveling"],"likedBy":[2,3,4],"Preferences":{"preferencesId":1,"interests":["Music","Movies","Sports"],"location":"New York","Age":{"from":18,"to":35}}}`,
+			expectedBody: `{"profileId":1,"firstName":"Лиза","lastName":"Тимофеева","height":180,"Birthday":{"year":1990,"month":5,"day":15},"avatar":"http://213.219.214.83:8080/static/avatars/liza.png","card":"http://213.219.214.83:8080/static/cards/liza.png","description":"Специалист по IT","location":"New York","interests":["Technology","Reading","Traveling"],"likedBy":[2,3,4],"Preferences":{"preferencesId":1,"interests":["Music","Movies","Sports"],"location":"New York","Age":{"from":18,"to":35}}}`,
 		},
 		{
 			id:           "invalid_id",
@@ -89,27 +89,27 @@ func TestCreateUser(t *testing.T) {
 	}{
 		{
 			user: config.User{
-				Login:    "testuser@mail.com",
-				Password: "validpassword#123",
-			},
-			expectedCode: http.StatusCreated,
-			expectedBody: `{"id":"6"}`,
-		},
-		{
-			user: config.User{
-				Login:    "invalid-email",
+				Login:    "testLogin",
 				Password: "validpassword123",
 			},
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "Invalid email or password",
+			expectedCode: http.StatusCreated,
+			expectedBody: `{"message":"user created"}`,
 		},
 		{
 			user: config.User{
-				Login:    "heckra@example.com",
-				Password: "StrongPass1!",
+				Login:    "invalid-login",
+				Password: "validpassword#123",
+			},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"message":"invalid email or password"}`,
+		},
+		{
+			user: config.User{
+				Login:    "evaecom",
+				Password: "StrongPass3",
 			},
 			expectedCode: http.StatusConflict,
-			expectedBody: "User already exists",
+			expectedBody: `{"message":"user already exists"}`,
 		},
 	}
 
@@ -158,12 +158,12 @@ func TestDeleteUser(t *testing.T) {
 		{
 			id:           "9999",
 			expectedCode: http.StatusNotFound,
-			expectedBody: "User not found",
+			expectedBody: `{"message":"User not found"}`,
 		},
 		{
 			id:           "abc",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: "Invalid user ID",
+			expectedBody: `{"message":"Invalid user ID"}`,
 		},
 	}
 
@@ -210,22 +210,22 @@ func TestLoginUser(t *testing.T) {
 		expectedBody string
 	}{
 		{
-			emai:         "heckra@example.com",
-			password:     "StrongPass1!",
+			emai:         "evaecom",
+			password:     "StrongPass3",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Logged in"}`,
+			expectedBody: `{"message":"Logged in","id":3}`,
 		},
 		{
 			emai:         "invalid_id",
 			password:     "validpassword#123",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: "No such user",
+			expectedBody: `{"message":"Invalid login or password"}`,
 		},
 		{
 			emai:         "heckra@example.com",
 			password:     "wrongpassword",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: "Invalid password",
+			expectedBody: `{"message":"Invalid login or password"}`,
 		},
 	}
 
@@ -253,6 +253,65 @@ func TestLoginUser(t *testing.T) {
 	}
 }
 
+func TestCheckSession(t *testing.T) {
+	tests := []struct {
+		sessionID    string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			sessionID:    handlers.Testapi.Sessions[3],
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Logged in","inSession":true,"id":3}`,
+		},
+		{
+			sessionID:    "invalidsessionid",
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Session not found","inSession":false}`,
+		},
+		{
+			sessionID:    "",
+			expectedCode: http.StatusOK,
+			expectedBody: `{"message":"Session not found","inSession":false}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("CheckSession with sessionID=%s", tt.sessionID), func(t *testing.T) {
+			if tt.sessionID != "" {
+				api.sessions[tt.sessionID] = 1
+			}
+			cookie := &http.Cookie{
+				Name:     "session_id",
+				Value:    tt.sessionID,
+				HttpOnly: true,
+				Secure:   false,
+				Expires:  time.Now().Add(10 * time.Hour),
+			}
+
+			r := httptest.NewRequest("GET", "/users/checkSession", nil)
+			r.AddCookie(cookie)
+			w := httptest.NewRecorder()
+
+			h := &handlers.SessionHandler{}
+			router := mux.NewRouter()
+			router.HandleFunc("/users/checkSession", h.CheckSession)
+
+			router.ServeHTTP(w, r)
+
+			if w.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
+			}
+
+			body := w.Body.String()
+			body = strings.TrimSpace(body)
+			if body != tt.expectedBody {
+				t.Errorf("expected body !%s!, got !%s!", tt.expectedBody, body)
+			}
+		})
+	}
+}
+
 func TestLogoutUser(t *testing.T) {
 	tests := []struct {
 		sessionID    string
@@ -260,19 +319,19 @@ func TestLogoutUser(t *testing.T) {
 		expectedBody string
 	}{
 		{
-			sessionID:    handlers.Testapi.Sessions[1],
+			sessionID:    handlers.Testapi.Sessions[3],
 			expectedCode: http.StatusOK,
 			expectedBody: `{"message":"Logged out"}`,
 		},
 		{
 			sessionID:    "invalidsessionid",
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: "Session not found",
+			expectedBody: `{"message":"Session not found"}`,
 		},
 		{
 			sessionID:    "",
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: "Session not found",
+			expectedBody: `{"message":"Session not found"}`,
 		},
 	}
 
