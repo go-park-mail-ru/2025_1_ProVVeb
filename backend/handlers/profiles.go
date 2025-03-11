@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -19,26 +18,20 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	profileID, err := strconv.Atoi(id)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
 
 	profile, exists := profiles[profileID]
 	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Profile not found"})
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Profile not found"})
 		return
 	}
 
 	profile.Avatar = "http://213.219.214.83:8080/static/" + profile.Avatar
 	profile.Card = "http://213.219.214.83:8080/static/" + profile.Card
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(profile)
+	makeResponse(w, http.StatusOK, profile)
 }
 
 func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
@@ -46,9 +39,7 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(userId)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
 	profileList := make([]config.Profile, 0, len(profiles))
@@ -60,7 +51,5 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profileList)
+	makeResponse(w, http.StatusOK, profileList)
 }

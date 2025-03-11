@@ -37,15 +37,12 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&gotData); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid JSON data"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
 	}
 
 	if (utils.ValidateLogin(gotData.Login) != nil) || (utils.ValidatePassword(gotData.Password) != nil) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "invalid login or password"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
@@ -59,16 +56,12 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if foundUser == nil {
-		w.WriteHeader(http.StatusNotFound)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "no such user"})
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "No such user"})
 		return
 	}
 
 	if foundUser.Password != utils.EncryptPasswordSHA256(password) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "invalid login or password"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
@@ -81,12 +74,11 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Value:    SID,
 		HttpOnly: true,
 		Secure:   false,
-		Expires:  time.Now().Add(10 * time.Hour),
+		Expires:  time.Now().Add(3 * 24 * time.Hour),
 		Path:     "/",
 	}
 
 	http.SetCookie(w, cookie)
-	w.WriteHeader(http.StatusOK)
 
 	response := struct {
 		Message string `json:"message"`
@@ -96,14 +88,12 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		UserId:  foundUser.Id,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	makeResponse(w, http.StatusOK, response)
 }
 
 func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		w.WriteHeader(http.StatusOK)
 		response := struct {
 			Message   string `json:"message"`
 			InSession bool   `json:"inSession"`
@@ -112,13 +102,12 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			InSession: false,
 		}
 
-		json.NewEncoder(w).Encode(response)
+		makeResponse(w, http.StatusOK, response)
 		return
 	}
 
 	userId, ok := api.sessions[session.Value]
 	if !ok {
-		w.WriteHeader(http.StatusOK)
 		response := struct {
 			Message   string `json:"message"`
 			InSession bool   `json:"inSession"`
@@ -127,11 +116,10 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			InSession: false,
 		}
 
-		json.NewEncoder(w).Encode(response)
+		makeResponse(w, http.StatusOK, response)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	response := struct {
 		Message   string `json:"message"`
 		InSession bool   `json:"inSession"`
@@ -142,23 +130,18 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		UserId:    userId,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	makeResponse(w, http.StatusOK, response)
 }
 
 func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "No cookies got"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
 		return
 	}
 
 	if _, ok := api.sessions[session.Value]; !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Session not found"})
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Session not found"})
 		return
 	}
 
@@ -176,6 +159,5 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, expiredCookie)
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out"})
+	makeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }

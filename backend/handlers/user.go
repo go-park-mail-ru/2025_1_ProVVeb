@@ -23,31 +23,23 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&input); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "invalid JSON data"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON data"})
 		return
 	}
 
 	if input.Login == "" || input.Password == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "login and password are required"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "login and password are required"})
 		return
 	}
 
 	if (utils.ValidateLogin(input.Login) != nil) || (utils.ValidatePassword(input.Password) != nil) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "invalid email or password"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "invalid email or password"})
 		return
 	}
 
 	for _, existingUser := range Users {
 		if existingUser.Login == input.Login {
-			w.WriteHeader(http.StatusConflict)
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"message": "user already exists"})
+			makeResponse(w, http.StatusConflict, map[string]string{"message": "user already exists"})
 			return
 		}
 	}
@@ -75,9 +67,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "user created"})
+	makeResponse(w, http.StatusCreated, map[string]string{"message": "user created"})
 }
 
 func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -86,25 +76,17 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	userId, err := strconv.Atoi(id)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid user ID"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
 
 	if _, exists := Users[userId]; !exists {
-		w.WriteHeader(http.StatusNotFound)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "User not found"})
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
 		return
 	}
 
 	delete(Users, userId)
 	delete(profiles, userId)
 
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": fmt.Sprintf("User with ID %d deleted", userId),
-	})
+	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }
