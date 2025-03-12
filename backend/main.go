@@ -29,8 +29,7 @@ func main() {
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://213.219.214.83:8000"},
-		// AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
+		AllowedOrigins:   []string{"http://213.219.214.83:8000"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
 		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
