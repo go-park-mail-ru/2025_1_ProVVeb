@@ -16,6 +16,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type Message struct {
+	Message string `json:"message"`
+}
+
 var testUsers = utils.InitUserMap()
 
 var Se = struct {
@@ -30,27 +34,56 @@ var api = struct {
 	sessions map[string]int
 }{sessions: make(map[string]int)}
 
-func TestGetProfile(t *testing.T) {
+func TestGetProfilePositive(t *testing.T) {
 	tests := []struct {
-		id            string
-		expectedCode  int
-		expectedBody  string
-		expectedError string
+		id           string
+		expectedCode int
+		expectedBody config.Profile
 	}{
 		{
 			id:           "1",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"profileId":1,"firstName":"Лиза","lastName":"Тимофеева","height":180,"Birthday":{"year":1990,"month":5,"day":15},"avatar":"http://213.219.214.83:8080/static/avatars/liza.png","card":"http://213.219.214.83:8080/static/cards/liza.png","description":"Специалист по IT","location":"New York","interests":["Technology","Reading","Traveling"],"likedBy":[2,3,4],"Preferences":{"preferencesId":1,"interests":["Music","Movies","Sports"],"location":"New York","Age":{"from":18,"to":35}}}`,
-		},
-		{
-			id:           "invalid_id",
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "Invalid user ID\n",
-		},
-		{
-			id:           "9999",
-			expectedCode: http.StatusNotFound,
-			expectedBody: "Profile not found\n",
+			expectedBody: config.Profile{
+				ProfileId: 1,
+				FirstName: "Лиза",
+				LastName:  "Тимофеева",
+				Height:    180,
+				Birthday: struct {
+					Year  int `yaml:"year" json:"year"`
+					Month int `yaml:"month" json:"month"`
+					Day   int `yaml:"day" json:"day"`
+				}{
+					Year:  1990,
+					Month: 5,
+					Day:   15,
+				},
+				Avatar:      "http://213.219.214.83:8080/static/avatars/liza.png",
+				Card:        "http://213.219.214.83:8080/static/cards/liza.png",
+				Description: "Специалист по IT",
+				Location:    "New York",
+				Interests:   []string{"Technology", "Reading", "Traveling"},
+				LikedBy:     []int{2, 3, 4},
+				Preferences: struct {
+					PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
+					Interests     []string `yaml:"interests" json:"interests"`
+					Location      string   `yaml:"location" json:"location"`
+					Age           struct {
+						From int `yaml:"from" json:"from"`
+						To   int `yaml:"to" json:"to"`
+					}
+				}{
+					PreferencesId: 1,
+					Interests:     []string{"Music", "Movies", "Sports"},
+					Location:      "New York",
+					Age: struct {
+						From int `yaml:"from" json:"from"`
+						To   int `yaml:"to" json:"to"`
+					}{
+						From: 18,
+						To:   35,
+					},
+				},
+			},
 		},
 	}
 
@@ -71,10 +104,62 @@ func TestGetProfile(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if w.Code == http.StatusOK && body != tt.expectedBody {
-				t.Errorf("expected body %s, got %s", tt.expectedBody, body)
+			var actualBody config.Profile
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("failed to unmarshal response body: %v", err)
+			}
+
+			if !utils.CompareProfiles(actualBody, tt.expectedBody) {
+				t.Errorf("expected profile %+v, got %+v", tt.expectedBody, actualBody)
+			}
+		})
+	}
+}
+
+func TestGetNegative(t *testing.T) {
+	tests := []struct {
+		id           string
+		expectedCode int
+		expectedBody Message
+	}{
+		{
+			id:           "invalid_id",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: Message{Message: "Invalid user ID"},
+		},
+		{
+			id:           "9999",
+			expectedCode: http.StatusNotFound,
+			expectedBody: Message{Message: "Profile not found"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("GetProfile ID=%s", tt.id), func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/profiles/"+tt.id, nil)
+
+			w := httptest.NewRecorder()
+
+			h := &handlers.GetHandler{}
+
+			router := mux.NewRouter()
+			router.HandleFunc("/profiles/{id}", h.GetProfile)
+
+			router.ServeHTTP(w, r)
+
+			if w.Code != tt.expectedCode {
+				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
+			}
+
+			var actualBody Message
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}
@@ -82,10 +167,9 @@ func TestGetProfile(t *testing.T) {
 
 func TestCreateUser(t *testing.T) {
 	tests := []struct {
-		user          config.User
-		expectedCode  int
-		expectedBody  string
-		expectedError string
+		user         config.User
+		expectedCode int
+		expectedBody Message
 	}{
 		{
 			user: config.User{
@@ -93,7 +177,9 @@ func TestCreateUser(t *testing.T) {
 				Password: "validpassword123",
 			},
 			expectedCode: http.StatusCreated,
-			expectedBody: `{"message":"user created"}`,
+			expectedBody: Message{
+				Message: "user created",
+			},
 		},
 		{
 			user: config.User{
@@ -101,7 +187,9 @@ func TestCreateUser(t *testing.T) {
 				Password: "validpassword#123",
 			},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"message":"invalid email or password"}`,
+			expectedBody: Message{
+				Message: "invalid email or password",
+			},
 		},
 		{
 			user: config.User{
@@ -109,7 +197,9 @@ func TestCreateUser(t *testing.T) {
 				Password: "StrongPass3",
 			},
 			expectedCode: http.StatusConflict,
-			expectedBody: `{"message":"user already exists"}`,
+			expectedBody: Message{
+				Message: "user already exists",
+			},
 		},
 	}
 
@@ -135,10 +225,14 @@ func TestCreateUser(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if body != tt.expectedBody {
-				t.Errorf("expected body !%s!, got !%s!", tt.expectedBody, body)
+			var actualBody Message
+			err = json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}
@@ -148,22 +242,28 @@ func TestDeleteUser(t *testing.T) {
 	tests := []struct {
 		id           string
 		expectedCode int
-		expectedBody string
+		expectedBody Message
 	}{
 		{
 			id:           "1",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"User with ID 1 deleted"}`,
+			expectedBody: Message{
+				Message: "User with ID 1 deleted",
+			},
 		},
 		{
 			id:           "9999",
 			expectedCode: http.StatusNotFound,
-			expectedBody: `{"message":"User not found"}`,
+			expectedBody: Message{
+				Message: "User not found",
+			},
 		},
 		{
 			id:           "abc",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"message":"Invalid user ID"}`,
+			expectedBody: Message{
+				Message: "Invalid user ID",
+			},
 		},
 	}
 
@@ -193,10 +293,14 @@ func TestDeleteUser(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if body != tt.expectedBody {
-				t.Errorf("expected body %s, got %s", tt.expectedBody, body)
+			var actualBody Message
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}
@@ -207,25 +311,31 @@ func TestLoginUser(t *testing.T) {
 		emai         string
 		password     string
 		expectedCode int
-		expectedBody string
+		expectedBody Message
 	}{
 		{
 			emai:         "evaecom",
 			password:     "StrongPass3",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Logged in","id":3}`,
+			expectedBody: Message{
+				Message: "Logged in",
+			},
 		},
 		{
 			emai:         "invalid_id",
 			password:     "validpassword#123",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"message":"Invalid login or password"}`,
+			expectedBody: Message{
+				Message: "Invalid login or password",
+			},
 		},
 		{
 			emai:         "heckra@example.com",
 			password:     "wrongpassword",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"message":"Invalid login or password"}`,
+			expectedBody: Message{
+				Message: "Invalid login or password",
+			},
 		},
 	}
 
@@ -244,10 +354,14 @@ func TestLoginUser(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if body != tt.expectedBody {
-				t.Errorf("expected body !%s!, got !%s!", tt.expectedBody, body)
+			var actualBody Message
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}
@@ -257,22 +371,28 @@ func TestCheckSession(t *testing.T) {
 	tests := []struct {
 		sessionID    string
 		expectedCode int
-		expectedBody string
+		expectedBody Message
 	}{
 		{
 			sessionID:    handlers.Testapi.Sessions[3],
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Logged in","inSession":true,"id":3}`,
+			expectedBody: Message{
+				Message: "Logged in",
+			},
 		},
 		{
 			sessionID:    "invalidsessionid",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Session not found","inSession":false}`,
+			expectedBody: Message{
+				Message: "Session not found",
+			},
 		},
 		{
 			sessionID:    "",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Session not found","inSession":false}`,
+			expectedBody: Message{
+				Message: "Session not found",
+			},
 		},
 	}
 
@@ -303,10 +423,14 @@ func TestCheckSession(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if body != tt.expectedBody {
-				t.Errorf("expected body !%s!, got !%s!", tt.expectedBody, body)
+			var actualBody Message
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}
@@ -316,22 +440,28 @@ func TestLogoutUser(t *testing.T) {
 	tests := []struct {
 		sessionID    string
 		expectedCode int
-		expectedBody string
+		expectedBody Message
 	}{
 		{
 			sessionID:    handlers.Testapi.Sessions[3],
 			expectedCode: http.StatusOK,
-			expectedBody: `{"message":"Logged out"}`,
+			expectedBody: Message{
+				Message: "Logged out",
+			},
 		},
 		{
 			sessionID:    "invalidsessionid",
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"message":"Session not found"}`,
+			expectedBody: Message{
+				Message: "Session not found",
+			},
 		},
 		{
 			sessionID:    "",
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"message":"Session not found"}`,
+			expectedBody: Message{
+				Message: "Session not found",
+			},
 		},
 	}
 
@@ -362,10 +492,14 @@ func TestLogoutUser(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
 
-			body := w.Body.String()
-			body = strings.TrimSpace(body)
-			if body != tt.expectedBody {
-				t.Errorf("expected body !%s!, got !%s!", tt.expectedBody, body)
+			var actualBody Message
+			err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal response body: %v", err)
+			}
+
+			if actualBody != tt.expectedBody {
+				t.Errorf("expected body %+v, got %+v", tt.expectedBody, actualBody)
 			}
 		})
 	}

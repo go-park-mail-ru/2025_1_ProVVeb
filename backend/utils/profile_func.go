@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
@@ -22,6 +23,10 @@ var (
 	ErrInvalidHeight    = errors.New("height must be greater than 0")
 	ErrInvalidInterests = errors.New("at least one interest is required")
 )
+
+func CompareProfiles(a, b config.Profile) bool {
+	return reflect.DeepEqual(a, b)
+}
 
 func ValidateBirthday(birthday struct {
 	Year  int
