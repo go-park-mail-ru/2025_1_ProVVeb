@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 )
+
+var muSessions = &sync.Mutex{}
 
 var Testapi = struct {
 	Sessions map[int]string
@@ -66,6 +69,9 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SID := RandStringRunes(32)
+	muSessions.Lock()
+	defer muSessions.Unlock()
+
 	api.sessions[SID] = foundUser.Id
 	Testapi.Sessions[foundUser.Id] = SID // для теста Logout
 
@@ -106,6 +112,9 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	muSessions.Lock()
+	defer muSessions.Unlock()
+
 	userId, ok := api.sessions[session.Value]
 	if !ok {
 		response := struct {
@@ -144,6 +153,9 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Session not found"})
 		return
 	}
+
+	muSessions.Lock()
+	defer muSessions.Unlock()
 
 	delete(api.sessions, session.Value)
 	delete(Testapi.Sessions, api.sessions[session.Value])

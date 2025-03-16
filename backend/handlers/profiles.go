@@ -3,11 +3,14 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
 )
+
+var muProfiles = &sync.Mutex{}
 
 type GetHandler struct{}
 
@@ -21,6 +24,9 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
+
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
 
 	profile, exists := profiles[profileID]
 	if !exists {
@@ -42,6 +48,9 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
+
 	profileList := make([]config.Profile, 0, len(profiles))
 	for i, profile := range profiles {
 		if i != profileId {

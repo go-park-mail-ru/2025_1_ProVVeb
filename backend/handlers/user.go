@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
 )
+
+var muUsers = &sync.Mutex{}
 
 type UserHandler struct{}
 
@@ -37,6 +40,9 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	muUsers.Lock()
+	defer muUsers.Unlock()
+
 	for _, existingUser := range Users {
 		if existingUser.Login == input.Login {
 			makeResponse(w, http.StatusConflict, map[string]string{"message": "user already exists"})
@@ -52,6 +58,10 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Users[id] = user
+
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
+
 	profiles[id] = config.Profile{
 		FirstName:   input.Login,
 		LastName:    "Иванов",
@@ -80,12 +90,19 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	muUsers.Lock()
+	defer muUsers.Unlock()
+
 	if _, exists := Users[userId]; !exists {
 		makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
 		return
 	}
 
 	delete(Users, userId)
+
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
+
 	delete(profiles, userId)
 
 	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
