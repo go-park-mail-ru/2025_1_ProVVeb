@@ -345,7 +345,7 @@ paths:
 
 components:
   schemas:
-    User:
+    user:
       type: object
       properties:
         id:
@@ -358,16 +358,16 @@ components:
           type: string
           example: StrongPass4
 
-    Profile:
+    profile:
       type: object
       properties:
-        profileId:
+        profileid:
           type: integer
           example: 15
-        firstName:
+        firstname:
           type: string
           example: Anton
-        lastName:
+        lastname:
           type: string
           example: Antonov
         height:
@@ -402,7 +402,7 @@ components:
           items:
             type: string
             example: "playing football"
-        likedBy:
+        likedby:
           type: array
           items:
             type: integer
@@ -410,7 +410,7 @@ components:
         preferences:
           type: object
           properties:
-            preferencesId:
+            preferencesid:
               type: integer
               example: 123
             interests:
