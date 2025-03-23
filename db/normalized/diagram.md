@@ -170,7 +170,7 @@ erDiagram
     PROFILES ||--o| PROFILE_RATINGS : "Связь с таблицей PROFILE_RATINGS через profile_id"
     PROFILES ||--o| MATCHES : "Связь с таблицей MATCHES через profile_id"
     PROFILES ||--o| MESSAGES : "Связь с таблицей MESSAGES через sender_profile_id"
-    PROFILES ||--o| INTERESTS : "Связь с таблицей PROFILE_INTERESTS через interest_id"
+    PROFILES ||--o| PROFILE_INTERESTS : "Связь с таблицей PROFILE_INTERESTS через interest_id"
     PROFILE_INTERESTS }|--|| INTERESTS : "Связь с таблицей INTERESTS через profile_id"
     
 
@@ -183,5 +183,6 @@ erDiagram
     COMPLAINTS }|--|| COMPLAINT_TYPES : "Связь с таблицей COMPLAINT_TYPES через comp_type"
 
     NOTIFICATIONS }|--|| NOTIFICATION_TYPES : "Связь с таблицей NOTIFICATION_TYPES через notification_type"
+
 
 ```
