@@ -7,10 +7,25 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
+
+	// "github.com/jackc/pgx/v5"
 	"github.com/rs/cors"
 )
 
 func main() {
+	// conn, err := pgx.Connect(context.Background(), "postgresql://postgres:COMMUNISM@localhost:5432/NOTEXISTINGDATABASE")
+	// if err != nil {
+	// 	log.Fatal("Ошибка подключения к базе данных:", err)
+	// }
+	// defer conn.Close(context.Background())
+
+	// var message string
+	// err = conn.QueryRow(context.Background(), "SELECT text FROM hello LIMIT 1").Scan(&message)
+	// if err != nil {
+	// 	log.Fatal("Ошибка при выполнении запроса:", err)
+	// }
+	// fmt.Println("Сообщение из базы данных:", message)
+
 	r := mux.NewRouter()
 
 	getHandler := &handlers.GetHandler{}
