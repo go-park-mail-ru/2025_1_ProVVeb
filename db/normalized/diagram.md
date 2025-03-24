@@ -3,14 +3,14 @@
 ```mermaid
 erDiagram
 
-    STATIC {
+    static {
         int id PK
         string path
         timestamp created_at
         timestamp updated_at
     }
 
-    SESSIONS {
+    sessions {
         int id PK
         int user_id FK
         string token
@@ -18,7 +18,7 @@ erDiagram
         timestamp expires_at
     }
 
-    USERS {
+    users {
         int user_id PK
         int profile_id FK
         int status
@@ -30,11 +30,11 @@ erDiagram
         timestamp updated_at
     }
 
-    PROFILES {
+    profiles {
         int profile_id PK
         string firstname
         string lastname
-        bool isMale
+        bool is_male
         timestamp birthday
         string description
         int location_id FK
@@ -42,37 +42,37 @@ erDiagram
         timestamp updated_at
     }
 
-    INTERESTS {
+    interests {
         int interest_id PK
         string description
         timestamp created_at
     }
 
-    PROFILE_INTERESTS {
+    profile_interests {
         int profile_id FK
         int interest_id FK
     }
 
-    PREFERENCES {
+    preferences {
         int preference_id PK
         string preference_type  
         string value            
         timestamp created_at
     }
 
-    PROFILE_PREFERENCES {
+    profile_preferences {
         int profile_id FK
         int preference_id FK
     }
 
-    LOCATIONS {
+    locations {
         int location_id PK
         string country
         string city
         string district
     }
 
-    MESSAGES {
+    messages {
         int message_id PK
         int sender_profile_id FK
         int receiver_profile_id FK
@@ -82,7 +82,7 @@ erDiagram
         timestamp updated_at
     }
 
-    LIKES {
+    likes {
         int like_id PK
         int profile_id FK
         int matched_profile_id FK
@@ -90,14 +90,14 @@ erDiagram
         int status
     }
 
-    MATCHES {
+    matches {
         int match_id PK
         int profile_id FK
         int matched_profile_id FK
         timestamp created_at
     }
 
-    SUBSCRIPTIONS {
+    subscriptions {
         int sub_id PK
         int user_id FK
         int sub_type FK
@@ -106,12 +106,12 @@ erDiagram
         timestamp expires_at
     }
 
-    SUBSCRIPTION_TYPES {
+    subscription_types {
         int sub_type PK
         string type_description
     }
 
-    COMPLAINTS {
+    complaints {
         int complaint_id PK
         int complaint_by FK
         int complaint_on FK
@@ -122,18 +122,18 @@ erDiagram
         timestamp closed_at
     }
 
-    COMPLAINT_TYPES {
+    complaint_types {
         int comp_type PK
         string type_description
     }
 
-    BLACKLIST {
+    blacklist {
         int block_id PK
         int user_id FK
         timestamp created_at
     }
 
-    NOTIFICATIONS {
+    notifications {
         int notification_id PK
         int user_id FK
         int notification_type
@@ -142,12 +142,12 @@ erDiagram
         timestamp read_at
     }
 
-    NOTIFICATION_TYPES {
+    notification_types {
         int notif_type PK
         string type_description
     }
 
-    PROFILE_RATINGS {
+    profile_ratings {
         int rating_id PK
         int profile_id FK
         int rated_profile_id FK
@@ -158,31 +158,31 @@ erDiagram
 
     %% Связи
 
-    SESSIONS }|--|| USERS : "Связь с таблицей USERS через user_id"
-    USERS ||--o| PROFILES : "Связь с таблицей PROFILES через profile_id"
-    USERS ||--o{ COMPLAINTS : "Связь с таблицей COMPLAINTS через complaint_by"
-    USERS ||--o| BLACKLIST : "Связь с таблицей BLACKLIST через user_id"
-    USERS ||--o{ NOTIFICATIONS : "Связь с таблицей NOTIFICATIONS через user_id"
-    USERS ||--o{ SUBSCRIPTIONS : "Связь с таблицей SUBSCRIPTIONS через user_id"
+    sessions }|--|| users : "Связь с таблицей users через user_id"
+    users ||--o| profiles : "Связь с таблицей profiles через profile_id"
+    users ||--o{ complaints : "Связь с таблицей complaints через complaint_by"
+    users ||--o| blacklist : "Связь с таблицей blacklist через user_id"
+    users ||--o{ notifications : "Связь с таблицей notifications через user_id"
+    users ||--o{ subscriptions : "Связь с таблицей subscriptions через user_id"
 
-    PROFILES }|--o| STATIC : "Связь с таблицей STATIC через photo_id"
-    PROFILES }|--o| LOCATIONS : "Связь с таблицей LOCATIONS через location_id"
-    PROFILES ||--o| PROFILE_RATINGS : "Связь с таблицей PROFILE_RATINGS через profile_id"
-    PROFILES ||--o| MATCHES : "Связь с таблицей MATCHES через profile_id"
-    PROFILES ||--o| MESSAGES : "Связь с таблицей MESSAGES через sender_profile_id"
-    PROFILES ||--o| PROFILE_INTERESTS : "Связь с таблицей PROFILE_INTERESTS через interest_id"
-    PROFILE_INTERESTS }|--|| INTERESTS : "Связь с таблицей INTERESTS через profile_id"
+    profiles }|--o| static : "Связь с таблицей static через photo_id"
+    profiles }|--o| locations : "Связь с таблицей locations через location_id"
+    profiles ||--o| profile_ratings : "Связь с таблицей profile_ratings через profile_id"
+    profiles ||--o| matches : "Связь с таблицей matches через profile_id"
+    profiles ||--o| messages : "Связь с таблицей messages через sender_profile_id"
+    profiles ||--o| profile_interests : "Связь с таблицей profile_interests через interest_id"
+    profile_interests }|--|| interests : "Связь с таблицей interests через profile_id"
     
 
-    LIKES }|--|| PROFILES : "Связь с таблицей PROFILES через profile_id"
+    likes }|--|| profiles : "Связь с таблицей profiles через profile_id"
 
-    PREFERENCES ||--o| PROFILE_PREFERENCES : "Связь с таблицей PROFILE_PREFERENCES через preference_id"
-    PROFILE_PREFERENCES }|--|| PROFILES : "Связь с таблицей PROFILES через profile_id"
+    preferences ||--o| profile_preferences : "Связь с таблицей profile_preferences через preference_id"
+    profile_preferences }|--|| profiles : "Связь с таблицей profiles через profile_id"
 
-    SUBSCRIPTIONS }|--|| SUBSCRIPTION_TYPES : "Связь с таблицей SUBSCRIPTION_TYPES через sub_type"
-    COMPLAINTS }|--|| COMPLAINT_TYPES : "Связь с таблицей COMPLAINT_TYPES через comp_type"
+    subscriptions }|--|| subscription_types : "Связь с таблицей subscription_types через sub_type"
+    complaints }|--|| complaint_types : "Связь с таблицей complaint_types через comp_type"
 
-    NOTIFICATIONS }|--|| NOTIFICATION_TYPES : "Связь с таблицей NOTIFICATION_TYPES через notification_type"
+    notifications }|--|| notification_types : "Связь с таблицей notification_types через notification_type"
 
 
 ```
