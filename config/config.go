@@ -27,6 +27,7 @@ type Profile struct {
 	ProfileId int    `yaml:"profileId" json:"profileId"`
 	FirstName string `yaml:"firstName" json:"firstName"`
 	LastName  string `yaml:"lastName" json:"lastName"`
+	IsMale    bool   `yaml:"isMale" json:"isMale"`
 	Height    int    `yaml:"height" json:"height"`
 	Birthday  struct {
 		Year  int `yaml:"year" json:"year"`
@@ -34,7 +35,7 @@ type Profile struct {
 		Day   int `yaml:"day" json:"day"`
 	}
 	Avatar      string   `yaml:"avatar" json:"avatar"`
-	Card		string   `yaml:"card" json:"card"`
+	Card        string   `yaml:"card" json:"card"`
 	Description string   `yaml:"description" json:"description"`
 	Location    string   `yaml:"location" json:"location"`
 	Interests   []string `yaml:"interests" json:"interests"`
