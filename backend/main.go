@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
 
@@ -14,6 +15,12 @@ import (
 )
 
 func main() {
+	redisAddr := "localhost:6379"
+	redisDB := 0
+
+	redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
+	defer redisClient.Close()
+
 	cfg := postgres.DBInitPostgresConfig()
 
 	conn, err := postgres.DBInitConnectionPostgres(cfg)
@@ -25,7 +32,7 @@ func main() {
 	r := mux.NewRouter()
 
 	getHandler := &handlers.GetHandler{DB: conn}
-	sessionHandler := &handlers.SessionHandler{DB: conn}
+	sessionHandler := &handlers.SessionHandler{DB: conn, RedisClient: redisClient}
 	userHandler := &handlers.UserHandler{DB: conn}
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/jackc/pgx/v5"
@@ -16,16 +18,9 @@ import (
 
 var muSessions = &sync.Mutex{}
 
-var Testapi = struct {
-	Sessions map[int]string
-}{Sessions: make(map[int]string)}
-
-var api = struct {
-	sessions map[string]int
-}{sessions: make(map[string]int)}
-
 type SessionHandler struct {
-	DB *pgx.Conn
+	DB          *pgx.Conn
+	RedisClient *redis.RedisClient
 }
 
 func RandStringRunes(n int) string {
@@ -74,8 +69,14 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	muSessions.Lock()
 	defer muSessions.Unlock()
 
-	api.sessions[SID] = foundUser.UserId
-	Testapi.Sessions[foundUser.UserId] = SID // для теста Logout
+	err = u.RedisClient.StoreSession(SID, fmt.Sprintf("%d", foundUser.UserId), 72*time.Hour)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
+		return
+	}
+
+	// api.sessions[SID] = foundUser.UserId
+	// Testapi.Sessions[foundUser.UserId] = SID // для теста Logout
 
 	cookie := &http.Cookie{
 		Name:     "session_id",
@@ -117,17 +118,28 @@ func (u *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	muSessions.Lock()
 	defer muSessions.Unlock()
 
-	userId, ok := api.sessions[session.Value]
-	if !ok {
-		response := struct {
-			Message   string `json:"message"`
-			InSession bool   `json:"inSession"`
-		}{
-			Message:   "Session not found",
-			InSession: false,
+	userIdStr, err := u.RedisClient.GetSession(session.Value)
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			response := struct {
+				Message   string `json:"message"`
+				InSession bool   `json:"inSession"`
+			}{
+				Message:   "Session not found",
+				InSession: false,
+			}
+
+			makeResponse(w, http.StatusOK, response)
+			return
 		}
 
-		makeResponse(w, http.StatusOK, response)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to check session"})
+		return
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Invalid session data"})
 		return
 	}
 
@@ -151,16 +163,14 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := api.sessions[session.Value]; !ok {
-		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Session not found"})
-		return
-	}
-
 	muSessions.Lock()
 	defer muSessions.Unlock()
 
-	delete(api.sessions, session.Value)
-	delete(Testapi.Sessions, api.sessions[session.Value])
+	err = u.RedisClient.DeleteSession(session.Value)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to delete session"})
+		return
+	}
 
 	expiredCookie := &http.Cookie{
 		Name:     "session_id",

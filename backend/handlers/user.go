@@ -21,8 +21,6 @@ type UserHandler struct {
 	DB *pgx.Conn
 }
 
-var Users = utils.InitUserMap()
-
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Login    string `json:"login"`
