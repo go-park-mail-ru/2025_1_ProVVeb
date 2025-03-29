@@ -75,9 +75,6 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// api.sessions[SID] = foundUser.UserId
-	// Testapi.Sessions[foundUser.UserId] = SID // для теста Logout
-
 	cookie := &http.Cookie{
 		Name:     "session_id",
 		Value:    SID,
@@ -85,6 +82,12 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   false,
 		Expires:  time.Now().Add(3 * 24 * time.Hour),
 		Path:     "/",
+	}
+
+	_, err = postgres.DBCreateSessionPostgres(u.DB, *cookie, foundUser.UserId)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
+		return
 	}
 
 	http.SetCookie(w, cookie)
@@ -163,12 +166,43 @@ func (u *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userIdStr, err := u.RedisClient.GetSession(session.Value)
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			response := struct {
+				Message   string `json:"message"`
+				InSession bool   `json:"inSession"`
+			}{
+				Message:   "Session not found",
+				InSession: false,
+			}
+
+			makeResponse(w, http.StatusOK, response)
+			return
+		}
+
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to check session"})
+		return
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Invalid session data"})
+		return
+	}
+
 	muSessions.Lock()
 	defer muSessions.Unlock()
 
 	err = u.RedisClient.DeleteSession(session.Value)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to delete session"})
+		return
+	}
+
+	err = postgres.DBDeleteSessionPostgres(u.DB, userId)
+	if err != nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Error while deleting session"})
 		return
 	}
 
