@@ -2,20 +2,38 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
+
 	"github.com/rs/cors"
 )
 
 func main() {
+	redisAddr := "localhost:6379"
+	redisDB := 0
+
+	redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
+	defer redisClient.Close()
+
+	cfg := postgres.DBInitPostgresConfig()
+
+	conn, err := postgres.DBInitConnectionPostgres(cfg)
+	if err != nil {
+		log.Fatal("Не удалось подключиться к базе данных:", err)
+	}
+	defer postgres.DBCloseConnectionPostgres(conn)
+
 	r := mux.NewRouter()
 
-	getHandler := &handlers.GetHandler{}
-	sessionHandler := &handlers.SessionHandler{}
-	userHandler := &handlers.UserHandler{}
+	getHandler := &handlers.GetHandler{DB: conn}
+	sessionHandler := &handlers.SessionHandler{DB: conn, RedisClient: redisClient}
+	userHandler := &handlers.UserHandler{DB: conn}
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -29,7 +47,7 @@ func main() {
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://213.219.214.83:8000"},
+		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
 		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,

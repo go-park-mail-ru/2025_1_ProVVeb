@@ -3,15 +3,21 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"sync"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 )
 
-type GetHandler struct{}
+const for_single_profile = 5
 
-var profiles = utils.InitProfileMap()
+var muProfiles = &sync.Mutex{}
+
+type GetHandler struct {
+	DB *pgx.Conn
+}
 
 func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
@@ -22,14 +28,13 @@ func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, exists := profiles[profileID]
-	if !exists {
-		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Profile not found"})
+	var profile config.Profile
+	profile, err = postgres.DBGetProfilePostgres(p.DB, profileID)
+
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error fetching profile"})
 		return
 	}
-
-	profile.Avatar = "http://213.219.214.83:8080/static/" + profile.Avatar
-	profile.Card = "http://213.219.214.83:8080/static/" + profile.Card
 
 	makeResponse(w, http.StatusOK, profile)
 }
@@ -42,13 +47,26 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user ID"})
 		return
 	}
-	profileList := make([]config.Profile, 0, len(profiles))
-	for i, profile := range profiles {
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
+
+	profileList := make([]config.Profile, 0, for_single_profile)
+
+	for i := range for_single_profile {
 		if i != profileId {
-			profile.Avatar = "http://213.219.214.83:8080/static/" + profile.Avatar
-			profile.Card = "http://213.219.214.83:8080/static/" + profile.Card
-			profileList = append(profileList, profile)
+			var profile config.Profile
+			profile, err = postgres.DBGetProfilePostgres(p.DB, i)
+
+			if err != nil {
+				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error fetching profile"})
+				return
+			}
+
+			if profile.FirstName != "" {
+				profileList = append(profileList, profile)
+			}
 		}
+
 	}
 
 	makeResponse(w, http.StatusOK, profileList)
