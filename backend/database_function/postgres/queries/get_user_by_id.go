@@ -14,7 +14,7 @@ SELECT
     u.email,
 	u.password,
     u.phone, 
-    u.status, 
+    u.status
 FROM users u
 WHERE u.login = $1;
 `
@@ -28,6 +28,7 @@ func DBGetUserPostgres(p *pgx.Conn, login string) (config.User, error) {
 		&user.UserId,
 		&user.Login,
 		&user.Email,
+		&user.Password,
 		&user.Phone,
 		&user.Status,
 	); err != nil {

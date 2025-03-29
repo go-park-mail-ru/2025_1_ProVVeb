@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -58,6 +59,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var foundUser config.User
 	foundUser, err := postgres.DBGetUserPostgres(u.DB, login)
 
+	fmt.Println(err)
 	if err != nil {
 		makeResponse(w, http.StatusNotFound, map[string]string{"message": "No such user"})
 		return
