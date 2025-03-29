@@ -35,6 +35,7 @@ erDiagram
         string firstname
         string lastname
         bool is_male
+        int height
         timestamp birthday
         string description
         int location_id FK
@@ -85,7 +86,7 @@ erDiagram
     likes {
         int like_id PK
         int profile_id FK
-        int matched_profile_id FK
+        int liked_profile_id FK
         timestamp created_at
         int status
     }
@@ -161,20 +162,25 @@ erDiagram
     sessions }|--|| users : "Связь с таблицей users через user_id"
     users ||--o| profiles : "Связь с таблицей profiles через profile_id"
     users ||--o{ complaints : "Связь с таблицей complaints через complaint_by"
+    users ||--o{ complaints : "Связь с таблицей complaints через complaint_on"
     users ||--o| blacklist : "Связь с таблицей blacklist через user_id"
     users ||--o{ notifications : "Связь с таблицей notifications через user_id"
     users ||--o{ subscriptions : "Связь с таблицей subscriptions через user_id"
 
-    profiles }|--o| static : "Связь с таблицей static через photo_id"
+    profiles }|--o| static : "Связь с таблицей static через id"
     profiles }|--o| locations : "Связь с таблицей locations через location_id"
     profiles ||--o| profile_ratings : "Связь с таблицей profile_ratings через profile_id"
+    profiles ||--o| profile_ratings : "Связь с таблицей profile_ratings через rated_profile_id"
     profiles ||--o| matches : "Связь с таблицей matches через profile_id"
+    profiles ||--o| matches : "Связь с таблицей matches через matched_profile_id"
     profiles ||--o| messages : "Связь с таблицей messages через sender_profile_id"
-    profiles ||--o| profile_interests : "Связь с таблицей profile_interests через interest_id"
-    profile_interests }|--|| interests : "Связь с таблицей interests через profile_id"
+    profiles ||--o| messages : "Связь с таблицей messages через receiver_profile_id"
+    profiles ||--o| profile_interests : "Связь с таблицей profile_interests через profile_id"
+    profile_interests }|--|| interests : "Связь с таблицей interests через interest_id"
     
 
     likes }|--|| profiles : "Связь с таблицей profiles через profile_id"
+    likes }|--|| profiles : "Связь с таблицей profiles через liked_profile_id"
 
     preferences ||--o| profile_preferences : "Связь с таблицей profile_preferences через preference_id"
     profile_preferences }|--|| profiles : "Связь с таблицей profiles через profile_id"
@@ -183,6 +189,5 @@ erDiagram
     complaints }|--|| complaint_types : "Связь с таблицей complaint_types через comp_type"
 
     notifications }|--|| notification_types : "Связь с таблицей notification_types через notification_type"
-
 
 ```

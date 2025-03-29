@@ -33,6 +33,7 @@ CREATE TABLE profiles (
     lastname TEXT NOT NULL CHECK (LENGTH(lastname) <= 255),
     is_male BOOLEAN NOT NULL,
     birthday DATE NOT NULL,
+    height INT CHECK (height >= 50 AND height <= 280),
     description TEXT,
     photo_id BIGINT,
     location_id BIGINT,
@@ -47,8 +48,7 @@ CREATE TABLE users (
     profile_id BIGINT,
     status INT NOT NULL,
     login TEXT UNIQUE NOT NULL CHECK (LENGTH(login) <= 255),
-    email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255) 
-        CHECK (email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'), 
+    email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255),
     phone TEXT UNIQUE CHECK (LENGTH(phone) <= 20),
     password TEXT NOT NULL CHECK (LENGTH(password) >= 8 AND LENGTH(password) <= 255), 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -109,11 +109,11 @@ CREATE TABLE messages (
 CREATE TABLE likes (
     like_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     profile_id BIGINT NOT NULL,
-    matched_profile_id BIGINT NOT NULL,
+    liked_profile_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status INT NOT NULL,
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (matched_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (liked_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE matches (
@@ -122,7 +122,8 @@ CREATE TABLE matches (
     matched_profile_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (matched_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (matched_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT unique_match UNIQUE (profile_id, matched_profile_id)
 );
 
 CREATE TABLE subscriptions (
@@ -147,14 +148,16 @@ CREATE TABLE complaints (
     closed_at TIMESTAMP,
     FOREIGN KEY (complaint_by) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (complaint_on) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (complaint_type) REFERENCES COMPLAINT_TYPES(comp_type) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (complaint_type) REFERENCES complaint_types(comp_type) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT unique_complaint UNIQUE (complaint_by, complaint_on, complaint_type)
 );
 
 CREATE TABLE blacklist (
     block_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT unique_blacklist UNIQUE (user_id)
 );
 
 CREATE TABLE notifications (
