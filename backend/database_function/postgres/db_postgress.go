@@ -20,7 +20,7 @@ func DBInitPostgresConfig() config.DatabaseConfig {
 		Port:     5432,
 		User:     user,
 		Password: "",
-		DBName:   user,
+		DBName:   "postgres",
 		SSLMode:  "disable",
 	}
 	// return config.DatabaseConfig{
