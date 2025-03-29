@@ -71,14 +71,14 @@ func ValidateProfile(p Profile) error {
 		return ErrInvalidLocation
 	}
 
-	err := ValidateBirthday(struct {
-		Year  int
-		Month int
-		Day   int
-	}(p.Profile.Birthday))
-	if err != nil {
-		return err
-	}
+	// err := ValidateBirthday(struct {
+	// 	Year  int
+	// 	Month int
+	// 	Day   int
+	// }(p.Profile.Birthday))
+	// if err != nil {
+	// 	return err
+	// }
 
 	if profile.Height <= 0 {
 		return ErrInvalidHeight
@@ -86,14 +86,6 @@ func ValidateProfile(p Profile) error {
 
 	if len(profile.Interests) == 0 {
 		return ErrInvalidInterests
-	}
-
-	err = ValidateAge(struct {
-		From int
-		To   int
-	}(p.Profile.Preferences.Age))
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -107,41 +99,41 @@ func InitProfileMap() map[int]config.Profile {
 		FirstName: "Лиза",
 		LastName:  "Тимофеева",
 		Height:    180,
-		Birthday: struct {
-			Year  int `yaml:"year" json:"year"`
-			Month int `yaml:"month" json:"month"`
-			Day   int `yaml:"day" json:"day"`
-		}{
-			Year:  1990,
-			Month: 5,
-			Day:   15,
-		},
+		// Birthday: struct {
+		// 	Year  int `yaml:"year" json:"year"`
+		// 	Month int `yaml:"month" json:"month"`
+		// 	Day   int `yaml:"day" json:"day"`
+		// }{
+		// 	Year:  1990,
+		// 	Month: 5,
+		// 	Day:   15,
+		// },
 		Avatar:      "avatars/liza.png",
 		Card:        "cards/liza.png",
 		Description: "Специалист по IT",
 		Location:    "New York",
 		Interests:   []string{"Technology", "Reading", "Traveling"},
 		LikedBy:     []int{2, 3, 4},
-		Preferences: struct {
-			PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
-			Interests     []string `yaml:"interests" json:"interests"`
-			Location      string   `yaml:"location" json:"location"`
-			Age           struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}
-		}{
-			PreferencesId: 1,
-			Interests:     []string{"Music", "Movies", "Sports"},
-			Location:      "New York",
-			Age: struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}{
-				From: 18,
-				To:   35,
-			},
-		},
+		// Preferences: struct {
+		// 	PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
+		// 	Interests     []string `yaml:"interests" json:"interests"`
+		// 	Location      string   `yaml:"location" json:"location"`
+		// 	Age           struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}
+		// }{
+		// 	PreferencesId: 1,
+		// 	Interests:     []string{"Music", "Movies", "Sports"},
+		// 	Location:      "New York",
+		// 	Age: struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}{
+		// 		From: 18,
+		// 		To:   35,
+		// 	},
+		// },
 	}
 
 	err := ValidateProfile(Profile{Profile: profile1})
@@ -156,41 +148,41 @@ func InitProfileMap() map[int]config.Profile {
 		FirstName: "Катя",
 		LastName:  "Кострицкая",
 		Height:    165,
-		Birthday: struct {
-			Year  int `yaml:"year" json:"year"`
-			Month int `yaml:"month" json:"month"`
-			Day   int `yaml:"day" json:"day"`
-		}{
-			Year:  1995,
-			Month: 8,
-			Day:   22,
-		},
+		// Birthday: struct {
+		// 	Year  int `yaml:"year" json:"year"`
+		// 	Month int `yaml:"month" json:"month"`
+		// 	Day   int `yaml:"day" json:"day"`
+		// }{
+		// 	Year:  1995,
+		// 	Month: 8,
+		// 	Day:   22,
+		// },
 		Avatar:      "avatars/katya.png",
 		Card:        "cards/katya.png",
 		Description: "Любитель хорошего кода",
 		Location:    "California",
 		Interests:   []string{"Hiking", "Photography", "Art"},
 		LikedBy:     []int{1, 3, 5},
-		Preferences: struct {
-			PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
-			Interests     []string `yaml:"interests" json:"interests"`
-			Location      string   `yaml:"location" json:"location"`
-			Age           struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}
-		}{
-			PreferencesId: 2,
-			Interests:     []string{"Art", "Nature", "Traveling"},
-			Location:      "California",
-			Age: struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}{
-				From: 20,
-				To:   40,
-			},
-		},
+		// Preferences: struct {
+		// 	PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
+		// 	Interests     []string `yaml:"interests" json:"interests"`
+		// 	Location      string   `yaml:"location" json:"location"`
+		// 	Age           struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}
+		// }{
+		// 	PreferencesId: 2,
+		// 	Interests:     []string{"Art", "Nature", "Traveling"},
+		// 	Location:      "California",
+		// 	Age: struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}{
+		// 		From: 20,
+		// 		To:   40,
+		// 	},
+		//},
 	}
 
 	err = ValidateProfile(Profile{Profile: profile2})
@@ -205,41 +197,41 @@ func InitProfileMap() map[int]config.Profile {
 		FirstName: "Ева",
 		LastName:  "Ильченко",
 		Height:    170,
-		Birthday: struct {
-			Year  int `yaml:"year" json:"year"`
-			Month int `yaml:"month" json:"month"`
-			Day   int `yaml:"day" json:"day"`
-		}{
-			Year:  1992,
-			Month: 2,
-			Day:   10,
-		},
+		// Birthday: struct {
+		// 	Year  int `yaml:"year" json:"year"`
+		// 	Month int `yaml:"month" json:"month"`
+		// 	Day   int `yaml:"day" json:"day"`
+		// }{
+		// 	Year:  1992,
+		// 	Month: 2,
+		// 	Day:   10,
+		// },
 		Avatar:      "avarars/eva.png",
 		Card:        "cards/eva.png",
 		Description: "Студентка ИУ7",
 		Location:    "Los Angeles",
 		Interests:   []string{"Cooking", "Traveling", "Fitness"},
 		LikedBy:     []int{1, 2, 4},
-		Preferences: struct {
-			PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
-			Interests     []string `yaml:"interests" json:"interests"`
-			Location      string   `yaml:"location" json:"location"`
-			Age           struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}
-		}{
-			PreferencesId: 3,
-			Interests:     []string{"Food", "Traveling", "Health"},
-			Location:      "Los Angeles",
-			Age: struct {
-				From int `yaml:"from" json:"from"`
-				To   int `yaml:"to" json:"to"`
-			}{
-				From: 18,
-				To:   45,
-			},
-		},
+		// Preferences: struct {
+		// 	PreferencesId int      `yaml:"preferencesId" json:"preferencesId"`
+		// 	Interests     []string `yaml:"interests" json:"interests"`
+		// 	Location      string   `yaml:"location" json:"location"`
+		// 	Age           struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}
+		// }{
+		// 	PreferencesId: 3,
+		// 	Interests:     []string{"Food", "Traveling", "Health"},
+		// 	Location:      "Los Angeles",
+		// 	Age: struct {
+		// 		From int `yaml:"from" json:"from"`
+		// 		To   int `yaml:"to" json:"to"`
+		// 	}{
+		// 		From: 18,
+		// 		To:   45,
+		// 	},
+		// },
 	}
 
 	err = ValidateProfile(Profile{Profile: profile3})

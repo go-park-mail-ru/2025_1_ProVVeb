@@ -1,32 +1,26 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	postgress "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/rs/cors"
 )
 
 func main() {
-	conn, err := pgx.Connect(context.Background(), "postgresql://postgres:Grey31415@localhost:5432/dev")
-	if err != nil {
-		log.Fatal("Ошибка подключения к базе данных:", err)
-	}
-	defer conn.Close(context.Background())
+	cfg := postgress.DBInitPostgresConfig()
 
-	var message string
-	err = conn.QueryRow(context.Background(), "SELECT lastname FROM profiles LIMIT 1").Scan(&message)
+	conn, err := postgress.DBInitConnectionPostgres(cfg)
 	if err != nil {
-		log.Fatal("Ошибка при выполнении запроса:", err)
+		log.Fatal("Не удалось подключиться к базе данных:", err)
 	}
-	fmt.Println("Сообщение из базы данных:", message)
+	defer postgress.DBCloseConnectionPostgres(conn)
 
 	r := mux.NewRouter()
 
