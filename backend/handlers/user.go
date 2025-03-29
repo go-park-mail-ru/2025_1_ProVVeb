@@ -47,7 +47,6 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	muUsers.Lock()
 	defer muUsers.Unlock()
-	fmt.Println("We are here")
 
 	_, err := postgres.DBGetUserPostgres(u.DB, input.Login)
 
@@ -56,26 +55,8 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := len(Users) + 1
-	user := config.User{
-		UserId:   id,
-		Login:    input.Login,
-		Password: utils.EncryptPasswordSHA256(input.Password),
-		Email:    "",
-		Phone:    "",
-		Status:   0,
-	}
-	fmt.Println("We  here")
-
-	_, err = postgres.DBCreateUserPostgres(u.DB, user)
-	if err != nil {
-		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Unable to create user"})
-		return
-	}
-
-	muProfiles.Lock()
-	defer muProfiles.Unlock()
-
+	email := fmt.Sprintf("%s@example.com", input.Login)
+	phone := fmt.Sprintf("+1234567890%s", input.Login)
 	date, _ := time.Parse("2006-01-02", "1990-01-01")
 
 	profile := config.Profile{
@@ -86,11 +67,22 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Height:      180,
 		Description: "Do you love communism?",
 	}
-	fmt.Println("We are ")
 
-	_, err = postgres.DBCreateProfilePostgres(u.DB, profile)
+	user := config.User{
+		Login:    input.Login,
+		Password: utils.EncryptPasswordSHA256(input.Password),
+		Email:    email,
+		Phone:    phone,
+		Status:   0,
+	}
+
+	muProfiles.Lock()
+	defer muProfiles.Unlock()
+
+	_, _, err = postgres.DBCreateUserWithProfilePostgres(u.DB, profile, user)
+	fmt.Println(err)
 	if err != nil {
-		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Unable to create profile"})
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Unable to create user and profile"})
 		return
 	}
 
@@ -110,18 +102,10 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	muUsers.Lock()
 	defer muUsers.Unlock()
 
-	err = postgres.DBDeleteUserPostgres(u.DB, userId)
+	err = postgres.DBDeleteUserWithProfilePostgres(u.DB, userId)
+	fmt.Println(err)
 	if err != nil {
 		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Error while deleting user"})
-		return
-	}
-
-	muProfiles.Lock()
-	defer muProfiles.Unlock()
-
-	err = postgres.DBDeleteProfilePostgres(u.DB, userId)
-	if err != nil {
-		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Error while deleting profile"})
 		return
 	}
 

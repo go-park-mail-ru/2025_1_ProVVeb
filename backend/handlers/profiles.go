@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const for_single_profile = 30
+const for_single_profile = 5
 
 var muProfiles = &sync.Mutex{}
 
@@ -62,7 +62,9 @@ func (p *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			profileList = append(profileList, profile)
+			if profile.FirstName != "" {
+				profileList = append(profileList, profile)
+			}
 		}
 
 	}
