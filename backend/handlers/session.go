@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
+	"github.com/jackc/pgx/v5"
 )
 
 var muSessions = &sync.Mutex{}
@@ -21,7 +23,9 @@ var api = struct {
 	sessions map[string]int
 }{sessions: make(map[string]int)}
 
-type SessionHandler struct{}
+type SessionHandler struct {
+	DB *pgx.Conn
+}
 
 func RandStringRunes(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -51,14 +55,11 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	login, password := gotData.Login, gotData.Password
 
-	var foundUser *config.User
-	for _, user := range Users {
-		if user.Login == login {
-			foundUser = &user
-			break
-		}
-	}
-	if foundUser == nil {
+	var foundUser config.User
+
+	foundUser, err := postgres.DBGetUserPostgres(u.DB, login)
+
+	if err != nil {
 		makeResponse(w, http.StatusNotFound, map[string]string{"message": "No such user"})
 		return
 	}
@@ -72,8 +73,8 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	muSessions.Lock()
 	defer muSessions.Unlock()
 
-	api.sessions[SID] = foundUser.Id
-	Testapi.Sessions[foundUser.Id] = SID // для теста Logout
+	api.sessions[SID] = foundUser.UserId
+	Testapi.Sessions[foundUser.UserId] = SID // для теста Logout
 
 	cookie := &http.Cookie{
 		Name:     "session_id",
@@ -91,7 +92,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		UserId  int    `json:"id"`
 	}{
 		Message: "Logged in",
-		UserId:  foundUser.Id,
+		UserId:  foundUser.UserId,
 	}
 
 	makeResponse(w, http.StatusOK, response)

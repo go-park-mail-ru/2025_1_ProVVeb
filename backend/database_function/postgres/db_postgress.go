@@ -19,9 +19,46 @@ func DBInitPostgresConfig() config.DatabaseConfig {
 	}
 }
 
+func checkDBConfig(cfg config.DatabaseConfig) error {
+	errors := map[string]struct {
+		check func() bool
+		msg   string
+	}{
+		"Host": {
+			check: func() bool { return cfg.Host == "" },
+			msg:   "host cannot be empty",
+		},
+		"Port": {
+			check: func() bool { return cfg.Port < 1 || cfg.Port > 65535 },
+			msg:   "invalid port number: must be between 1 and 65535",
+		},
+		"User": {
+			check: func() bool { return cfg.User == "" },
+			msg:   "user name cannot be empty",
+		},
+		"Password": {
+			check: func() bool { return cfg.Password == "" },
+			msg:   "password cannot be empty",
+		},
+		"DBName": {
+			check: func() bool { return cfg.DBName == "" },
+			msg:   "database name cannot be empty",
+		},
+	}
+
+	for field, err := range errors {
+		if err.check() {
+			return fmt.Errorf("%s: %s", field, err.msg)
+		}
+	}
+
+	return nil
+}
+
 func DBInitConnectionPostgres(cfg config.DatabaseConfig) (*pgx.Conn, error) {
-	if cfg.DBName == "" {
-		return nil, fmt.Errorf("database name cannot be empty")
+	err := checkDBConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("something wrong with config ")
 	}
 
 	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",

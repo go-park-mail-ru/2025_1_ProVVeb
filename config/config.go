@@ -8,9 +8,12 @@ var MinLoginLength = 7
 var MaxLoginLength = 15
 
 type User struct {
-	Id       int    `yaml:"id" json:"id"`
+	UserId   int    `yaml:"id" json:"id"`
 	Login    string `yaml:"login" json:"login"`
 	Password string `yaml:"password" json:"password"`
+	Email    string `yaml:"email" json:"email"`
+	Phone    string `yaml:"phone" json:"phone"`
+	Status   int    `yaml:"status" json:"status"`
 }
 
 type DatabaseConfig struct {

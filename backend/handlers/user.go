@@ -10,11 +10,14 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 )
 
 var muUsers = &sync.Mutex{}
 
-type UserHandler struct{}
+type UserHandler struct {
+	DB *pgx.Conn
+}
 
 var Users = utils.InitUserMap()
 
@@ -52,7 +55,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	id := len(Users) + 1
 	user := config.User{
-		Id:       id,
+		UserId:   id,
 		Login:    input.Login,
 		Password: utils.EncryptPasswordSHA256(input.Password),
 	}
@@ -62,20 +65,20 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	muProfiles.Lock()
 	defer muProfiles.Unlock()
 
-	profiles[id] = config.Profile{
-		FirstName:   input.Login,
-		LastName:    "Иванов",
-		Description: "lalalalalalalala",
-		// Birthday: struct {
-		// 	Year  int `yaml:"year" json:"year"`
-		// 	Month int `yaml:"month" json:"month"`
-		// 	Day   int `yaml:"day" json:"day"`
-		// }{
-		// 	Year:  2005,
-		// 	Month: 3,
-		// 	Day:   28,
-		// },
-	}
+	// profiles[id] = config.Profile{
+	// 	FirstName:   input.Login,
+	// 	LastName:    "Иванов",
+	// 	Description: "lalalalalalalala",
+	// 	// Birthday: struct {
+	// 	// 	Year  int `yaml:"year" json:"year"`
+	// 	// 	Month int `yaml:"month" json:"month"`
+	// 	// 	Day   int `yaml:"day" json:"day"`
+	// 	// }{
+	// 	// 	Year:  2005,
+	// 	// 	Month: 3,
+	// 	// 	Day:   28,
+	// 	// },
+	// }
 
 	makeResponse(w, http.StatusCreated, map[string]string{"message": "user created"})
 }
@@ -103,7 +106,7 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	muProfiles.Lock()
 	defer muProfiles.Unlock()
 
-	delete(profiles, userId)
+	// delete(profiles, userId)
 
 	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }

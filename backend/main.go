@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	postgress "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
 
@@ -14,19 +14,19 @@ import (
 )
 
 func main() {
-	cfg := postgress.DBInitPostgresConfig()
+	cfg := postgres.DBInitPostgresConfig()
 
-	conn, err := postgress.DBInitConnectionPostgres(cfg)
+	conn, err := postgres.DBInitConnectionPostgres(cfg)
 	if err != nil {
 		log.Fatal("Не удалось подключиться к базе данных:", err)
 	}
-	defer postgress.DBCloseConnectionPostgres(conn)
+	defer postgres.DBCloseConnectionPostgres(conn)
 
 	r := mux.NewRouter()
 
 	getHandler := &handlers.GetHandler{DB: conn}
-	sessionHandler := &handlers.SessionHandler{}
-	userHandler := &handlers.UserHandler{}
+	sessionHandler := &handlers.SessionHandler{DB: conn}
+	userHandler := &handlers.UserHandler{DB: conn}
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
