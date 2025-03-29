@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
+	config "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/objects"
 )
 
 type Profile struct {

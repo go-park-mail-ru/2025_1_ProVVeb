@@ -5,19 +5,14 @@ import (
 	"strconv"
 	"sync"
 
-	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres/queries"
+	config "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/objects"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
 )
 
 const for_single_profile = 5
 
 var muProfiles = &sync.Mutex{}
-
-type GetHandler struct {
-	DB *pgx.Conn
-}
 
 func (p *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]

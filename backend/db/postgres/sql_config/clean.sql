@@ -1,0 +1,22 @@
+TRUNCATE TABLE
+    complaint_types,
+    notification_types,
+    locations,
+    static,
+    subscription_types,
+    profiles,
+    users,
+    sessions,
+    interests,
+    profile_interests,
+    preferences,
+    profile_preferences,
+    messages,
+    likes,
+    matches,
+    subscriptions,
+    complaints,
+    blacklist,
+    notifications,
+    profile_ratings
+RESTART IDENTITY CASCADE;

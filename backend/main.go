@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
 
