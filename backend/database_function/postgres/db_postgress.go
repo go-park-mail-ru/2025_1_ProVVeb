@@ -80,9 +80,8 @@ func DBInitConnectionPostgres(cfg config.DatabaseConfig) (*pgx.Conn, error) {
 	connStr := fmt.Sprintf("postgresql://%s@%s:%d/%s?sslmode=%s",
 		cfg.User, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)
 	conn, err := pgx.Connect(context.Background(), connStr)
-	print(err)
 	if err != nil {
-		return nil, fmt.Errorf("error while connecting to a database")
+		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
 
 	err = conn.Ping(context.Background())
