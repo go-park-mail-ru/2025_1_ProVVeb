@@ -3,34 +3,20 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/jackc/pgx/v5"
 )
 
 func DBInitPostgresConfig() config.DatabaseConfig {
-	user, err := os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get the user home directory: %v", err))
-	}
-
 	return config.DatabaseConfig{
 		Host:     "localhost",
 		Port:     5432,
-		User:     user,
-		Password: "",
+		User:     "dev",
+		Password: "Hello",
 		DBName:   "postgres",
 		SSLMode:  "disable",
 	}
-	// return config.DatabaseConfig{
-	// 	Host:     "localhost",
-	// 	Port:     5432,
-	// 	User:     "postgres",
-	// 	Password: "MYpassword",
-	// 	DBName:   "dev",
-	// 	SSLMode:  "disable",
-	// }
 }
 
 func checkDBConfig(cfg config.DatabaseConfig) error {
@@ -75,10 +61,8 @@ func DBInitConnectionPostgres(cfg config.DatabaseConfig) (*pgx.Conn, error) {
 		return nil, fmt.Errorf("something wrong with config ")
 	}
 
-	// connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
-	// 	cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)
-	connStr := fmt.Sprintf("postgresql://%s@%s:%d/%s?sslmode=%s",
-		cfg.User, cfg.Host, cfg.Port, "postgres", cfg.SSLMode)
+	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)
 	conn, err := pgx.Connect(context.Background(), connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
