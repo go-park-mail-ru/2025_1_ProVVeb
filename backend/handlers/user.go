@@ -47,6 +47,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	muUsers.Lock()
 	defer muUsers.Unlock()
+	fmt.Println("We are here")
 
 	_, err := postgres.DBGetUserPostgres(u.DB, input.Login)
 
@@ -64,6 +65,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Phone:    "",
 		Status:   0,
 	}
+	fmt.Println("We  here")
 
 	_, err = postgres.DBCreateUserPostgres(u.DB, user)
 	if err != nil {
@@ -84,6 +86,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Height:      180,
 		Description: "Do you love communism?",
 	}
+	fmt.Println("We are ")
 
 	_, err = postgres.DBCreateProfilePostgres(u.DB, profile)
 	if err != nil {
