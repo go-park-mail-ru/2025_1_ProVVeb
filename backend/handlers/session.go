@@ -56,7 +56,6 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	login, password := gotData.Login, gotData.Password
 
 	var foundUser config.User
-
 	foundUser, err := postgres.DBGetUserPostgres(u.DB, login)
 
 	if err != nil {

@@ -52,7 +52,7 @@ func ValidatePassword(password string) error {
 }
 
 func (u User) PrintUser() string {
-	return fmt.Sprintf("Current user ID: %d, Login: %s", u.User.Id, u.User.Login)
+	return fmt.Sprintf("Current user ID: %d, Login: %s", u.User.UserId, u.User.Login)
 }
 
 func EncryptPasswordSHA256(password string) string {
@@ -76,7 +76,7 @@ func CreateUser(id int, login string, password string) (User, error) {
 	password = EncryptPasswordSHA256(password)
 
 	user := config.User{
-		Id:       id,
+		UserId:   id,
 		Login:    login,
 		Password: password,
 	}
@@ -92,35 +92,35 @@ func InitUserMap() map[int]config.User {
 		fmt.Println("Error creating user 1:", err)
 		return nil
 	}
-	users[user.User.Id] = user.User
+	users[user.User.UserId] = user.User
 
 	user, err = CreateUser(2, "kostritsy", "StrongPass2")
 	if err != nil {
 		fmt.Println("Error creating user 2:", err)
 		return nil
 	}
-	users[user.User.Id] = user.User
+	users[user.User.UserId] = user.User
 
 	user, err = CreateUser(3, "evaecom", "StrongPass3")
 	if err != nil {
 		fmt.Println("Error creating user 3:", err)
 		return nil
 	}
-	users[user.User.Id] = user.User
+	users[user.User.UserId] = user.User
 
 	user, err = CreateUser(4, "smart_girl", "StrongPass4")
 	if err != nil {
 		fmt.Println("Error creating user 4:", err)
 		return nil
 	}
-	users[user.User.Id] = user.User
+	users[user.User.UserId] = user.User
 
 	user, err = CreateUser(5, "catecatecate", "StrongPass5")
 	if err != nil {
 		fmt.Println("Error creating user 5:", err)
 		return nil
 	}
-	users[user.User.Id] = user.User
+	users[user.User.UserId] = user.User
 
 	return users
 }

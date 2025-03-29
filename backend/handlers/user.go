@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
@@ -46,11 +48,11 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	muUsers.Lock()
 	defer muUsers.Unlock()
 
-	for _, existingUser := range Users {
-		if existingUser.Login == input.Login {
-			makeResponse(w, http.StatusConflict, map[string]string{"message": "user already exists"})
-			return
-		}
+	_, err := postgres.DBGetUserPostgres(u.DB, input.Login)
+
+	if err == nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "User already exists"})
+		return
 	}
 
 	id := len(Users) + 1
@@ -58,27 +60,36 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		UserId:   id,
 		Login:    input.Login,
 		Password: utils.EncryptPasswordSHA256(input.Password),
+		Email:    "",
+		Phone:    "",
+		Status:   0,
 	}
 
-	Users[id] = user
+	_, err = postgres.DBCreateUserPostgres(u.DB, user)
+	if err != nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Unable to create user"})
+		return
+	}
 
 	muProfiles.Lock()
 	defer muProfiles.Unlock()
 
-	// profiles[id] = config.Profile{
-	// 	FirstName:   input.Login,
-	// 	LastName:    "Иванов",
-	// 	Description: "lalalalalalalala",
-	// 	// Birthday: struct {
-	// 	// 	Year  int `yaml:"year" json:"year"`
-	// 	// 	Month int `yaml:"month" json:"month"`
-	// 	// 	Day   int `yaml:"day" json:"day"`
-	// 	// }{
-	// 	// 	Year:  2005,
-	// 	// 	Month: 3,
-	// 	// 	Day:   28,
-	// 	// },
-	// }
+	date, _ := time.Parse("2006-01-02", "1990-01-01")
+
+	profile := config.Profile{
+		FirstName:   input.Login,
+		LastName:    "Иванов",
+		IsMale:      true,
+		Birthday:    date,
+		Height:      180,
+		Description: "Do you love communism?",
+	}
+
+	_, err = postgres.DBCreateProfilePostgres(u.DB, profile)
+	if err != nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Unable to create profile"})
+		return
+	}
 
 	makeResponse(w, http.StatusCreated, map[string]string{"message": "user created"})
 }
