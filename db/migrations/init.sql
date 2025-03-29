@@ -48,7 +48,8 @@ CREATE TABLE users (
     profile_id BIGINT,
     status INT NOT NULL,
     login TEXT UNIQUE NOT NULL CHECK (LENGTH(login) <= 255),
-    email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255),
+    email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255)
+    CHECK (email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
     phone TEXT UNIQUE CHECK (LENGTH(phone) <= 20),
     password TEXT NOT NULL CHECK (LENGTH(password) >= 8 AND LENGTH(password) <= 255), 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
