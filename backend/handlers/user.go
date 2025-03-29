@@ -107,17 +107,20 @@ func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	muUsers.Lock()
 	defer muUsers.Unlock()
 
-	if _, exists := Users[userId]; !exists {
-		makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
+	err = postgres.DBDeleteUserPostgres(u.DB, userId)
+	if err != nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Error while deleting user"})
 		return
 	}
-
-	delete(Users, userId)
 
 	muProfiles.Lock()
 	defer muProfiles.Unlock()
 
-	// delete(profiles, userId)
+	err = postgres.DBDeleteProfilePostgres(u.DB, userId)
+	if err != nil {
+		makeResponse(w, http.StatusNotFound, map[string]string{"message": "Error while deleting profile"})
+		return
+	}
 
 	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }
