@@ -35,6 +35,9 @@ func main() {
 	sessionHandler := &handlers.SessionHandler{DB: conn, RedisClient: redisClient}
 	userHandler := &handlers.UserHandler{DB: conn}
 
+	r.Use(handlers.AdminAuthMiddleware(sessionHandler))
+	r.Use(handlers.PanicMiddleware)
+
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
