@@ -9,19 +9,12 @@ import (
 	"sync"
 	"time"
 
-	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres/queries"
+	config "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/objects"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
-	"github.com/jackc/pgx/v5"
 )
 
 var muSessions = &sync.Mutex{}
-
-type SessionHandler struct {
-	DB          *pgx.Conn
-	RedisClient *redis.RedisClient
-}
 
 func RandStringRunes(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

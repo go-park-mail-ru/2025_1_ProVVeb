@@ -8,18 +8,13 @@ import (
 	"sync"
 	"time"
 
-	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres/queries"
+	postgres "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres/queries"
+	config "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/objects"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/config"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
 )
 
 var muUsers = &sync.Mutex{}
-
-type UserHandler struct {
-	DB *pgx.Conn
-}
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {

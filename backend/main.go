@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/postgres"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/database_function/redis"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/handlers"
 	"github.com/gorilla/mux"
 
@@ -34,6 +34,9 @@ func main() {
 	getHandler := &handlers.GetHandler{DB: conn}
 	sessionHandler := &handlers.SessionHandler{DB: conn, RedisClient: redisClient}
 	userHandler := &handlers.UserHandler{DB: conn}
+
+	r.Use(handlers.AdminAuthMiddleware(sessionHandler))
+	r.Use(handlers.PanicMiddleware)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
