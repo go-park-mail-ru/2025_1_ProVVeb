@@ -5,6 +5,6 @@ RUN go mod download
 
 COPY . .
 
-WORKDIR /backend/backend
+WORKDIR /backend/cmd
 
 CMD ["go", "run", "main.go"]

@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/postgres"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/redis"
 	handlery "github.com/go-park-mail-ru/2025_1_ProVVeb/delivery"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
@@ -21,26 +18,31 @@ func main() {
 	redisAddr := "localhost:6379"
 	redisDB := 0
 
-	redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
-	defer redisClient.Close()
+	// redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
+	// defer redisClient.Close()
 
-	cfg := postgres.DBInitPostgresConfig()
+	// cfg := postgres.DBInitPostgresConfig()
 
-	conn, err := postgres.DBInitConnectionPostgres(cfg)
-	if err != nil {
-		log.Fatal("Не удалось подключиться к базе данных:", err)
-	}
-	defer postgres.DBCloseConnectionPostgres(conn)
+	// conn, err := postgres.DBInitConnectionPostgres(cfg)
+	// if err != nil {
+	// 	log.Fatal("Не удалось подключиться к базе данных:", err)
+	// }
+	// defer postgres.DBCloseConnectionPostgres(conn)
 
-	slonyara := repository.NewUserRepo(conn)
+	slonyara := repository.NewUserRepo()
+	defer slonyara.CloseRepo()
+
+	redisClient := repository.NewSessionRepo(redisAddr, redisDB)
+	defer redisClient.CloseRepo()
+	
 	hasher := repository.NewPassHasher()
 
 	r := mux.NewRouter()
 
 	// getHandler := &handlery.GetHandler{DB: conn}
 	sessionHandler := &handlery.SessionHandler{
-		DB:          conn,
-		RedisClient: redisClient,
+		// DB:          conn,
+		// RedisClient: redisClient,
 		LoginUC: *usecase.NewUserLogInUseCase(
 			slonyara,
 			redisClient,
