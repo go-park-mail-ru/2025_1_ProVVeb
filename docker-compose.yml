@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: Grey31415
       POSTGRES_DB: dev
     ports:
-      - "8020:8020"
+      - "8020:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "8010:8010"
+      - "8010:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -40,12 +40,12 @@ services:
       - ./backend:/app
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 8020  # Внутренний порт контейнера PostgreSQL
+      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Grey31415
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
-      REDIS_ADDR: redis:8010  # Внутренний порт контейнера Redis
+      REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
       REDIS_DB: 0
     depends_on:
       postgres:
