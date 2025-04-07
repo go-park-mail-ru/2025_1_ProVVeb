@@ -1,0 +1,80 @@
+# services:
+#   backend:
+#     build: ./backend
+#     ports:
+#       - "8080:8080"
+#     restart: always
+#     volumes:
+#       - ./backend:/app
+
+#   frontend:
+#     build: ./frontend
+#     ports:
+#       - "8000:8000"
+#     restart: always
+#     volumes:
+#       - ./frontend:/app
+#       - /app/node_modules
+#     environment:
+#       - NODE_ENV=development
+#       - CHOKIDAR_USEPOLLING=true
+#     depends_on:
+#       - backend
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+    ports:
+      - "8020:8020"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "8010:8010"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    restart: always
+    volumes:
+      - ./backend:/app
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 8020
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: redis:8010
+      REDIS_DB: 0
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8000:8000"
+    restart: always
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

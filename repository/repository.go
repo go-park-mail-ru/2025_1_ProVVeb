@@ -52,7 +52,7 @@ func NewUserRepo() *UserRepo {
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
 		Host:     "localhost",
-		Port:     5432,
+		Port:     8020,
 		User:     "postgres",
 		Password: "Grey31415",
 		DBName:   "dev",
