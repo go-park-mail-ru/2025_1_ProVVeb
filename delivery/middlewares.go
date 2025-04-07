@@ -17,7 +17,7 @@ func AdminAuthMiddleware(u *SessionHandler) mux.MiddlewareFunc {
 				return
 			}
 
-			_, err = u.RedisClient.GetSession(session.Value)
+			_, err = u.LoginUC.GetSession(session.Value)
 			if err != nil {
 				fmt.Println("no auth at", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)

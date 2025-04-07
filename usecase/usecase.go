@@ -70,6 +70,10 @@ func (uc *UserLogIn) CreateCookies(ctx context.Context, session model.Session) (
 	return cookie, nil
 }
 
+func (uc *UserLogIn) GetSession(sessionId string) (string, error) {
+	return uc.sessionRepo.GetSession(sessionId)
+}
+
 type UserSignUp struct {
 }
 

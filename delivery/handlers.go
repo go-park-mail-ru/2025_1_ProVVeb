@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/db/redis"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/jackc/pgx/v5"
@@ -15,9 +14,7 @@ type GetHandler struct {
 }
 
 type SessionHandler struct {
-	DB          *pgx.Conn
-	RedisClient *redis.RedisClient
-	LoginUC     usecase.UserLogIn
+	LoginUC usecase.UserLogIn
 }
 
 type UserHandler struct {

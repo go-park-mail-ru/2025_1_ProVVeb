@@ -18,31 +18,18 @@ func main() {
 	redisAddr := "localhost:6379"
 	redisDB := 0
 
-	// redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
-	// defer redisClient.Close()
-
-	// cfg := postgres.DBInitPostgresConfig()
-
-	// conn, err := postgres.DBInitConnectionPostgres(cfg)
-	// if err != nil {
-	// 	log.Fatal("Не удалось подключиться к базе данных:", err)
-	// }
-	// defer postgres.DBCloseConnectionPostgres(conn)
-
 	slonyara := repository.NewUserRepo()
 	defer slonyara.CloseRepo()
 
 	redisClient := repository.NewSessionRepo(redisAddr, redisDB)
 	defer redisClient.CloseRepo()
-	
+
 	hasher := repository.NewPassHasher()
 
 	r := mux.NewRouter()
 
 	// getHandler := &handlery.GetHandler{DB: conn}
 	sessionHandler := &handlery.SessionHandler{
-		// DB:          conn,
-		// RedisClient: redisClient,
 		LoginUC: *usecase.NewUserLogInUseCase(
 			slonyara,
 			redisClient,
@@ -51,9 +38,6 @@ func main() {
 	}
 
 	// userHandler := &handlery.UserHandler{DB: conn}
-
-	r.Use(handlery.AdminAuthMiddleware(sessionHandler))
-	r.Use(handlery.PanicMiddleware)
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -65,6 +49,9 @@ func main() {
 
 	// r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	// r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
+
+	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
+	// r.Use(handlery.PanicMiddleware)
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},

@@ -45,7 +45,6 @@ func NewUserRepo() *UserRepo {
 	if err != nil {
 		// забанить
 	}
-	// defer ClosePostgresConnection(db)
 
 	return &UserRepo{db: db}
 }
