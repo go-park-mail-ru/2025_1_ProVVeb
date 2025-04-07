@@ -58,6 +58,9 @@ services:
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:8010
       REDIS_DB: 0
+    depends_on:
+      - postgres
+      - redis
 
   frontend:
     build: ./frontend
