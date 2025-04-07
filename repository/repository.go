@@ -44,6 +44,7 @@ func NewUserRepo() *UserRepo {
 	db, err := InitPostgresConnection(cfg)
 	if err != nil {
 		fmt.Println("Error connecting to database:", err)
+		return nil
 	}
 
 	return &UserRepo{db: db}
@@ -52,7 +53,7 @@ func NewUserRepo() *UserRepo {
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
 		Host:     "localhost",
-		Port:     8020,
+		Port:     5432,
 		User:     "postgres",
 		Password: "Grey31415",
 		DBName:   "dev",

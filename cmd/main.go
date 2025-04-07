@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	redisAddr := "localhost:8010"
+	redisAddr := "localhost:6379"
 	redisDB := 0
 
 	slonyara := repository.NewUserRepo()
