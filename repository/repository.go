@@ -43,7 +43,7 @@ func NewUserRepo() *UserRepo {
 	cfg := InitPostgresConfig()
 	db, err := InitPostgresConnection(cfg)
 	if err != nil {
-		// забанить
+		fmt.Println("Error connecting to database:", err)
 	}
 
 	return &UserRepo{db: db}
