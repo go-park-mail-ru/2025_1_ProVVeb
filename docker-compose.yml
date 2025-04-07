@@ -1,25 +1,4 @@
-# services:
-#   backend:
-#     build: ./backend
-#     ports:
-#       - "8080:8080"
-#     restart: always
-#     volumes:
-#       - ./backend:/app
-
-#   frontend:
-#     build: ./frontend
-#     ports:
-#       - "8000:8000"
-#     restart: always
-#     volumes:
-#       - ./frontend:/app
-#       - /app/node_modules
-#     environment:
-#       - NODE_ENV=development
-#       - CHOKIDAR_USEPOLLING=true
-#     depends_on:
-#       - backend
+version: '3.8'
 
 services:
   postgres:
@@ -32,6 +11,11 @@ services:
       - "8020:8020"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: always
 
   redis:
@@ -40,6 +24,11 @@ services:
       - "8010:8010"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
     restart: always
 
   backend:
@@ -51,16 +40,18 @@ services:
       - ./backend:/app
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 8020
+      POSTGRES_PORT: 8020  # Внутренний порт контейнера PostgreSQL
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Grey31415
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
-      REDIS_ADDR: redis:8010
+      REDIS_ADDR: redis:8010  # Внутренний порт контейнера Redis
       REDIS_DB: 0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
