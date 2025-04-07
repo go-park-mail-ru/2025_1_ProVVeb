@@ -159,22 +159,22 @@ func NewPassHasher() *PassHasher {
 
 const (
 	getUserByLoginQuery = `
-	SELECT 
-		u.user_id, 
-		u.login, 
-		u.email,
-		u.password,
-		u.phone, 
-		u.status
-	FROM users u
-	WHERE u.login = $1;
-	`
+SELECT 
+	u.user_id, 
+	u.login, 
+	u.email,
+	u.password,
+	u.phone, 
+	u.status
+FROM users u
+WHERE u.login = $1;
+`
 	createSessionQuery = `
-	INSERT INTO sessions (user_id, token, expires_at)
-		VALUES ($1, $2, $3)
-		RETURNING token, user_id, 
-			EXTRACT(EPOCH FROM (expires_at - NOW()))::int
-	`
+INSERT INTO sessions (user_id, token, expires_at)
+	VALUES ($1, $2, $3)
+	RETURNING token, user_id, 
+		EXTRACT(EPOCH FROM (expires_at - NOW()))::int
+`
 )
 
 func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.User, error) {

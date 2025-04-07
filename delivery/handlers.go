@@ -2,9 +2,9 @@ package handlery
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/jackc/pgx/v5"
 )
@@ -37,7 +37,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Password: input.Password,
 	})
 	if err != nil {
-		handleUseCaseError(w, err)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
 	}
 
@@ -67,14 +67,14 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Вспомогательная функция для обработки ошибок use case
-func handleUseCaseError(w http.ResponseWriter, err error) {
-	switch err {
-	case model.ErrInvalidPassword:
-		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Invalid login or password"})
-	// case repository.ErrUserNotFound:
-	// 	makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
-	default:
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Login failed"})
-	}
-}
+// // Вспомогательная функция для обработки ошибок use case
+// func handleUseCaseError(w http.ResponseWriter, err error) {
+// 	switch err {
+// 	case model.ErrInvalidPassword:
+// 		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Invalid login or password"})
+// 	// case repository.ErrUserNotFound:
+// 	// 	makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
+// 	default:
+// 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Login failed"})
+// 	}
+// }
