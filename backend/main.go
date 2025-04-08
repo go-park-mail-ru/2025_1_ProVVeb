@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	redisAddr := "213.219.214.83:6379"
+	redisAddr := "127.0.0.1:6379"
 	redisDB := 0
 
 	redisClient := redis.DBInitRedisConfig(redisAddr, redisDB)
