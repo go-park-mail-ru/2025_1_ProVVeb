@@ -1,20 +1,20 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: Hello
-      POSTGRES_DB: postgres
-    ports:
-      - "8020:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dev -d postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: always
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_USER: dev
+  #     POSTGRES_PASSWORD: Hello
+  #     POSTGRES_DB: postgres
+  #   ports:
+  #     - "8020:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U dev -d postgres"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   restart: always
 
   redis:
     image: redis:7-alpine
@@ -37,17 +37,17 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: Hello
-      POSTGRES_DB: postgres
-      POSTGRES_SSLMODE: disable
+      # POSTGRES_HOST: postgres
+      # POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
+      # POSTGRES_USER: dev
+      # POSTGRES_PASSWORD: Hello
+      # POSTGRES_DB: postgres
+      # POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
       REDIS_DB: 0
     depends_on:
-      postgres:
-        condition: service_healthy
+      # postgres:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
 
