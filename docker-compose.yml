@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
-      POSTGRES_DB: dev
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: Hello
+      POSTGRES_DB: postgres
     ports:
       - "8020:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
+      test: ["CMD-SHELL", "pg_isready -U dev -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
