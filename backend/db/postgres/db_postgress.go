@@ -12,7 +12,7 @@ func DBInitPostgresConfig() config.DatabaseConfig {
 	return config.DatabaseConfig{
 		Host:     "localhost",
 		Port:     5432,
-		User:     "dev",
+		User:     "postgres",
 		Password: "Hello",
 		DBName:   "dev",
 		SSLMode:  "disable",
