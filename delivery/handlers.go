@@ -48,6 +48,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.LoginUC.StoreSession(r.Context(), session); err != nil {
+		fmt.Printf("Error storing session: %v", err)
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
 	}

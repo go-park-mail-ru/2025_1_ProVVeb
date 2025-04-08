@@ -37,17 +37,17 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: Hello
-      POSTGRES_DB: postgres
-      POSTGRES_SSLMODE: disable
+      # POSTGRES_HOST: postgres
+      # POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
+      # POSTGRES_USER: dev
+      # POSTGRES_PASSWORD: Hello
+      # POSTGRES_DB: postgres
+      # POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
       REDIS_DB: 0
     depends_on:
-      postgres:
-        condition: service_healthy
+      # postgres:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
 
