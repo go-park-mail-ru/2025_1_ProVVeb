@@ -50,16 +50,16 @@ func NewUserRepo() *UserRepo {
 	return &UserRepo{db: db}
 }
 
-// func InitPostgresConfig() DatabaseConfig {
-// 	return DatabaseConfig{
-// 		Host:     "postgres",
-// 		Port:     5432,
-// 		User:     "postgres",
-// 		Password: "Grey31415",
-// 		DBName:   "dev",
-// 		SSLMode:  "disable",
-// 	}
-// }
+//	func InitPostgresConfig() DatabaseConfig {
+//		return DatabaseConfig{
+//			Host:     "postgres",
+//			Port:     5432,
+//			User:     "postgres",
+//			Password: "Grey31415",
+//			DBName:   "dev",
+//			SSLMode:  "disable",
+//		}
+//	}
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
 		Host:     "postgres",
