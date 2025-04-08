@@ -1,3 +1,5 @@
+CREATE DATABASE dev;
+
 CREATE TABLE complaint_types (
     comp_type BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     type_description TEXT NOT NULL CHECK (LENGTH(type_description) <= 255)
