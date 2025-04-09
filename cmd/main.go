@@ -15,23 +15,39 @@ import (
 )
 
 func main() {
-	redisAddr := "localhost:6379"
+	redisAddr := "redis:6379"
 	redisDB := 0
 
-	slonyara := repository.NewUserRepo()
-	defer slonyara.CloseRepo()
+	postgresClient, err := repository.NewUserRepo()
+	if err != nil {
+		fmt.Println(fmt.Errorf("Not able to work with postgresClient: %v", err))
+		return
+	}
+	defer postgresClient.CloseRepo()
 
-	redisClient := repository.NewSessionRepo(redisAddr, redisDB)
+	redisClient, err := repository.NewSessionRepo(redisAddr, redisDB)
+	if err != nil {
+		fmt.Println(fmt.Errorf("Not able to work with redisClient: %v", err))
+		return
+	}
 	defer redisClient.CloseRepo()
 
-	hasher := repository.NewPassHasher()
+	hasher, err := repository.NewPassHasher()
+	if err != nil {
+		fmt.Println(fmt.Errorf("Not able to work with hasher: %v", err))
+		return
+	}
 
 	r := mux.NewRouter()
 
 	// getHandler := &handlery.GetHandler{DB: conn}
+
+	// NewUser... должен возвращать ошибку
+	// done
+	// создать свой конструктор с теми же ошибками и тд - потом
 	sessionHandler := &handlery.SessionHandler{
 		LoginUC: *usecase.NewUserLogInUseCase(
-			slonyara,
+			postgresClient,
 			redisClient,
 			hasher,
 		),
@@ -72,3 +88,7 @@ func main() {
 	fmt.Println("starting server at :8080")
 	server.ListenAndServe()
 }
+
+// нужно найти нормальный клиент работы с базой данных чтобы смотреть
+// как с ней взаимодействует всё
+// https://dbeaver.io/

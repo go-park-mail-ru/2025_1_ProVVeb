@@ -39,34 +39,23 @@ type SessionRepo struct {
 
 type PassHasher struct{}
 
-func NewUserRepo() *UserRepo {
+func NewUserRepo() (*UserRepo, error) {
 	cfg := InitPostgresConfig()
 	db, err := InitPostgresConnection(cfg)
 	if err != nil {
 		fmt.Println("Error connecting to database:", err)
-		return nil
+		return &UserRepo{}, err
 	}
-
-	return &UserRepo{db: db}
+	return &UserRepo{db: db}, nil
 }
 
-//	func InitPostgresConfig() DatabaseConfig {
-//		return DatabaseConfig{
-//			Host:     "postgres",
-//			Port:     5432,
-//			User:     "postgres",
-//			Password: "Grey31415",
-//			DBName:   "dev",
-//			SSLMode:  "disable",
-//		}
-//	}
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
-		Host:     "localhost",
+		Host:     "postgres",
 		Port:     5432,
-		User:     "dev",
-		Password: "Hello",
-		DBName:   "postgres",
+		User:     "postgres",
+		Password: "Grey31415",
+		DBName:   "dev",
 		SSLMode:  "disable",
 	}
 }
@@ -141,30 +130,30 @@ func ClosePostgresConnection(conn *pgx.Conn) error {
 	return err
 }
 
-func NewSessionRepo(address string, db int) *SessionRepo {
+func NewSessionRepo(address string, db int) (*SessionRepo, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     address,
 		Password: "",
 		DB:       db,
 	})
-	defer client.Close()
+	// defer client.Close()
 
 	ctx := context.Background()
 
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
+		return &SessionRepo{}, err
 		// логгировать ошибку подключения к Редис с печатью ошибки
-		// log.Fatalf("Ошибка подключения к Redis: %v", err)
 	}
 
 	return &SessionRepo{
 		client: client,
 		ctx:    ctx,
-	}
+	}, nil
 }
 
-func NewPassHasher() *PassHasher {
-	return &PassHasher{}
+func NewPassHasher() (*PassHasher, error) {
+	return &PassHasher{}, nil
 }
 
 const (

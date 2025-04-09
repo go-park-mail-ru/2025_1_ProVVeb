@@ -3,14 +3,15 @@ services:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Hello
-      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
     ports:
       - "8020:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/repository/db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -37,17 +38,17 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      # POSTGRES_HOST: postgres
-      # POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
-      # POSTGRES_USER: dev
-      # POSTGRES_PASSWORD: Hello
-      # POSTGRES_DB: postgres
-      # POSTGRES_SSLMODE: disable
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
       REDIS_DB: 0
     depends_on:
-      # postgres:
-      #   condition: service_healthy
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 

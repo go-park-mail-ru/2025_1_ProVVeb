@@ -48,7 +48,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.LoginUC.StoreSession(r.Context(), session); err != nil {
-		fmt.Printf("Error storing session: %v", err)
+		fmt.Println(fmt.Errorf("Error storing session: %v", err))
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
 	}
@@ -67,15 +67,3 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		"user_id": session.UserId,
 	})
 }
-
-// // Вспомогательная функция для обработки ошибок use case
-// func handleUseCaseError(w http.ResponseWriter, err error) {
-// 	switch err {
-// 	case model.ErrInvalidPassword:
-// 		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Invalid login or password"})
-// 	// case repository.ErrUserNotFound:
-// 	// 	makeResponse(w, http.StatusNotFound, map[string]string{"message": "User not found"})
-// 	default:
-// 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Login failed"})
-// 	}
-// }
