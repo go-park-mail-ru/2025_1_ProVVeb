@@ -32,6 +32,11 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !u.LoginUC.ValidateLogin(input.Login) || !u.LoginUC.ValidatePassword(input.Password) {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		return
+	}
+
 	session, err := u.LoginUC.CreateSession(r.Context(), usecase.LogInInput{
 		Login:    input.Login,
 		Password: input.Password,

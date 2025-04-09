@@ -13,17 +13,20 @@ type UserLogIn struct {
 	userRepo    repository.UserRepository
 	sessionRepo repository.SessionRepository
 	hasher      repository.PasswordHasher
+	validator   repository.UserParamsValidator
 }
 
 func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
+	validator repository.UserParamsValidator,
 ) *UserLogIn {
 	return &UserLogIn{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
 		hasher:      hasher,
+		validator:   validator,
 	}
 }
 
@@ -72,6 +75,14 @@ func (uc *UserLogIn) CreateCookies(ctx context.Context, session model.Session) (
 
 func (uc *UserLogIn) GetSession(sessionId string) (string, error) {
 	return uc.sessionRepo.GetSession(sessionId)
+}
+
+func (uc *UserLogIn) ValidateLogin(login string) bool {
+	return uc.validator.ValidateLogin(login) == nil
+}
+
+func (uc *UserLogIn) ValidatePassword(password string) bool {
+	return uc.validator.ValidatePassword(password) == nil
 }
 
 type UserSignUp struct {

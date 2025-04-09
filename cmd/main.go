@@ -38,6 +38,12 @@ func main() {
 		return
 	}
 
+	validator, err := repository.NewUParamsValidator()
+	if err != nil {
+		fmt.Println(fmt.Errorf("Not able to work with validator: %v", err))
+		return
+	}
+
 	r := mux.NewRouter()
 
 	// getHandler := &handlery.GetHandler{DB: conn}
@@ -50,6 +56,7 @@ func main() {
 			postgresClient,
 			redisClient,
 			hasher,
+			validator,
 		),
 	}
 
