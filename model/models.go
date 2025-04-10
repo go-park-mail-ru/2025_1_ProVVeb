@@ -23,6 +23,7 @@ var (
 	ErrGetSession            = errors.New("failed to get session")
 	ErrStoreSession          = errors.New("failed to store session")
 	ErrInvalidSessionId      = errors.New("invalid session id")
+	ErrDeleteSession         = errors.New("failed to delete session")
 )
 
 type User struct {

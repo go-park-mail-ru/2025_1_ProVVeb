@@ -61,19 +61,13 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 }
 
 func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) error {
-	return uc.sessionRepo.StoreSession(session.SessionId, strconv.Itoa(session.UserId), session.Expires)
-}
-
-func (uc *UserLogIn) CreateCookies(ctx context.Context, session model.Session) (*model.Cookie, error) {
-	cookie := &model.Cookie{
-		Name:     "session_id",
-		Value:    session.SessionId,
-		HttpOnly: true,
-		Secure:   false,
-		Expires:  time.Now().Add(session.Expires),
-		Path:     "/",
+	err := uc.sessionRepo.StoreSession(session.SessionId, strconv.Itoa(session.UserId), session.Expires)
+	if err != nil {
+		return err
 	}
-	return cookie, nil
+
+	err = uc.userRepo.StoreSession(session.UserId, session.SessionId)
+	return err
 }
 
 func (uc *UserLogIn) GetSession(sessionId string) (string, error) {
@@ -181,6 +175,39 @@ func (uc *UserCheckSession) CheckSession(sessionId string) (int, error) {
 }
 
 type UserLogOut struct {
+	userRepo    repository.UserRepository
+	sessionRepo repository.SessionRepository
+}
+
+func NewUserLogOutUseCase(userRepo repository.UserRepository, sessionRepo repository.SessionRepository) *UserLogOut {
+	return &UserLogOut{
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+	}
+}
+
+func (ul *UserLogOut) Logout(sessionId string) error {
+	userIdStr, err := ul.sessionRepo.GetSession(sessionId)
+	if err != nil {
+		return err
+	}
+
+	err = ul.sessionRepo.DeleteSession(sessionId)
+	if err != nil {
+		return model.ErrDeleteSession
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		return model.ErrInvalidSessionId
+	}
+
+	err = ul.userRepo.DeleteSession(userId)
+	if err != nil {
+		return model.ErrDeleteSession
+	}
+
+	return nil
 }
 
 type UserDeleteById struct {

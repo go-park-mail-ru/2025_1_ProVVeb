@@ -61,9 +61,12 @@ func main() {
 		CheckSessionUC: *usecase.NewUserCheckSessionUseCase(
 			redisClient,
 		),
+		LogoutUC: *usecase.NewUserLogOutUseCase(
+			postgresClient,
+			redisClient,
+		),
 	}
 
-	// userHandler := &handlery.UserHandler{DB: conn}
 	userHandler := &handlery.UserHandler{
 		SignupUC: *usecase.NewUserSignUpUseCase(
 			postgresClient,
@@ -76,7 +79,7 @@ func main() {
 
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
-	// r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
+	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	// r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 

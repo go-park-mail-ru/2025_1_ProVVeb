@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
@@ -17,11 +18,23 @@ type GetHandler struct {
 type SessionHandler struct {
 	LoginUC        usecase.UserLogIn
 	CheckSessionUC usecase.UserCheckSession
-	// LogoutUC usecase.Logout
+	LogoutUC       usecase.UserLogOut
 }
 
 type UserHandler struct {
 	SignupUC usecase.UserSignUp
+}
+
+func CreateCookies(session model.Session) (*model.Cookie, error) {
+	cookie := &model.Cookie{
+		Name:     "session_id",
+		Value:    session.SessionId,
+		HttpOnly: true,
+		Secure:   false,
+		Expires:  time.Now().Add(session.Expires),
+		Path:     "/",
+	}
+	return cookie, nil
 }
 
 func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +62,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := sh.LoginUC.CreateCookies(r.Context(), session)
+	cookie, err := CreateCookies(session)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
 		return
@@ -152,4 +165,40 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	makeResponse(w, http.StatusOK, response)
+}
+
+func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
+	session, err := r.Cookie("session_id")
+	if err == http.ErrNoCookie {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
+		return
+	}
+
+	if err := sh.LogoutUC.Logout(session.Value); err != nil {
+		if err == model.ErrSessionNotFound {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			return
+		}
+		if err == model.ErrGetSession {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			return
+		}
+		if err == model.ErrDeleteSession {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
+			return
+		}
+	}
+
+	expiredCookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   false,
+		Expires:  time.Now().AddDate(-1, 0, 0),
+		Path:     "/",
+	}
+
+	http.SetCookie(w, expiredCookie)
+
+	makeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }

@@ -19,12 +19,15 @@ type UserRepository interface {
 	UserExists(ctx context.Context, login string) bool
 	StoreUser(model.User) (int, error)
 	StoreProfile(model.Profile) (int, error)
+	DeleteSession(userId int) error
+	StoreSession(userID int, sessionID string) error
 }
 
 type SessionRepository interface {
 	GetSession(sessionID string) (string, error)
 	StoreSession(sessionID string, data string, ttl time.Duration) error
 	CloseRepo() error
+	DeleteSession(sessionID string) error
 }
 
 type PasswordHasher interface {
@@ -184,19 +187,30 @@ WHERE u.login = $1;
 `
 	createSessionQuery = `
 INSERT INTO sessions (user_id, token, expires_at)
-	VALUES ($1, $2, $3)
-	RETURNING token, user_id, 
-		EXTRACT(EPOCH FROM (expires_at - NOW()))::int
+VALUES ($1, $2, $3)
+RETURNING token, user_id, 
+	EXTRACT(EPOCH FROM (expires_at - NOW()))::int
 `
 	createProfileQuery = `
-	INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	RETURNING profile_id;
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING profile_id;
 `
 	createUserQuery = `
-	INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
-	VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
-	RETURNING user_id;
+INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
+VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
+RETURNING user_id;
+`
+	findSessionQuery = `
+SELECT id FROM sessions WHERE user_id = $1;
+`
+	deleteSessionQuery = `
+DELETE FROM sessions WHERE user_id = $1;
+`
+	storeSessionQuery = `
+INSERT INTO sessions (user_id, token, created_at, expires_at)
+VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+RETURNING id;
 `
 )
 
@@ -231,6 +245,18 @@ func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string,
 	)
 
 	return session, err
+}
+
+func (ur *UserRepo) StoreSession(userID int, sessionID string) error {
+	var sessionId int
+
+	err := ur.db.QueryRow(
+		context.Background(),
+		storeSessionQuery,
+		userID,
+		sessionID,
+	).Scan(&sessionId)
+	return err
 }
 
 func (ur *UserRepo) CloseRepo() error {
@@ -270,6 +296,27 @@ func (ur *UserRepo) UserExists(ctx context.Context, login string) bool {
 	return err == nil
 }
 
+func (ur *UserRepo) DeleteSession(userId int) error {
+	var profileId int
+	err := ur.db.QueryRow(context.Background(), findSessionQuery, userId).Scan(&profileId)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return model.ErrSessionNotFound
+		}
+		return model.ErrDeleteSession
+	}
+
+	_, err = ur.db.Exec(context.Background(), deleteSessionQuery, userId)
+	if err != nil {
+		return model.ErrDeleteSession
+	}
+	return err
+}
+
+func (sr *SessionRepo) DeleteSession(sessionID string) error {
+	return sr.client.Del(sr.ctx, sessionID).Err()
+}
+
 func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
 	data, err := sr.client.Get(sr.ctx, sessionID).Result()
 	if err != nil {
@@ -284,7 +331,7 @@ func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
 func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Duration) error {
 	err := sr.client.Set(sr.ctx, sessionID, data, ttl).Err()
 	if err != nil {
-		return model.ErrStoreSession //
+		return model.ErrStoreSession
 	}
 	return nil
 }
