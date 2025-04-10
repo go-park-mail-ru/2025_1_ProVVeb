@@ -2,8 +2,11 @@ package usecase
 
 import (
 	"context"
+	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/icrowley/fake"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
@@ -86,6 +89,74 @@ func (uc *UserLogIn) ValidatePassword(password string) bool {
 }
 
 type UserSignUp struct {
+	userRepo  repository.UserRepository
+	hasher    repository.PasswordHasher
+	validator repository.UserParamsValidator
+}
+
+func NewUserSignUpUseCase(
+	userRepo repository.UserRepository,
+	hasher repository.PasswordHasher,
+	validator repository.UserParamsValidator,
+) *UserSignUp {
+	return &UserSignUp{
+		userRepo:  userRepo,
+		hasher:    hasher,
+		validator: validator,
+	}
+}
+
+type UserSignUpInput struct {
+	Login    string
+	Password string
+}
+
+func (uc *UserSignUp) ValidateLogin(login string) error {
+	return uc.validator.ValidateLogin(login)
+}
+
+func (uc *UserSignUp) ValidatePassword(password string) error {
+	return uc.validator.ValidatePassword(password)
+}
+
+func (uc *UserSignUp) UserExists(ctx context.Context, login string) bool {
+	return uc.userRepo.UserExists(ctx, login)
+}
+
+func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, error) {
+	email := fake.EmailAddress()
+	phone := fake.Phone()
+	status := 0
+	user := model.User{
+		Login:    login,
+		Password: uc.hasher.Hash(password),
+		Email:    email,
+		Phone:    phone,
+		Status:   status,
+		UserId:   userId,
+	}
+
+	return uc.userRepo.StoreUser(user)
+}
+
+func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
+	fname := fake.FirstName()
+	lname := fake.LastName()
+	ismale := true
+	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
+	height := rand.Int()%100 + 100
+	description := fake.SentencesN(5)
+
+	profile := model.Profile{
+		FirstName:   fname,
+		LastName:    lname,
+		IsMale:      ismale,
+		Birthday:    birthdate,
+		Height:      height,
+		Description: description,
+	}
+
+	return uc.userRepo.StoreProfile(profile)
 }
 
 type UserCheckSession struct {

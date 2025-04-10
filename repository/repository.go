@@ -16,6 +16,9 @@ type UserRepository interface {
 	GetUserByLogin(ctx context.Context, login string) (model.User, error)
 	CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error)
 	CloseRepo() error
+	UserExists(ctx context.Context, login string) bool
+	StoreUser(model.User) (int, error)
+	StoreProfile(model.Profile) (int, error)
 }
 
 type SessionRepository interface {
@@ -185,6 +188,16 @@ INSERT INTO sessions (user_id, token, expires_at)
 	RETURNING token, user_id, 
 		EXTRACT(EPOCH FROM (expires_at - NOW()))::int
 `
+	createProfileQuery = `
+	INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	RETURNING profile_id;
+`
+	createUserQuery = `
+	INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
+	VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
+	RETURNING user_id;
+`
 )
 
 func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.User, error) {
@@ -222,6 +235,39 @@ func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string,
 
 func (ur *UserRepo) CloseRepo() error {
 	return ClosePostgresConnection(ur.db)
+}
+
+func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
+	err = ur.db.QueryRow(
+		context.Background(),
+		createUserQuery,
+		user.Login,
+		user.Email,
+		user.Phone,
+		user.Password,
+		user.Status,
+		user.UserId,
+	).Scan(&userId)
+	return
+}
+
+func (ur *UserRepo) StoreProfile(profile model.Profile) (profileId int, err error) {
+	err = ur.db.QueryRow(
+		context.Background(),
+		createProfileQuery,
+		profile.FirstName,
+		profile.LastName,
+		profile.IsMale,
+		profile.Birthday,
+		profile.Height,
+		profile.Description,
+	).Scan(&profileId)
+	return
+}
+
+func (ur *UserRepo) UserExists(ctx context.Context, login string) bool {
+	_, err := ur.GetUserByLogin(ctx, login)
+	return err == nil
 }
 
 func (sr *SessionRepo) GetSession(sessionID string) (string, error) {

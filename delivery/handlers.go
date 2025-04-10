@@ -18,7 +18,7 @@ type SessionHandler struct {
 }
 
 type UserHandler struct {
-	DB *pgx.Conn
+	SignupUC usecase.UserSignUp
 }
 
 func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
@@ -71,4 +71,39 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		"message": "Logged in",
 		"user_id": session.UserId,
 	})
+}
+
+func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
+	}
+
+	if u.SignupUC.ValidateLogin(input.Login) != nil || u.SignupUC.ValidatePassword(input.Password) != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		return
+	}
+
+	if u.SignupUC.UserExists(r.Context(), input.Login) {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
+		return
+	}
+
+	profileId, err := u.SignupUC.SaveUserProfile(input.Login)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
+		return
+	}
+
+	if _, err := u.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		return
+	}
+
+	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }

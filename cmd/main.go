@@ -61,10 +61,17 @@ func main() {
 	}
 
 	// userHandler := &handlery.UserHandler{DB: conn}
+	userHandler := &handlery.UserHandler{
+		SignupUC: *usecase.NewUserSignUpUseCase(
+			postgresClient,
+			hasher,
+			validator,
+		),
+	}
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
+	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	// r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	// r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
