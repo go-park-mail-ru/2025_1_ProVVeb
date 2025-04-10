@@ -135,6 +135,10 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
 			return
 		}
+		if err == model.ErrInvalidSessionId {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
+			return
+		}
 	}
 
 	response := struct {
