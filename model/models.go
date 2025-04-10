@@ -13,9 +13,17 @@ var MaxLoginLength = 15
 var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
-// init errors
-var ErrInvalidLogin = errors.New("invalid login")
-var ErrInvalidPassword = errors.New("invalid password")
+// errors
+var (
+	ErrInvalidLogin          = errors.New("invalid login")
+	ErrInvalidPassword       = errors.New("invalid password")
+	ErrSessionNotFound       = errors.New("session not found")
+	ErrInvalidSession        = errors.New("invalid session")
+	ErrInvalidUserRepoConfig = errors.New("invalid user repository config")
+	ErrGetSession            = errors.New("failed to get session")
+	ErrStoreSession          = errors.New("failed to store session")
+	ErrInvalidSessionId      = errors.New("invalid session id")
+)
 
 type User struct {
 	UserId   int    `yaml:"id" json:"id"`
@@ -56,4 +64,3 @@ type Cookie struct {
 	Secure   bool      `yaml:"secure" json:"secure"`
 	Path     string    `yaml:"path" json:"path"`
 }
-

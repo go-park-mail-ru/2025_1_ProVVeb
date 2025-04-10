@@ -160,6 +160,24 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 }
 
 type UserCheckSession struct {
+	sessionRepo repository.SessionRepository
+}
+
+func NewUserCheckSessionUseCase(sessionRepo repository.SessionRepository) *UserCheckSession {
+	return &UserCheckSession{sessionRepo: sessionRepo}
+}
+
+func (uc *UserCheckSession) CheckSession(sessionId string) (int, error) {
+	userIdStr, err := uc.sessionRepo.GetSession(sessionId)
+	if err != nil {
+		return -1, err
+	}
+
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		return -1, model.ErrInvalidSessionId
+	}
+	return userId, nil
 }
 
 type UserLogOut struct {

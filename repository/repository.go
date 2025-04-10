@@ -111,7 +111,7 @@ func InitPostgresConnection(cfg DatabaseConfig) (*pgx.Conn, error) {
 	err := checkPostgresConfig(cfg)
 	if err != nil {
 		// обработать ошибку
-		return nil, fmt.Errorf("something wrong with config ")
+		return nil, model.ErrInvalidUserRepoConfig
 	}
 
 	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
@@ -135,7 +135,7 @@ func ClosePostgresConnection(conn *pgx.Conn) error {
 	if conn != nil {
 		err = conn.Close(context.Background())
 		if err != nil {
-			fmt.Printf("Ошибка при закрытии соединения: %v\n", err)
+			fmt.Printf("failed while closing connection: %v\n", err)
 		}
 	}
 	return err
@@ -274,9 +274,9 @@ func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
 	data, err := sr.client.Get(sr.ctx, sessionID).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return "", fmt.Errorf("сессия не найдена")
+			return "", model.ErrSessionNotFound
 		}
-		return "", fmt.Errorf("не удалось получить сессию из Redis: %v", err)
+		return "", model.ErrGetSession
 	}
 	return data, nil
 }
@@ -284,7 +284,7 @@ func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
 func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Duration) error {
 	err := sr.client.Set(sr.ctx, sessionID, data, ttl).Err()
 	if err != nil {
-		return fmt.Errorf("не удалось сохранить сессию в Redis: %v", err)
+		return model.ErrStoreSession //
 	}
 	return nil
 }

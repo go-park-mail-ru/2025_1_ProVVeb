@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/jackc/pgx/v5"
 )
@@ -14,14 +15,16 @@ type GetHandler struct {
 }
 
 type SessionHandler struct {
-	LoginUC usecase.UserLogIn
+	LoginUC        usecase.UserLogIn
+	CheckSessionUC usecase.UserCheckSession
+	// LogoutUC usecase.Logout
 }
 
 type UserHandler struct {
 	SignupUC usecase.UserSignUp
 }
 
-func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
@@ -32,12 +35,12 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !u.LoginUC.ValidateLogin(input.Login) || !u.LoginUC.ValidatePassword(input.Password) {
+	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
-	session, err := u.LoginUC.CreateSession(r.Context(), usecase.LogInInput{
+	session, err := sh.LoginUC.CreateSession(r.Context(), usecase.LogInInput{
 		Login:    input.Login,
 		Password: input.Password,
 	})
@@ -46,13 +49,13 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := u.LoginUC.CreateCookies(r.Context(), session)
+	cookie, err := sh.LoginUC.CreateCookies(r.Context(), session)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
 		return
 	}
 
-	if err := u.LoginUC.StoreSession(r.Context(), session); err != nil {
+	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
 		fmt.Println(fmt.Errorf("Error storing session: %v", err))
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
@@ -73,7 +76,7 @@ func (u *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
@@ -84,26 +87,65 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.SignupUC.ValidateLogin(input.Login) != nil || u.SignupUC.ValidatePassword(input.Password) != nil {
+	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
-	if u.SignupUC.UserExists(r.Context(), input.Login) {
+	if uh.SignupUC.UserExists(r.Context(), input.Login) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
 	}
 
-	profileId, err := u.SignupUC.SaveUserProfile(input.Login)
+	profileId, err := uh.SignupUC.SaveUserProfile(input.Login)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
 		return
 	}
 
-	if _, err := u.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
+	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}
 
 	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
+}
+
+func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
+	session, err := r.Cookie("session_id")
+	if err == http.ErrNoCookie {
+		response := struct {
+			Message   string `json:"message"`
+			InSession bool   `json:"inSession"`
+		}{
+			Message:   "No cookies got",
+			InSession: false,
+		}
+		makeResponse(w, http.StatusOK, response)
+		return
+	}
+
+	userId, err := sh.CheckSessionUC.CheckSession(session.Value)
+	if err != nil {
+		if err == model.ErrSessionNotFound {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			return
+		}
+		if err == model.ErrGetSession {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			return
+		}
+	}
+
+	response := struct {
+		Message   string `json:"message"`
+		InSession bool   `json:"inSession"`
+		UserId    int    `json:"id"`
+	}{
+		Message:   "Logged in",
+		InSession: true,
+		UserId:    userId,
+	}
+
+	makeResponse(w, http.StatusOK, response)
 }
