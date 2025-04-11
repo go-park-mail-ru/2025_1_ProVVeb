@@ -21,6 +21,7 @@ type UserRepository interface {
 	StoreProfile(model.Profile) (int, error)
 	DeleteSession(userId int) error
 	StoreSession(userID int, sessionID string) error
+	DeleteUserById(userId int) error
 }
 
 type SessionRepository interface {
@@ -113,7 +114,6 @@ func checkPostgresConfig(cfg DatabaseConfig) error {
 func InitPostgresConnection(cfg DatabaseConfig) (*pgx.Conn, error) {
 	err := checkPostgresConfig(cfg)
 	if err != nil {
-		// обработать ошибку
 		return nil, model.ErrInvalidUserRepoConfig
 	}
 
@@ -211,6 +211,15 @@ DELETE FROM sessions WHERE user_id = $1;
 INSERT INTO sessions (user_id, token, created_at, expires_at)
 VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
 RETURNING id;
+`
+	findUserProfileQuery = `
+SELECT profile_id FROM users WHERE user_id = $1;
+`
+	deleteUserQuery = `
+DELETE FROM users WHERE user_id = $1;
+`
+	deleteProfileQuery = `
+DELETE FROM profiles WHERE profile_id = $1;
 `
 )
 
@@ -313,6 +322,28 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 	return err
 }
 
+func (ur *UserRepo) DeleteUserById(userId int) error {
+	var profileId int
+	err := ur.db.QueryRow(context.Background(), findUserProfileQuery, userId).Scan(&profileId)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return model.ErrProfileNotFound
+		}
+		return model.ErrDeleteUser
+	}
+
+	_, err = ur.db.Exec(context.Background(), deleteProfileQuery, profileId)
+	if err != nil {
+		return model.ErrDeleteProfile
+	}
+
+	_, err = ur.db.Exec(context.Background(), deleteUserQuery, userId)
+	if err != nil {
+		return model.ErrDeleteUser
+	}
+	return nil
+}
+
 func (sr *SessionRepo) DeleteSession(sessionID string) error {
 	return sr.client.Del(sr.ctx, sessionID).Err()
 }
@@ -334,6 +365,10 @@ func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Dura
 		return model.ErrStoreSession
 	}
 	return nil
+}
+
+func (sr *SessionRepo) DeleteAllSessions() error {
+	return sr.client.FlushAll(sr.ctx).Err()
 }
 
 func (sr *SessionRepo) CloseRepo() error {

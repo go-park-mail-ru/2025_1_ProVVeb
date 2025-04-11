@@ -73,6 +73,9 @@ func main() {
 			hasher,
 			validator,
 		),
+		DeleteUserUC: *usecase.NewUserDeleteUseCase(
+			postgresClient,
+		),
 	}
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -80,7 +83,7 @@ func main() {
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
-	// r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
+	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
 	// r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")

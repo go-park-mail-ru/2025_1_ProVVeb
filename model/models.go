@@ -24,6 +24,9 @@ var (
 	ErrStoreSession          = errors.New("failed to store session")
 	ErrInvalidSessionId      = errors.New("invalid session id")
 	ErrDeleteSession         = errors.New("failed to delete session")
+	ErrProfileNotFound       = errors.New("profile not found")
+	ErrDeleteUser            = errors.New("failed to delete user")
+	ErrDeleteProfile         = errors.New("failed to delete profile")
 )
 
 type User struct {

@@ -140,6 +140,10 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
 	height := rand.Int()%100 + 100
 	description := fake.SentencesN(5)
+	interests := []string{}
+	for range 20 {
+		interests = append(interests, fake.Word())
+	}
 
 	profile := model.Profile{
 		FirstName:   fname,
@@ -148,6 +152,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Birthday:    birthdate,
 		Height:      height,
 		Description: description,
+		Interests:   interests,
 	}
 
 	return uc.userRepo.StoreProfile(profile)
@@ -210,7 +215,16 @@ func (ul *UserLogOut) Logout(sessionId string) error {
 	return nil
 }
 
-type UserDeleteById struct {
+type UserDelete struct {
+	userRepo repository.UserRepository
+}
+
+func NewUserDeleteUseCase(userRepo repository.UserRepository) *UserDelete {
+	return &UserDelete{userRepo: userRepo}
+}
+
+func (ud *UserDelete) DeleteUser(userId int) error {
+	return ud.userRepo.DeleteUserById(userId)
 }
 
 type GetProfileById struct {

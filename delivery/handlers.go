@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -22,7 +24,8 @@ type SessionHandler struct {
 }
 
 type UserHandler struct {
-	SignupUC usecase.UserSignUp
+	SignupUC     usecase.UserSignUp
+	DeleteUserUC usecase.UserDelete
 }
 
 func CreateCookies(session model.Session) (*model.Cookie, error) {
@@ -201,4 +204,22 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, expiredCookie)
 
 	makeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
+}
+
+func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	userId, err := strconv.Atoi(id)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	if err := uh.DeleteUserUC.DeleteUser(userId); err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }
