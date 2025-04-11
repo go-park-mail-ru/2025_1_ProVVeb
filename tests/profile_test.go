@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/backend/utils"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/utils"
 )
 
 func TestValidateBirthday(t *testing.T) {
