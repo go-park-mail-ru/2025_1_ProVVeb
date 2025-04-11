@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"time"
@@ -22,6 +23,7 @@ type UserRepository interface {
 	DeleteSession(userId int) error
 	StoreSession(userID int, sessionID string) error
 	DeleteUserById(userId int) error
+	GetProfileById(userId int) (model.Profile, error)
 }
 
 type SessionRepository interface {
@@ -221,6 +223,38 @@ DELETE FROM users WHERE user_id = $1;
 	deleteProfileQuery = `
 DELETE FROM profiles WHERE profile_id = $1;
 `
+	getProfileByIdQuery = `
+SELECT 
+    p.profile_id, 
+    p.firstname, 
+    p.lastname, 
+    p.is_male,
+    p.height,
+    p.birthday, 
+    p.description, 
+    l.country, 
+    liked.profile_id AS liked_by_profile_id,
+    s.path AS avatar,
+    i.description AS interest,
+    pr.preference_type, 
+    pr.value AS preference
+FROM profiles p
+LEFT JOIN locations l 
+    ON p.location_id = l.location_id
+LEFT JOIN static s 
+    ON p.photo_id = s.id
+LEFT JOIN profile_interests pi 
+    ON pi.profile_id = p.profile_id
+LEFT JOIN interests i 
+    ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp 
+    ON pp.profile_id = p.profile_id
+LEFT JOIN preferences pr 
+    ON pp.preference_id = pr.preference_id
+LEFT JOIN likes liked
+    ON liked.liked_profile_id = p.profile_id
+WHERE p.profile_id = $1;
+`
 )
 
 func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.User, error) {
@@ -342,6 +376,76 @@ func (ur *UserRepo) DeleteUserById(userId int) error {
 		return model.ErrDeleteUser
 	}
 	return nil
+}
+
+func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
+	var profile model.Profile
+	var birth sql.NullTime
+	var interest sql.NullString
+	var preferenceType sql.NullInt64
+	var preferenceValue sql.NullString
+	var likedByProfileId sql.NullInt64
+	var photo sql.NullString
+	var location sql.NullString
+
+	rows, err := ur.db.Query(context.Background(), getProfileByIdQuery, profileId)
+	if err != nil {
+		return profile, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(
+			&profile.ProfileId,
+			&profile.FirstName,
+			&profile.LastName,
+			&profile.IsMale,
+			&profile.Height,
+			&birth,
+			&profile.Description,
+			&location,
+			&likedByProfileId,
+			&photo,
+			&interest,
+			&preferenceType,
+			&preferenceValue,
+		); err != nil {
+			return profile, err
+		}
+
+		if photo.Valid {
+			profile.Card = "http://213.219.214.83:8080/static/cards" + photo.String
+			profile.Avatar = "http://213.219.214.83:8080/static/avatars" + photo.String
+		} else {
+			profile.Avatar = ""
+			profile.Card = ""
+		}
+
+		if birth.Valid {
+			profile.Birthday = birth.Time
+		}
+
+		if location.Valid {
+			profile.Location = location.String
+		}
+
+		if likedByProfileId.Valid {
+			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
+		}
+
+		if interest.Valid {
+			profile.Interests = append(profile.Interests, interest.String)
+		}
+
+		if preferenceValue.Valid {
+			profile.Preferences = append(profile.Preferences, preferenceValue.String)
+		}
+	}
+	if rows.Err() != nil {
+		return profile, rows.Err()
+	}
+
+	return profile, nil
 }
 
 func (sr *SessionRepo) DeleteSession(sessionID string) error {

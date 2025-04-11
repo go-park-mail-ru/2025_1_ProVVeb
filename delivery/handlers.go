@@ -10,11 +10,11 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
 )
 
 type GetHandler struct {
-	DB *pgx.Conn
+	GetProfileUC  usecase.GetProfile
+	GetProfilesUC usecase.GetProfilesForUser
 }
 
 type SessionHandler struct {
@@ -222,4 +222,22 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
+}
+
+func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	profileId, err := strconv.Atoi(id)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	profile, err := gh.GetProfileUC.GetProfile(profileId)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, profile)
 }

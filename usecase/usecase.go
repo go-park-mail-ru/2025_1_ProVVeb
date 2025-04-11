@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -155,6 +156,8 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Interests:   interests,
 	}
 
+	fmt.Println(fmt.Errorf("Profile: %+v", profile))
+
 	return uc.userRepo.StoreProfile(profile)
 }
 
@@ -227,8 +230,22 @@ func (ud *UserDelete) DeleteUser(userId int) error {
 	return ud.userRepo.DeleteUserById(userId)
 }
 
-type GetProfileById struct {
+type GetProfile struct {
+	userRepo repository.UserRepository
+}
+
+func NewGetProfileUseCase(userRepo repository.UserRepository) *GetProfile {
+	return &GetProfile{userRepo: userRepo}
+}
+
+func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
+	return gp.userRepo.GetProfileById(userId)
 }
 
 type GetProfilesForUser struct {
+	userRepo repository.UserRepository
+}
+
+func NewGetProfilesForUserUseCase(userRepo repository.UserRepository) *GetProfilesForUser {
+	return &GetProfilesForUser{userRepo: userRepo}
 }
