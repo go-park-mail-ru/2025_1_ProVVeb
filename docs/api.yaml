@@ -276,7 +276,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Profile'
+                $ref: '#/components/schemas/profile'
         '400':
           description: Invalid user ID
           content:
@@ -325,7 +325,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Profile'
+                  $ref: '#/components/schemas/profile'
         '400':
           description: Invalid user ID
           content:
