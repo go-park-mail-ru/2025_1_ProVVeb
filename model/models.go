@@ -13,6 +13,8 @@ var MaxLoginLength = 15
 var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
+var PageSize = 5
+
 // errors
 var (
 	ErrInvalidLogin          = errors.New("invalid login")

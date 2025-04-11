@@ -249,3 +249,7 @@ type GetProfilesForUser struct {
 func NewGetProfilesForUserUseCase(userRepo repository.UserRepository) *GetProfilesForUser {
 	return &GetProfilesForUser{userRepo: userRepo}
 }
+
+func (gp *GetProfilesForUser) GetProfiles(forUserId int) ([]model.Profile, error) {
+	return gp.userRepo.GetProfilesByUserId(forUserId)
+}

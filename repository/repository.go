@@ -24,6 +24,7 @@ type UserRepository interface {
 	StoreSession(userID int, sessionID string) error
 	DeleteUserById(userId int) error
 	GetProfileById(userId int) (model.Profile, error)
+	GetProfilesByUserId(forUserId int) ([]model.Profile, error)
 }
 
 type SessionRepository interface {
@@ -446,6 +447,22 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	}
 
 	return profile, nil
+}
+
+func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
+	profiles := make([]model.Profile, 0, model.PageSize)
+	amount := 0
+	for i := 0; amount < model.PageSize; i++ {
+		if i != forUserId {
+			profile, err := ur.GetProfileById(i)
+			if err != nil {
+				return profiles, err
+			}
+			profiles = append(profiles, profile)
+			amount++
+		}
+	}
+	return profiles, nil
 }
 
 func (sr *SessionRepo) DeleteSession(sessionID string) error {

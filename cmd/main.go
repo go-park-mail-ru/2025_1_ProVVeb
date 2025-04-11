@@ -94,7 +94,7 @@ func main() {
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
-	// r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
+	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
 	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
 	// r.Use(handlery.PanicMiddleware)

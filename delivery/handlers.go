@@ -241,3 +241,21 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	makeResponse(w, http.StatusOK, profile)
 }
+
+func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
+	var userId string = r.URL.Query().Get("forUser")
+
+	profileId, err := strconv.Atoi(userId)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, profiles)
+}
