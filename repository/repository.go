@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"time"
@@ -12,6 +14,8 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 type UserRepository interface {
@@ -26,6 +30,10 @@ type UserRepository interface {
 	DeleteUserById(userId int) error
 	GetProfileById(userId int) (model.Profile, error)
 	GetProfilesByUserId(forUserId int) ([]model.Profile, error)
+	SetLike(from int, to int, status int) (likeID int, err error)
+
+	StorePhoto(userID int, url string) error
+	GetPhotos(userID int) ([]string, error)
 }
 
 type SessionRepository interface {
@@ -45,6 +53,11 @@ type UserParamsValidator interface {
 	ValidatePassword(password string) error
 }
 
+type StaticRepository interface {
+	GetImages(urls []string) ([][]byte, error)
+	UploadImages(fileBytes []byte, filename, contentType string) error
+}
+
 type UserRepo struct {
 	db *pgx.Conn
 }
@@ -57,6 +70,79 @@ type SessionRepo struct {
 type PassHasher struct{}
 
 type UParamsValidator struct{}
+
+type StaticRepo struct {
+	client     *minio.Client
+	bucketName string
+}
+
+func (sr *StaticRepo) UploadImages(fileBytes []byte, filename, contentType string) error {
+	ctx := context.Background()
+
+	_, err := sr.client.PutObject(ctx, sr.bucketName, filename,
+		bytes.NewReader(fileBytes),
+		int64(len(fileBytes)),
+		minio.PutObjectOptions{ContentType: contentType},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to upload image to minio: %w", err)
+	}
+	return nil
+}
+
+func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
+	var results [][]byte
+
+	for _, objectName := range urls {
+		obj, err := sr.client.GetObject(context.Background(), sr.bucketName, objectName, minio.GetObjectOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get object %s: %w", objectName, err)
+		}
+
+		data, err := io.ReadAll(obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read object %s: %w", objectName, err)
+		}
+
+		results = append(results, data)
+	}
+
+	return results, nil
+}
+
+func NewStaticRepo() (*StaticRepo, error) {
+	endpoint := "localhost:8030"
+	accessKeyID := "minioadmin"
+	secretAccessKey := "miniopassword"
+	useSSL := false
+
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: useSSL,
+	})
+	if err != nil {
+		fmt.Println("Error connecting to database:", err)
+		return &StaticRepo{}, err
+	}
+
+	bucketName := "profile-photos"
+	ctx := context.Background()
+	exists, err := minioClient.BucketExists(ctx, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &StaticRepo{
+		client:     minioClient,
+		bucketName: bucketName,
+	}, nil
+}
 
 func NewUserRepo() (*UserRepo, error) {
 	cfg := InitPostgresConfig()
@@ -454,6 +540,64 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	}
 
 	return profile, nil
+}
+
+const createLikeQuery = `
+INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
+VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+RETURNING like_id;
+`
+
+func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
+	err = ur.db.QueryRow(
+		context.Background(),
+		createLikeQuery,
+		from,
+		to,
+		status,
+	).Scan(&likeID)
+	return
+}
+
+const uploadPhotoQuery = `
+INSERT INTO static (profile_id, path, created_at, updated_at)
+VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING profile_id, path, created_at;
+`
+
+func (ur *UserRepo) StorePhoto(userID int, url string) error {
+	_, err := ur.db.Exec(context.Background(), uploadPhotoQuery, userID, url)
+	return err
+}
+
+const getPhotoPathsQuery = `
+SELECT path FROM static 
+WHERE profile_id = (
+	SELECT profile_id FROM users WHERE user_id = $1
+);
+`
+
+func (ur *UserRepo) GetPhotos(userID int) ([]string, error) {
+	rows, err := ur.db.Query(context.Background(), getPhotoPathsQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var photos []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		photos = append(photos, path)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return photos, nil
 }
 
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {

@@ -1,8 +1,11 @@
 package handlery
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,8 +16,9 @@ import (
 )
 
 type GetHandler struct {
-	GetProfileUC  usecase.GetProfile
-	GetProfilesUC usecase.GetProfilesForUser
+	GetProfileUC    usecase.GetProfile
+	GetProfilesUC   usecase.GetProfilesForUser
+	GetProfileImage usecase.GetUserPhoto
 }
 
 type SessionHandler struct {
@@ -28,6 +32,58 @@ type UserHandler struct {
 	DeleteUserUC usecase.UserDelete
 }
 
+type StaticHandler struct {
+	UploadUC usecase.StaticUpload
+}
+
+type ProfileHandler struct {
+	LikeUC usecase.ProfileSetLike
+}
+
+func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		LikeFrom string `json:"login"`
+		LikedBy  string `json:"password"`
+		Status   string `json:"Status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
+	}
+
+	LikeFrom, err := strconv.Atoi(input.LikeFrom)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	Status, err := strconv.Atoi(input.Status)
+	if (err != nil) || ((Status != 1) && (Status != -1)) {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid status"})
+		return
+	}
+
+	LikeBy, err := strconv.Atoi(input.LikeFrom)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	if LikeBy == LikeFrom {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please dont like yourself"})
+		return
+	}
+
+	err = ph.LikeUC.SetLike(LikeBy, LikeFrom, Status)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
+}
+
 func CreateCookies(session model.Session) (*model.Cookie, error) {
 	cookie := &model.Cookie{
 		Name:     "session_id",
@@ -38,6 +94,85 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 		Path:     "/",
 	}
 	return cookie, nil
+}
+
+func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
+	const maxMemory = 10 << 20
+	allowedTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/webp": true,
+	}
+
+	userId := r.URL.Query().Get("forUser")
+	user_id, err := strconv.Atoi(userId)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	err = r.ParseMultipartForm(maxMemory)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid multipart form"})
+		return
+	}
+
+	form := r.MultipartForm
+	files := form.File["images"]
+
+	if len(files) == 0 {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
+		return
+	}
+
+	var (
+		failedUploads  []string
+		successUploads []string
+	)
+
+	for _, fileHeader := range files {
+		file, err := fileHeader.Open()
+		if err != nil {
+			failedUploads = append(failedUploads, fileHeader.Filename)
+			continue
+		}
+		defer file.Close()
+
+		contentType := fileHeader.Header.Get("Content-Type")
+		if !allowedTypes[contentType] {
+			failedUploads = append(failedUploads, fileHeader.Filename+" (unsupported type)")
+			continue
+		}
+
+		buf, err := io.ReadAll(file)
+		if err != nil {
+			failedUploads = append(failedUploads, fileHeader.Filename+" (read error)")
+			continue
+		}
+
+		filename := fmt.Sprintf("%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
+
+		err = sh.UploadUC.UploadUserPhoto(user_id, buf, filename, contentType)
+		if err != nil {
+			failedUploads = append(failedUploads, fileHeader.Filename+" (upload error)")
+			continue
+		}
+
+		successUploads = append(successUploads, filename)
+	}
+
+	if len(failedUploads) == 0 {
+		makeResponse(w, http.StatusInternalServerError, map[string]interface{}{
+			"message":        "Some uploads failed",
+			"failed_uploads": failedUploads,
+		})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, map[string]interface{}{
+		"message":        "All files uploaded",
+		"uploaded_files": successUploads,
+	})
 }
 
 func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +207,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
-		fmt.Println(fmt.Errorf("Error storing session: %v", err))
+		fmt.Println(fmt.Errorf("error storing session: %v", err))
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
 	}
@@ -229,33 +364,106 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(id)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		http.Error(w, "Invalid user id", http.StatusBadRequest)
 		return
 	}
 
 	profile, err := gh.GetProfileUC.GetProfile(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		http.Error(w, fmt.Sprintf("Error getting profile: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profile)
+	files, err := gh.GetProfileImage.GetUserPhoto(profileId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error loading images: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writer := multipart.NewWriter(w)
+	defer writer.Close()
+
+	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
+
+	jsonData, err := json.Marshal(profile)
+	if err != nil {
+		http.Error(w, "Failed to marshal profile", http.StatusInternalServerError)
+		return
+	}
+
+	jsonPart, err := writer.CreateFormField("profile")
+	if err != nil {
+		http.Error(w, "Failed to create profile part", http.StatusInternalServerError)
+		return
+	}
+	_, err = jsonPart.Write(jsonData)
+	if err != nil {
+		http.Error(w, "Failed to write profile part", http.StatusInternalServerError)
+		return
+	}
+
+	for i, file := range files {
+		part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", i+1), fmt.Sprintf("photo%d.jpg", i+1))
+		if err != nil {
+			http.Error(w, "Failed to create image part", http.StatusInternalServerError)
+			return
+		}
+		_, err = part.Write(file)
+		if err != nil {
+			http.Error(w, "Failed to write image data", http.StatusInternalServerError)
+			return
+		}
+	}
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
-	var userId string = r.URL.Query().Get("forUser")
+	userId := r.URL.Query().Get("forUser")
 
 	profileId, err := strconv.Atoi(userId)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		http.Error(w, "Invalid user id", http.StatusBadRequest)
 		return
 	}
 
 	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		http.Error(w, fmt.Sprintf("Error getting profiles: %v", err), http.StatusInternalServerError)
+		return
+	}
+	for i := range profiles {
+		photos, err := gh.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err), http.StatusInternalServerError)
+			return
+		}
+
+		encoded := make([]string, 0, len(photos))
+		for _, img := range photos {
+			encoded = append(encoded, base64.StdEncoding.EncodeToString(img))
+		}
+		profiles[i].Photos = encoded
+	}
+
+	writer := multipart.NewWriter(w)
+	defer writer.Close()
+
+	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
+
+	profileJson, err := json.Marshal(profiles)
+	if err != nil {
+		http.Error(w, "Error serializing profiles to JSON", http.StatusInternalServerError)
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profiles)
+	part, err := writer.CreateFormField("profiles")
+	if err != nil {
+		http.Error(w, "Error creating multipart field", http.StatusInternalServerError)
+		return
+	}
+	_, err = part.Write(profileJson)
+	if err != nil {
+		http.Error(w, "Error writing profile JSON", http.StatusInternalServerError)
+		return
+	}
+
 }

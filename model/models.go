@@ -54,6 +54,7 @@ type Profile struct {
 	Interests   []string  `yaml:"interests" json:"interests"`
 	LikedBy     []int     `yaml:"likedBy" json:"likedBy"`
 	Preferences []string  `yaml:"preferences" json:"preferences"`
+	Photos      []string  `yaml:"photos" json:"photos"`
 }
 
 type Session struct {

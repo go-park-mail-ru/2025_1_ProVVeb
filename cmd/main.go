@@ -32,6 +32,12 @@ func main() {
 	}
 	defer redisClient.CloseRepo()
 
+	staticClient, err := repository.NewStaticRepo()
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with midio: %v", err))
+		return
+	}
+
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with hasher: %v", err))
@@ -49,9 +55,15 @@ func main() {
 	getHandler := &handlery.GetHandler{
 		GetProfileUC: *usecase.NewGetProfileUseCase(
 			postgresClient,
+			staticClient,
 		),
 		GetProfilesUC: *usecase.NewGetProfilesForUserUseCase(
 			postgresClient,
+			staticClient,
+		),
+		GetProfileImage: *usecase.NewGetUserPhotoUseCase(
+			postgresClient,
+			staticClient,
 		),
 	}
 
@@ -74,6 +86,12 @@ func main() {
 		),
 	}
 
+	profileHandler := &handlery.ProfileHandler{
+		LikeUC: *usecase.NewProfileLikeCase(
+			postgresClient,
+		),
+	}
+
 	userHandler := &handlery.UserHandler{
 		SignupUC: *usecase.NewUserSignUpUseCase(
 			postgresClient,
@@ -82,6 +100,13 @@ func main() {
 		),
 		DeleteUserUC: *usecase.NewUserDeleteUseCase(
 			postgresClient,
+		),
+	}
+
+	staticHandler := &handlery.StaticHandler{
+		UploadUC: *usecase.NewStaticUseCase(
+			postgresClient,
+			staticClient,
 		),
 	}
 
@@ -95,6 +120,9 @@ func main() {
 
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
+
+	r.HandleFunc("/profiles/upload_photo", staticHandler.UploadPhoto).Methods("POST")
+	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
 
 	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
 	// r.Use(handlery.PanicMiddleware)

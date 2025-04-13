@@ -132,8 +132,28 @@ INSERT INTO messages (sender_profile_id, receiver_profile_id, content, status) V
 (5, 1, 'Ты очень интересный человек!', 1);
 
 INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
-(1, 2, 1), (2, 3, 1), (3, 4, 1), (4, 5, 1),
-(5, 6, 1), (6, 7, 1), (7, 8, 1), (8, 9, 1), (9, 10, 1), (10, 1, 1);
+(1, 2, 1), 
+(2, 3, 1), 
+(3, 4, 1), 
+(4, 5, 1),
+(5, 6, 1), 
+(6, 7, 1), 
+(7, 8, 1), 
+(8, 9, 1), 
+(9, 10, 1), 
+(10, 1, 1);
+
+INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
+(1, 3, 2),
+(2, 4, 2),
+(3, 5, 2),
+(4, 6, 2),
+(5, 7, 2),
+(6, 8, 2),
+(7, 9, 2),
+(8, 10, 2),
+(9, 1, 2),
+(10, 2, 2);
 
 
 INSERT INTO matches (profile_id, matched_profile_id) VALUES
