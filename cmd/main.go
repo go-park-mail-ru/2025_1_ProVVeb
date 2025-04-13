@@ -20,27 +20,27 @@ func main() {
 
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
-		fmt.Println(fmt.Errorf("Not able to work with postgresClient: %v", err))
+		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
 		return
 	}
 	defer postgresClient.CloseRepo()
 
 	redisClient, err := repository.NewSessionRepo(redisAddr, redisDB)
 	if err != nil {
-		fmt.Println(fmt.Errorf("Not able to work with redisClient: %v", err))
+		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
 		return
 	}
 	defer redisClient.CloseRepo()
 
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
-		fmt.Println(fmt.Errorf("Not able to work with hasher: %v", err))
+		fmt.Println(fmt.Errorf("not able to work with hasher: %v", err))
 		return
 	}
 
 	validator, err := repository.NewUParamsValidator()
 	if err != nil {
-		fmt.Println(fmt.Errorf("Not able to work with validator: %v", err))
+		fmt.Println(fmt.Errorf("not able to work with validator: %v", err))
 		return
 	}
 

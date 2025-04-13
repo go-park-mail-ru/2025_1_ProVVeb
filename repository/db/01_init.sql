@@ -15,12 +15,6 @@ CREATE TABLE locations (
     district TEXT NOT NULL CHECK (LENGTH(district) <= 255)
 );
 
-CREATE TABLE static (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    path TEXT NOT NULL CHECK (LENGTH(path) <= 255) DEFAULT '/default.png',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE subscription_types (
     sub_type BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -35,11 +29,9 @@ CREATE TABLE profiles (
     birthday DATE NOT NULL,
     height INT CHECK (height >= 50 AND height <= 280),
     description TEXT,
-    photo_id BIGINT,
     location_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (photo_id) REFERENCES static(id) ON DELETE SET NULL ON UPDATE CASCADE,
     FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -55,6 +47,15 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+CREATE TABLE static (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    profile_id BIGINT NOT NULL,
+    path TEXT NOT NULL CHECK (LENGTH(path) <= 255) DEFAULT '/default.png',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE sessions (
@@ -83,7 +84,8 @@ CREATE TABLE profile_interests (
 CREATE TABLE preferences (
     preference_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     preference_type INT NOT NULL,
-    value TEXT NOT NULL CHECK (LENGTH(value) <= 255),
+    preference_description TEXT NOT NULL CHECK (LENGTH(preference_description) <= 255),
+    preference_value TEXT NOT NULL CHECK (LENGTH(preference_value) <= 255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

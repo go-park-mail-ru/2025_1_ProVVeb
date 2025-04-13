@@ -124,7 +124,7 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 	status := 0
 	user := model.User{
 		Login:    login,
-		Password: uc.hasher.Hash(password),
+		Password: uc.hasher.Hash(login + "_" + password),
 		Email:    email,
 		Phone:    phone,
 		Status:   status,

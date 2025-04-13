@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -176,8 +177,7 @@ func NewUParamsValidator() (*UParamsValidator, error) {
 	return &UParamsValidator{}, nil
 }
 
-const (
-	getUserByLoginQuery = `
+const getUserByLoginQuery = `
 SELECT 
 	u.user_id, 
 	u.login, 
@@ -188,75 +188,6 @@ SELECT
 FROM users u
 WHERE u.login = $1;
 `
-	createSessionQuery = `
-INSERT INTO sessions (user_id, token, expires_at)
-VALUES ($1, $2, $3)
-RETURNING token, user_id, 
-	EXTRACT(EPOCH FROM (expires_at - NOW()))::int
-`
-	createProfileQuery = `
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-RETURNING profile_id;
-`
-	createUserQuery = `
-INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
-VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
-RETURNING user_id;
-`
-	findSessionQuery = `
-SELECT id FROM sessions WHERE user_id = $1;
-`
-	deleteSessionQuery = `
-DELETE FROM sessions WHERE user_id = $1;
-`
-	storeSessionQuery = `
-INSERT INTO sessions (user_id, token, created_at, expires_at)
-VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
-RETURNING id;
-`
-	findUserProfileQuery = `
-SELECT profile_id FROM users WHERE user_id = $1;
-`
-	deleteUserQuery = `
-DELETE FROM users WHERE user_id = $1;
-`
-	deleteProfileQuery = `
-DELETE FROM profiles WHERE profile_id = $1;
-`
-	getProfileByIdQuery = `
-SELECT 
-    p.profile_id, 
-    p.firstname, 
-    p.lastname, 
-    p.is_male,
-    p.height,
-    p.birthday, 
-    p.description, 
-    l.country, 
-    liked.profile_id AS liked_by_profile_id,
-    s.path AS avatar,
-    i.description AS interest,
-    pr.preference_type, 
-    pr.value AS preference
-FROM profiles p
-LEFT JOIN locations l 
-    ON p.location_id = l.location_id
-LEFT JOIN static s 
-    ON p.photo_id = s.id
-LEFT JOIN profile_interests pi 
-    ON pi.profile_id = p.profile_id
-LEFT JOIN interests i 
-    ON pi.interest_id = i.interest_id
-LEFT JOIN profile_preferences pp 
-    ON pp.profile_id = p.profile_id
-LEFT JOIN preferences pr 
-    ON pp.preference_id = pr.preference_id
-LEFT JOIN likes liked
-    ON liked.liked_profile_id = p.profile_id
-WHERE p.profile_id = $1;
-`
-)
 
 func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.User, error) {
 	var user model.User
@@ -272,6 +203,13 @@ func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.Use
 
 	return user, err
 }
+
+const createSessionQuery = `
+INSERT INTO sessions (user_id, token, expires_at)
+VALUES ($1, $2, $3)
+RETURNING token, user_id, 
+	EXTRACT(EPOCH FROM (expires_at - NOW()))::int
+`
 
 func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error) {
 	var session model.Session
@@ -291,6 +229,12 @@ func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string,
 	return session, err
 }
 
+const storeSessionQuery = `
+INSERT INTO sessions (user_id, token, created_at, expires_at)
+VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+RETURNING id;
+`
+
 func (ur *UserRepo) StoreSession(userID int, sessionID string) error {
 	var sessionId int
 
@@ -307,6 +251,12 @@ func (ur *UserRepo) CloseRepo() error {
 	return ClosePostgresConnection(ur.db)
 }
 
+const createUserQuery = `
+INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
+VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
+RETURNING user_id;
+`
+
 func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
 	err = ur.db.QueryRow(
 		context.Background(),
@@ -320,6 +270,12 @@ func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
 	).Scan(&userId)
 	return
 }
+
+const createProfileQuery = `
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING profile_id;
+`
 
 func (ur *UserRepo) StoreProfile(profile model.Profile) (profileId int, err error) {
 	err = ur.db.QueryRow(
@@ -340,6 +296,15 @@ func (ur *UserRepo) UserExists(ctx context.Context, login string) bool {
 	return err == nil
 }
 
+const (
+	findSessionQuery = `
+SELECT id FROM sessions WHERE user_id = $1;
+`
+	deleteSessionQuery = `
+DELETE FROM sessions WHERE user_id = $1;
+`
+)
+
 func (ur *UserRepo) DeleteSession(userId int) error {
 	var profileId int
 	err := ur.db.QueryRow(context.Background(), findSessionQuery, userId).Scan(&profileId)
@@ -356,6 +321,18 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 	}
 	return err
 }
+
+const (
+	deleteProfileQuery = `
+DELETE FROM profiles WHERE profile_id = $1;
+`
+	deleteUserQuery = `
+DELETE FROM users WHERE user_id = $1;
+`
+	findUserProfileQuery = `
+	SELECT profile_id FROM users WHERE user_id = $1;
+	`
+)
 
 func (ur *UserRepo) DeleteUserById(userId int) error {
 	var profileId int
@@ -379,11 +356,43 @@ func (ur *UserRepo) DeleteUserById(userId int) error {
 	return nil
 }
 
+const getProfileByIdQuery = `
+SELECT 
+    p.profile_id, 
+    p.firstname, 
+    p.lastname, 
+    p.is_male,
+    p.height,
+    p.birthday, 
+    p.description, 
+    l.country, 
+    liked.profile_id AS liked_by_profile_id,
+    s.path AS avatar,
+    i.description AS interest,
+    pr.preference_description || ':' || pr.preference_value AS preference
+FROM profiles p
+LEFT JOIN locations l 
+    ON p.location_id = l.location_id
+LEFT JOIN static s 
+    ON p.profile_id = s.profile_id
+LEFT JOIN profile_interests pi 
+    ON pi.profile_id = p.profile_id
+LEFT JOIN interests i 
+    ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp 
+    ON pp.profile_id = p.profile_id
+LEFT JOIN preferences pr 
+    ON pp.preference_id = pr.preference_id
+LEFT JOIN likes liked
+    ON liked.liked_profile_id = p.profile_id
+WHERE p.profile_id = $1;
+
+`
+
 func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var profile model.Profile
 	var birth sql.NullTime
 	var interest sql.NullString
-	var preferenceType sql.NullInt64
 	var preferenceValue sql.NullString
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
@@ -408,7 +417,6 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&likedByProfileId,
 			&photo,
 			&interest,
-			&preferenceType,
 			&preferenceValue,
 		); err != nil {
 			return profile, err
@@ -429,16 +437,15 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 		if location.Valid {
 			profile.Location = location.String
 		}
-
-		if likedByProfileId.Valid {
+		if likedByProfileId.Valid && !slices.Contains(profile.LikedBy, int(likedByProfileId.Int64)) {
 			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
 		}
 
-		if interest.Valid {
+		if interest.Valid && !slices.Contains(profile.Interests, interest.String) {
 			profile.Interests = append(profile.Interests, interest.String)
 		}
 
-		if preferenceValue.Valid {
+		if preferenceValue.Valid && !slices.Contains(profile.Preferences, preferenceValue.String) {
 			profile.Preferences = append(profile.Preferences, preferenceValue.String)
 		}
 	}
