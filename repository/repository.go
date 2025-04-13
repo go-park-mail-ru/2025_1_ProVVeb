@@ -111,7 +111,7 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 }
 
 func NewStaticRepo() (*StaticRepo, error) {
-	endpoint := "localhost:8030"
+	endpoint := "213.219.214.83:8030"
 	accessKeyID := "minioadmin"
 	secretAccessKey := "miniopassword"
 	useSSL := false
