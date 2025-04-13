@@ -84,6 +84,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   cookie.Secure,
 		Expires:  cookie.Expires,
 		Path:     cookie.Path,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	makeResponse(w, http.StatusOK, map[string]interface{}{
