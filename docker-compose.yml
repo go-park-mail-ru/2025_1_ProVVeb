@@ -30,6 +30,19 @@ services:
       retries: 10
     restart: always
 
+    minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Admin UI
+    volumes:
+      - ./minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: miniopassword
+    command: server /data --console-address ":9001"
+
   backend:
     build: ./backend
     ports:
