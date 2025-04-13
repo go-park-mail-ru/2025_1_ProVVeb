@@ -78,7 +78,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Domain:   "localhost",
 		Name:     cookie.Name,
 		Value:    cookie.Value,
 		HttpOnly: cookie.HttpOnly,
