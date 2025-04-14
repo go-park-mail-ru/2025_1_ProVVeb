@@ -36,9 +36,9 @@ type StaticHandler struct {
 }
 
 type ProfileHandler struct {
-	LikeUC          usecase.ProfileSetLike
-	MatchUC         usecase.ProfileGetMatches
-	GetProfileImage usecase.GetUserPhoto
+	LikeUC            usecase.ProfileSetLike
+	MatchUC           usecase.ProfileGetMatches
+	GetProfileImageUC usecase.GetUserPhoto
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		if len(profile.LastName) == 0 {
 			continue
 		}
-		photos, err := ph.GetProfileImage.GetUserPhoto(profile.ProfileId)
+		photos, err := ph.GetProfileImageUC.GetUserPhoto(profile.ProfileId)
 		if err != nil {
 			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
 			return

@@ -31,7 +31,7 @@ func main() {
 
 	staticClient, err := repository.NewStaticRepo()
 	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with midio: %v", err))
+		fmt.Println(fmt.Errorf("not able to work with minio: %v", err))
 		return
 	}
 
@@ -90,7 +90,7 @@ func main() {
 		MatchUC: *usecase.NewProfileMatchCase(
 			postgresClient,
 		),
-		GetProfileImage: *usecase.NewGetUserPhotoUseCase(
+		GetProfileImageUC: *usecase.NewGetUserPhotoUseCase(
 			postgresClient,
 			staticClient,
 		),
@@ -150,7 +150,7 @@ func main() {
 	}
 
 	fmt.Println("starting server at :8080")
-	server.ListenAndServe()
+	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
 }
 
 // нужно найти нормальный клиент работы с базой данных чтобы смотреть
