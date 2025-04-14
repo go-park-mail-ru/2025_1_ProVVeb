@@ -38,7 +38,6 @@ func main() {
 		return
 	}
 
-	object, err := minioClient.GetObject(ctx, "profile-photos", "eva.png", ...)
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with hasher: %v", err))
