@@ -14,6 +14,7 @@ var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
 var PageSize = 5
+var MaxFileSize int64 = 10 << 20
 
 // errors
 var (

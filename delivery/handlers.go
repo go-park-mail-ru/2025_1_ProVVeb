@@ -106,8 +106,8 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		LikeFrom string `json:"likeFrom"`
-		LikedBy  string `json:"likeBy"`
-		Status   string `json:"Status"`
+		LikeTo   string `json:"likeTo"`
+		Status   string `json:"status"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -115,30 +115,30 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LikeFrom, err := strconv.Atoi(input.LikeFrom)
+	likeFrom, err := strconv.Atoi(input.LikeFrom)
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
-	Status, err := strconv.Atoi(input.Status)
-	if (err != nil) || ((Status != 1) && (Status != -1)) {
+	status, err := strconv.Atoi(input.Status)
+	if (err != nil) || ((status != 1) && (status != -1)) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid status"})
 		return
 	}
 
-	LikeBy, err := strconv.Atoi(input.LikedBy)
+	likeBy, err := strconv.Atoi(input.LikeTo)
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
-	if LikeBy == LikeFrom {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please dont like yourself"})
+	if likeBy == likeFrom {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
 		return
 	}
 
-	err = ph.LikeUC.SetLike(LikeBy, LikeFrom, Status)
+	err = ph.LikeUC.SetLike(likeBy, likeFrom, status)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return
@@ -160,7 +160,7 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 }
 
 func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
-	const maxMemory = 10 << 20
+	var maxMemory int64 = model.MaxFileSize
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/png":  true,
@@ -224,7 +224,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		successUploads = append(successUploads, filename)
 	}
 
-	if len(failedUploads) == 0 {
+	if len(failedUploads) != 0 {
 		makeResponse(w, http.StatusInternalServerError, map[string]interface{}{
 			"message":        "Some uploads failed",
 			"failed_uploads": failedUploads,
@@ -328,13 +328,6 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }
-
-// первый раз пришли на сервис
-// делаем запрос checkSession
-// сессии нет, поэтому логинимся
-// выполняется логин, успех
-// пользователь что-то делает - sessionId хранится в куках
-// как только страница обновляется - куки становятся просроченнные ИЛИ...
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
