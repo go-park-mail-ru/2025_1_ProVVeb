@@ -90,6 +90,9 @@ func main() {
 		LikeUC: *usecase.NewProfileLikeCase(
 			postgresClient,
 		),
+		MatchUC: *usecase.NewProfileMatchCase(
+			postgresClient,
+		),
 	}
 
 	userHandler := &handlery.UserHandler{
@@ -123,6 +126,8 @@ func main() {
 
 	r.HandleFunc("/profiles/upload_photo", staticHandler.UploadPhoto).Methods("POST")
 	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
+
+	r.HandleFunc("/profiles/match/{id}", profileHandler.GetMatches).Methods("GET")
 
 	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
 	// r.Use(handlery.PanicMiddleware)

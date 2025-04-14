@@ -34,6 +34,7 @@ type UserRepository interface {
 
 	StorePhoto(userID int, url string) error
 	GetPhotos(userID int) ([]string, error)
+	GetMatches(forUserId int) ([]model.Profile, error)
 }
 
 type SessionRepository interface {
@@ -74,6 +75,48 @@ type UParamsValidator struct{}
 type StaticRepo struct {
 	client     *minio.Client
 	bucketName string
+}
+
+const getMatches = `
+SELECT 
+    profile_id, 
+    matched_profile_id
+FROM matches
+WHERE profile_id = $1 OR matched_profile_id = $1;
+`
+
+func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
+	rows, err := ur.db.Query(context.Background(), getMatches, forUserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var matches [][2]int
+
+	for rows.Next() {
+		var a, b int
+		if err := rows.Scan(&a, &b); err != nil {
+			return nil, err
+		}
+		matches = append(matches, [2]int{a, b})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	profiles := make([]model.Profile, 0, model.PageSize)
+	amount := 0
+	for i := 0; amount < len(matches); i++ {
+		profile, err := ur.GetProfileById(i)
+		if err != nil {
+			return profiles, err
+		}
+		profiles = append(profiles, profile)
+		amount++
+	}
+	return profiles, nil
 }
 
 func (sr *StaticRepo) UploadImages(fileBytes []byte, filename, contentType string) error {
@@ -459,7 +502,7 @@ SELECT
 FROM profiles p
 LEFT JOIN locations l 
     ON p.location_id = l.location_id
-LEFT JOIN static s 
+LEFT JOIN "static" s 
     ON p.profile_id = s.profile_id
 LEFT JOIN profile_interests pi 
     ON pi.profile_id = p.profile_id

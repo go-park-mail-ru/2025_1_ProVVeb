@@ -37,7 +37,61 @@ type StaticHandler struct {
 }
 
 type ProfileHandler struct {
-	LikeUC usecase.ProfileSetLike
+	LikeUC          usecase.ProfileSetLike
+	MatchUC         usecase.ProfileGetMatches
+	GetProfileImage usecase.GetUserPhoto
+}
+
+func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+
+	profileId, err := strconv.Atoi(id)
+	if err != nil {
+		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	profiles, err := ph.MatchUC.GetMatches(profileId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting profiles: %v", err), http.StatusInternalServerError)
+		return
+	}
+	for i := range profiles {
+		photos, err := ph.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err), http.StatusInternalServerError)
+			return
+		}
+
+		encoded := make([]string, 0, len(photos))
+		for _, img := range photos {
+			encoded = append(encoded, base64.StdEncoding.EncodeToString(img))
+		}
+		profiles[i].Photos = encoded
+	}
+
+	writer := multipart.NewWriter(w)
+	defer writer.Close()
+
+	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
+
+	profileJson, err := json.Marshal(profiles)
+	if err != nil {
+		http.Error(w, "Error serializing profiles to JSON", http.StatusInternalServerError)
+		return
+	}
+
+	part, err := writer.CreateFormField("profiles")
+	if err != nil {
+		http.Error(w, "Error creating multipart field", http.StatusInternalServerError)
+		return
+	}
+	_, err = part.Write(profileJson)
+	if err != nil {
+		http.Error(w, "Error writing profile JSON", http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
