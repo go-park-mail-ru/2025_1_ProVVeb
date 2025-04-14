@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	handlery "github.com/go-park-mail-ru/2025_1_ProVVeb/delivery"
+	handlers "github.com/go-park-mail-ru/2025_1_ProVVeb/delivery"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 
@@ -52,7 +52,7 @@ func main() {
 
 	r := mux.NewRouter()
 
-	getHandler := &handlery.GetHandler{
+	getHandler := &handlers.GetHandler{
 		GetProfileUC: *usecase.NewGetProfileUseCase(
 			postgresClient,
 			staticClient,
@@ -70,7 +70,7 @@ func main() {
 	// NewUser... должен возвращать ошибку
 	// done
 	// создать свой конструктор с теми же ошибками и тд - потом
-	sessionHandler := &handlery.SessionHandler{
+	sessionHandler := &handlers.SessionHandler{
 		LoginUC: *usecase.NewUserLogInUseCase(
 			postgresClient,
 			redisClient,
@@ -86,7 +86,7 @@ func main() {
 		),
 	}
 
-	profileHandler := &handlery.ProfileHandler{
+	profileHandler := &handlers.ProfileHandler{
 		LikeUC: *usecase.NewProfileLikeCase(
 			postgresClient,
 		),
@@ -99,7 +99,7 @@ func main() {
 		),
 	}
 
-	userHandler := &handlery.UserHandler{
+	userHandler := &handlers.UserHandler{
 		SignupUC: *usecase.NewUserSignUpUseCase(
 			postgresClient,
 			hasher,
@@ -110,7 +110,7 @@ func main() {
 		),
 	}
 
-	staticHandler := &handlery.StaticHandler{
+	staticHandler := &handlers.StaticHandler{
 		UploadUC: *usecase.NewStaticUseCase(
 			postgresClient,
 			staticClient,
