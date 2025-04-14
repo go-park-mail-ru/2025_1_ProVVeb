@@ -47,19 +47,19 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profiles, err := ph.MatchUC.GetMatches(profileId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting profiles: %v", err), http.StatusInternalServerError)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 	for i := range profiles {
 		photos, err := ph.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err), http.StatusInternalServerError)
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err)})
 			return
 		}
 
@@ -77,18 +77,18 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 	profileJson, err := json.Marshal(profiles)
 	if err != nil {
-		http.Error(w, "Error serializing profiles to JSON", http.StatusInternalServerError)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error serializing profiles to JSON"})
 		return
 	}
 
 	part, err := writer.CreateFormField("profiles")
 	if err != nil {
-		http.Error(w, "Error creating multipart field", http.StatusInternalServerError)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error creating multipart field"})
 		return
 	}
 	_, err = part.Write(profileJson)
 	if err != nil {
-		http.Error(w, "Error writing profile JSON", http.StatusInternalServerError)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error writing profile JSON"})
 		return
 	}
 
@@ -430,19 +430,19 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(id)
 	if err != nil {
-		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profile, err := gh.GetProfileUC.GetProfile(profileId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting profile: %v", err), http.StatusInternalServerError)
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
 		return
 	}
 
 	files, err := gh.GetProfileImage.GetUserPhoto(profileId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("error loading images: %v", err), http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("error loading images: %v", err)})
 		return
 	}
 
@@ -453,30 +453,30 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(profile)
 	if err != nil {
-		http.Error(w, "Failed to marshal profile", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to marshal profile"})
 		return
 	}
 
 	jsonPart, err := writer.CreateFormField("profile")
 	if err != nil {
-		http.Error(w, "Failed to create profile part", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create profile part"})
 		return
 	}
 	_, err = jsonPart.Write(jsonData)
 	if err != nil {
-		http.Error(w, "Failed to write profile part", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write profile part"})
 		return
 	}
 
 	for i, file := range files {
 		part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", i+1), fmt.Sprintf("photo%d.jpg", i+1))
 		if err != nil {
-			http.Error(w, "Failed to create image part", http.StatusInternalServerError)
+			makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
 			return
 		}
 		_, err = part.Write(file)
 		if err != nil {
-			http.Error(w, "Failed to write image data", http.StatusInternalServerError)
+			makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write image data"})
 			return
 		}
 	}
@@ -487,19 +487,19 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(userId)
 	if err != nil {
-		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting profiles: %v", err), http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 	for i := range profiles {
 		photos, err := gh.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err), http.StatusInternalServerError)
+			makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err)})
 			return
 		}
 
@@ -517,18 +517,18 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	profileJson, err := json.Marshal(profiles)
 	if err != nil {
-		http.Error(w, "Error serializing profiles to JSON", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error serializing profiles to JSON"})
 		return
 	}
 
 	part, err := writer.CreateFormField("profiles")
 	if err != nil {
-		http.Error(w, "Error creating multipart field", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error creating multipart field"})
 		return
 	}
 	_, err = part.Write(profileJson)
 	if err != nil {
-		http.Error(w, "Error writing profile JSON", http.StatusInternalServerError)
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error writing profile JSON"})
 		return
 	}
 
