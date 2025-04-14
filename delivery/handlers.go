@@ -96,8 +96,8 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		LikeFrom string `json:"login"`
-		LikedBy  string `json:"password"`
+		LikeFrom string `json:"likeFrom"`
+		LikedBy  string `json:"likeBy"`
 		Status   string `json:"Status"`
 	}
 
