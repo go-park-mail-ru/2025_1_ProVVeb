@@ -7,8 +7,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"time"
@@ -172,58 +170,6 @@ func NewStaticRepo() (*StaticRepo, error) {
 
 	bucketName := "profile-photos"
 	ctx := context.Background()
-
-	objectCh := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Recursive: true})
-
-	fmt.Println("Файлы в бакете", bucketName+":")
-	for object := range objectCh {
-		if object.Err != nil {
-			fmt.Println("Ошибка при получении объекта:", object.Err)
-			continue
-		}
-		fmt.Println("- " + object.Key)
-	}
-
-	sourceDir := "../static/avatars"
-	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		objectName := info.Name()  // имя файла
-		contentType := "image/png" // можешь подставить корректный тип при необходимости
-
-		// Загружаем файл
-		_, err = minioClient.FPutObject(ctx, bucketName, objectName, path, minio.PutObjectOptions{
-			ContentType: contentType,
-		})
-		if err != nil {
-			fmt.Printf("Ошибка при загрузке %s: %v\n", objectName, err)
-			return nil // продолжаем дальше
-		}
-
-		fmt.Printf("✅ Загружен файл: %s\n", objectName)
-		return nil
-	})
-
-	if err != nil {
-		fmt.Println("Ошибка обхода папки:", err)
-	}
-
-	fmt.Println("🚀 Загрузка завершена.")
-
-	fmt.Println("Файлы в бакете", bucketName+":")
-	for object := range objectCh {
-		if object.Err != nil {
-			fmt.Println("Ошибка при получении объекта:", object.Err)
-			continue
-		}
-		fmt.Println("- " + object.Key)
-	}
-
 	exists, err := minioClient.BucketExists(ctx, bucketName)
 	if err != nil {
 		return nil, err

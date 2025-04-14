@@ -37,7 +37,7 @@ services:
       - "8030:9000"    # S3 API
       - "8040:9001"    # Admin UI
     volumes:
-      - ./minio-data/profile-photos/
+      - ./minio-data:/data
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: miniopassword
