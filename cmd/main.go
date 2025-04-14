@@ -93,6 +93,10 @@ func main() {
 		MatchUC: *usecase.NewProfileMatchCase(
 			postgresClient,
 		),
+		GetProfileImage: *usecase.NewGetUserPhotoUseCase(
+			postgresClient,
+			staticClient,
+		),
 	}
 
 	userHandler := &handlery.UserHandler{

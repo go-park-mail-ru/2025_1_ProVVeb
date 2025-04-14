@@ -1,7 +1,6 @@
 package handlery
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -56,23 +55,9 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
-	for i := range profiles {
-		photos, err := ph.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
-		if err != nil {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err)})
-			return
-		}
-
-		encoded := make([]string, 0, len(photos))
-		for _, img := range photos {
-			encoded = append(encoded, base64.StdEncoding.EncodeToString(img))
-		}
-		profiles[i].Photos = encoded
-	}
 
 	writer := multipart.NewWriter(w)
 	defer writer.Close()
-
 	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
 
 	profileJson, err := json.Marshal(profiles)
@@ -92,6 +77,30 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	photoIndex := 1
+	for _, profile := range profiles {
+		if len(profile.LastName) == 0 {
+			continue
+		}
+		photos, err := ph.GetProfileImage.GetUserPhoto(profile.ProfileId)
+		if err != nil {
+			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
+			return
+		}
+		for _, img := range photos {
+			part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", photoIndex), fmt.Sprintf("photo%d.jpg", photoIndex))
+			if err != nil {
+				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create image part"})
+				return
+			}
+			_, err = part.Write(img)
+			if err != nil {
+				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to write image data"})
+				return
+			}
+			photoIndex++
+		}
+	}
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +127,7 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LikeBy, err := strconv.Atoi(input.LikeFrom)
+	LikeBy, err := strconv.Atoi(input.LikedBy)
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
@@ -496,23 +505,9 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
-	for i := range profiles {
-		photos, err := gh.GetProfileImage.GetUserPhoto(profiles[i].ProfileId)
-		if err != nil {
-			makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profiles[i].ProfileId, err)})
-			return
-		}
-
-		encoded := make([]string, 0, len(photos))
-		for _, img := range photos {
-			encoded = append(encoded, base64.StdEncoding.EncodeToString(img))
-		}
-		profiles[i].Photos = encoded
-	}
 
 	writer := multipart.NewWriter(w)
 	defer writer.Close()
-
 	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
 
 	profileJson, err := json.Marshal(profiles)
@@ -532,4 +527,28 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	photoIndex := 1
+	for _, profile := range profiles {
+		if len(profile.LastName) == 0 {
+			continue
+		}
+		photos, err := gh.GetProfileImage.GetUserPhoto(profile.ProfileId)
+		if err != nil {
+			makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
+			return
+		}
+		for _, img := range photos {
+			part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", photoIndex), fmt.Sprintf("photo%d.jpg", photoIndex))
+			if err != nil {
+				makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
+				return
+			}
+			_, err = part.Write(img)
+			if err != nil {
+				makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write image data"})
+				return
+			}
+			photoIndex++
+		}
+	}
 }

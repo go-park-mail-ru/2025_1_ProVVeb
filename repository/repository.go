@@ -109,7 +109,11 @@ func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
 	amount := 0
 	for i := 0; amount < len(matches); i++ {
-		profile, err := ur.GetProfileById(i)
+		targ := matches[i][0]
+		if matches[i][0] == forUserId {
+			targ = matches[i][1]
+		}
+		profile, err := ur.GetProfileById(targ)
 		if err != nil {
 			return profiles, err
 		}
