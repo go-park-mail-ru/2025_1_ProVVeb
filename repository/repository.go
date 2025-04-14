@@ -46,7 +46,7 @@ type SessionRepository interface {
 
 type PasswordHasher interface {
 	Hash(password string) string
-	Compare(hashedPassword, password string) bool
+	Compare(hashedPassword, login, password string) bool
 }
 
 type UserParamsValidator interface {
@@ -702,8 +702,8 @@ func (ph *PassHasher) Hash(password string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func (ph *PassHasher) Compare(hashedPassword, inputPassword string) bool {
-	return hashedPassword == ph.Hash(inputPassword)
+func (ph *PassHasher) Compare(hashedPassword, inputLogin, inputPassword string) bool {
+	return hashedPassword == ph.Hash(inputLogin+"_"+inputPassword)
 }
 
 func (vr *UParamsValidator) ValidateLogin(login string) error {

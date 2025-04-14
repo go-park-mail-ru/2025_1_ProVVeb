@@ -13,7 +13,7 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 		return model.Session{}, err
 	}
 
-	if !uc.hasher.Compare(user.Password, input.Password) {
+	if !uc.hasher.Compare(user.Password, user.Login, input.Password) {
 		return model.Session{}, model.ErrInvalidPassword
 	}
 
