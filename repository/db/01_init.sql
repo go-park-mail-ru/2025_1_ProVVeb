@@ -117,8 +117,11 @@ CREATE TABLE likes (
     liked_profile_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status INT NOT NULL,
+
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (liked_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (liked_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+
+    UNIQUE (profile_id, liked_profile_id)
 );
 
 CREATE TABLE matches (
