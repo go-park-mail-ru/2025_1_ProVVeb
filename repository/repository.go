@@ -170,6 +170,18 @@ func NewStaticRepo() (*StaticRepo, error) {
 
 	bucketName := "profile-photos"
 	ctx := context.Background()
+
+	objectCh := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Recursive: true})
+
+	fmt.Println("Файлы в бакете", bucketName+":")
+	for object := range objectCh {
+		if object.Err != nil {
+			fmt.Println("Ошибка при получении объекта:", object.Err)
+			continue
+		}
+		fmt.Println("- " + object.Key)
+	}
+
 	exists, err := minioClient.BucketExists(ctx, bucketName)
 	if err != nil {
 		return nil, err
