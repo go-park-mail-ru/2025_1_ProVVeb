@@ -249,6 +249,9 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
+
+	fmt.Println(fmt.Errorf("%+v", session))
+
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
@@ -273,6 +276,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   cookie.Secure,
 		Expires:  cookie.Expires,
 		Path:     cookie.Path,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	makeResponse(w, http.StatusOK, map[string]interface{}{
@@ -316,8 +320,16 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }
 
+// первый раз пришли на сервис
+// делаем запрос checkSession
+// сессии нет, поэтому логинимся
+// выполняется логин, успех
+// пользователь что-то делает - sessionId хранится в куках
+// как только страница обновляется - куки становятся просроченнные ИЛИ...
+
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
+	fmt.Println(fmt.Errorf("cookies^ %+v", session))
 	if err == http.ErrNoCookie {
 		response := struct {
 			Message   string `json:"message"`
