@@ -125,7 +125,7 @@ func main() {
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
 
-	r.HandleFunc("/profiles/upload_photo", staticHandler.UploadPhoto).Methods("POST")
+	r.HandleFunc("/profiles/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
 	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
 
 	r.HandleFunc("/profiles/match/{id}", profileHandler.GetMatches).Methods("GET")

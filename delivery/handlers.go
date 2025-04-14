@@ -170,13 +170,13 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("forUser")
 	user_id, err := strconv.Atoi(userId)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
 		return
 	}
 
 	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid multipart form"})
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
 		return
 	}
 
