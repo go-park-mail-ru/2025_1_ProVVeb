@@ -15,9 +15,6 @@ import (
 )
 
 func main() {
-	redisAddr := "redis:6379"
-	redisDB := 0
-
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
@@ -25,7 +22,7 @@ func main() {
 	}
 	defer postgresClient.CloseRepo()
 
-	redisClient, err := repository.NewSessionRepo(redisAddr, redisDB)
+	redisClient, err := repository.NewSessionRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
 		return

@@ -281,11 +281,11 @@ func ClosePostgresConnection(conn *pgx.Conn) error {
 	return err
 }
 
-func NewSessionRepo(address string, db int) (*SessionRepo, error) {
+func NewSessionRepo() (*SessionRepo, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     address,
+		Addr:     "redis:6379",
 		Password: "",
-		DB:       db,
+		DB:       0,
 	})
 
 	ctx := context.Background()
