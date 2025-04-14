@@ -184,7 +184,7 @@ func NewStaticRepo() (*StaticRepo, error) {
 		fmt.Println("- " + object.Key)
 	}
 
-	sourceDir := "backend/static/avatars"
+	sourceDir := "../static/avatars"
 	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
