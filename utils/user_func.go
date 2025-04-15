@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"regexp"
 
-	config "github.com/go-park-mail-ru/2025_1_ProVVeb/backend/objects"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 )
 
 type User struct {
-	User config.User
+	User model.User
 }
 
 func ValidateLogin(login string) error {
-	if (len(login) < config.MinLoginLength) || (len(login) > config.MaxLoginLength) {
+	if (len(login) < model.MinLoginLength) || (len(login) > model.MaxLoginLength) {
 		return fmt.Errorf("incorrect size of login")
 	}
 
@@ -25,7 +25,7 @@ func ValidateLogin(login string) error {
 }
 
 func ValidatePassword(password string) error {
-	if (len(password) < config.MinPasswordLength) || (len(password) > config.MaxPasswordLength) {
+	if (len(password) < model.MinPasswordLength) || (len(password) > model.MaxPasswordLength) {
 		return fmt.Errorf("incorrect size of password")
 	}
 
@@ -75,7 +75,7 @@ func CreateUser(id int, login string, password string) (User, error) {
 	}
 	password = EncryptPasswordSHA256(password)
 
-	user := config.User{
+	user := model.User{
 		UserId:   id,
 		Login:    login,
 		Password: password,
