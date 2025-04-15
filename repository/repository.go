@@ -561,8 +561,8 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			profile.Card = "http://213.219.214.83:8080/static/cards" + photo.String
 			profile.Avatar = "http://213.219.214.83:8080/static/avatars" + photo.String
 		} else {
-			profile.Avatar = ""
-			profile.Card = ""
+			profile.Card = "http://213.219.214.83:8080/static/cards/default.png"
+			profile.Avatar = "http://213.219.214.83:8080/static/avatars/default.png"
 		}
 
 		if birth.Valid {
@@ -652,7 +652,7 @@ func (ur *UserRepo) GetPhotos(userID int) ([]string, error) {
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
 	amount := 0
-	for i := 0; amount < model.PageSize; i++ {
+	for i := 1; amount < model.PageSize; i++ {
 		if i != forUserId {
 			profile, err := ur.GetProfileById(i)
 			if err != nil {

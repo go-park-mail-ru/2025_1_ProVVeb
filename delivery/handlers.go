@@ -82,13 +82,13 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		if len(profile.LastName) == 0 {
 			continue
 		}
-		photos, err := ph.GetProfileImageUC.GetUserPhoto(profile.ProfileId)
+		photos, urls, err := ph.GetProfileImageUC.GetUserPhoto(profile.ProfileId)
 		if err != nil {
 			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
 			return
 		}
-		for _, img := range photos {
-			part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", photoIndex), fmt.Sprintf("photo%d.jpg", photoIndex))
+		for i, img := range photos {
+			part, err := writer.CreateFormFile(urls[i], urls[i])
 			if err != nil {
 				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create image part"})
 				return
@@ -442,11 +442,13 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := gh.GetProfileImage.GetUserPhoto(profileId)
+	files, urls, err := gh.GetProfileImage.GetUserPhoto(profileId)
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("error loading images: %v", err)})
 		return
 	}
+
+	profile.Photos = urls
 
 	writer := multipart.NewWriter(w)
 	defer writer.Close()
@@ -471,7 +473,7 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i, file := range files {
-		part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", i+1), fmt.Sprintf("photo%d.jpg", i+1))
+		part, err := writer.CreateFormFile(urls[i], urls[i])
 		if err != nil {
 			makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
 			return
@@ -525,13 +527,13 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		if len(profile.LastName) == 0 {
 			continue
 		}
-		photos, err := gh.GetProfileImage.GetUserPhoto(profile.ProfileId)
+		photos, urls, err := gh.GetProfileImage.GetUserPhoto(profile.ProfileId)
 		if err != nil {
 			makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
 			return
 		}
-		for _, img := range photos {
-			part, err := writer.CreateFormFile(fmt.Sprintf("photo%d", photoIndex), fmt.Sprintf("photo%d.jpg", photoIndex))
+		for i, img := range photos {
+			part, err := writer.CreateFormFile(urls[i], urls[i])
 			if err != nil {
 				makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
 				return

@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"fmt"
+
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
@@ -28,15 +30,17 @@ func NewGetUserPhotoUseCase(userRepo repository.UserRepository, staticRepo repos
 	return &GetUserPhoto{userRepo: userRepo, staticRepo: staticRepo}
 }
 
-func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, error) {
+func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {
 	urls, err := gp.userRepo.GetPhotos(user_id)
 	if err != nil {
-		return nil, err
+		fmt.Println("urls", err)
+		return nil, nil, err
 	}
-
+	
 	files, err := gp.staticRepo.GetImages(urls)
 	if err != nil {
-		return nil, err
+		fmt.Println("files", err)
+		return nil, nil, err
 	}
-	return files, err
+	return files, urls, err
 }

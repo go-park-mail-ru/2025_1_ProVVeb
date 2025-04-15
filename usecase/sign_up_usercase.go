@@ -70,7 +70,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
 	height := rand.Int()%100 + 100
 	description := fake.SentencesN(5)
-	interests := []string{}
+	interests := make([]string, 0, 20)
 	for range 20 {
 		interests = append(interests, fake.Word())
 	}
