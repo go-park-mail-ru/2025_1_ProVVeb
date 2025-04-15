@@ -284,7 +284,7 @@ func TestSQL_StoreUser(t *testing.T) {
 	}
 }
 
-func TestSQL_CreateSession(t *testing.T) {
+func TestSQL_StoreSession(t *testing.T) {
 	tests := []struct {
 		name      string
 		sessionID int

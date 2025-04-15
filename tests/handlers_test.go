@@ -314,7 +314,7 @@ func TestSupportInterfaces(t *testing.T) {
 	}
 }
 
-func TestMoreUserRepositoryMethods(t *testing.T) {
+func TestSupportUserRepositoryMethods(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

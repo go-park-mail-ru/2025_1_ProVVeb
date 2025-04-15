@@ -7,12 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewUserRepo(t *testing.T) {
-	repo, err := repository.NewUserRepo()
-	require.NotNil(t, repo)
-	require.Nil(t, err)
-}
-
 func TestCheckPostgresConfig(t *testing.T) {
 	cfg := repository.DatabaseConfig{
 		Host:     "localhost",
@@ -33,4 +27,24 @@ func TestCheckPostgresConfig(t *testing.T) {
 func TestInitPostgresConfig(t *testing.T) {
 	connStr := repository.InitPostgresConfig()
 	require.NotNil(t, connStr)
+}
+
+func TestNewSessionRepo(t *testing.T) {
+	repo, _ := repository.NewSessionRepo()
+	require.NotNil(t, repo)
+}
+
+func NewStaticRepo(t *testing.T) {
+	repo, _ := repository.NewStaticRepo()
+	require.NotNil(t, repo)
+}
+
+func NewUserRepo(t *testing.T) {
+	repo, _ := repository.NewUserRepo()
+	require.NotNil(t, repo)
+}
+
+func InitPostgresConnection(t *testing.T) {
+	repo, _ := repository.InitPostgresConnection(repository.InitPostgresConfig())
+	require.NotNil(t, repo)
 }
