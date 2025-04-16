@@ -14,13 +14,13 @@ func NewStaticUploadCase(userRepo repository.UserRepository, staticRepo reposito
 }
 
 func (su *StaticUpload) UploadUserPhoto(user_id int, file []byte, filename string, content_type string) error {
-	err := su.staticRepo.UploadImages(file, "/"+filename, content_type)
+	err := su.staticRepo.UploadImages(file, filename, content_type)
 
 	if err != nil {
 		return err
 	}
 
-	err = su.userRepo.StorePhoto(user_id, "/"+filename)
+	err = su.userRepo.StorePhoto(user_id, filename)
 	if err != nil {
 		return err
 	}

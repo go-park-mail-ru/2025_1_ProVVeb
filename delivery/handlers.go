@@ -169,7 +169,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		filename := fmt.Sprintf("%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
+		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
 
 		err = sh.UploadUC.UploadUserPhoto(user_id, buf, filename, contentType)
 		if err != nil {
