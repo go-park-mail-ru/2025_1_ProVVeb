@@ -14,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -60,7 +61,7 @@ type StaticRepository interface {
 }
 
 type UserRepo struct {
-	db *pgx.Conn
+	DB *sql.Conn
 }
 
 type SessionRepo struct {
@@ -77,7 +78,7 @@ type StaticRepo struct {
 	bucketName string
 }
 
-const getMatches = `
+const GetMatches = `
 SELECT 
     profile_id, 
     matched_profile_id
@@ -86,7 +87,7 @@ WHERE profile_id = $1 OR matched_profile_id = $1;
 `
 
 func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
-	rows, err := ur.db.Query(context.Background(), getMatches, forUserId)
+	rows, err := ur.DB.QueryContext(context.Background(), GetMatches, forUserId)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +201,7 @@ func NewUserRepo() (*UserRepo, error) {
 		fmt.Println("Error connecting to database:", err)
 		return &UserRepo{}, err
 	}
-	return &UserRepo{db: db}, nil
+	return &UserRepo{DB: db}, nil
 }
 
 func InitPostgresConfig() DatabaseConfig {
@@ -214,7 +215,7 @@ func InitPostgresConfig() DatabaseConfig {
 	}
 }
 
-func checkPostgresConfig(cfg DatabaseConfig) error {
+func CheckPostgresConfig(cfg DatabaseConfig) error {
 	errors := map[string]struct {
 		check func() bool
 		msg   string
@@ -250,32 +251,34 @@ func checkPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-func InitPostgresConnection(cfg DatabaseConfig) (*pgx.Conn, error) {
-	err := checkPostgresConfig(cfg)
+func InitPostgresConnection(cfg DatabaseConfig) (*sql.Conn, error) {
+	err := CheckPostgresConfig(cfg)
 	if err != nil {
 		return nil, model.ErrInvalidUserRepoConfig
 	}
 
 	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)
-	conn, err := pgx.Connect(context.Background(), connStr)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
 
-	err = conn.Ping(context.Background())
+	err = db.Ping()
 	if err != nil {
-		conn.Close(context.Background())
+		db.Close()
 		return nil, fmt.Errorf("failed to ping the database: %v", err)
 	}
+
+	conn, _ := db.Conn(context.Background())
 
 	return conn, nil
 }
 
-func ClosePostgresConnection(conn *pgx.Conn) error {
+func ClosePostgresConnection(conn *sql.Conn) error {
 	var err error
 	if conn != nil {
-		err = conn.Close(context.Background())
+		err = conn.Close()
 		if err != nil {
 			fmt.Printf("failed while closing connection: %v\n", err)
 		}
@@ -312,7 +315,7 @@ func NewUParamsValidator() (*UParamsValidator, error) {
 	return &UParamsValidator{}, nil
 }
 
-const getUserByLoginQuery = `
+const GetUserByLoginQuery = `
 SELECT 
 	u.user_id, 
 	u.login, 
@@ -327,7 +330,7 @@ WHERE u.login = $1;
 func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.User, error) {
 	var user model.User
 
-	err := ur.db.QueryRow(ctx, getUserByLoginQuery, login).Scan(
+	err := ur.DB.QueryRowContext(ctx, GetUserByLoginQuery, login).Scan(
 		&user.UserId,
 		&user.Login,
 		&user.Email,
@@ -339,7 +342,7 @@ func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.Use
 	return user, err
 }
 
-const createSessionQuery = `
+const CreateSessionQuery = `
 INSERT INTO sessions (user_id, token, expires_at)
 VALUES ($1, $2, $3)
 RETURNING token, user_id, 
@@ -349,9 +352,9 @@ RETURNING token, user_id,
 func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error) {
 	var session model.Session
 
-	err := ur.db.QueryRow(
+	err := ur.DB.QueryRowContext(
 		ctx,
-		createSessionQuery,
+		CreateSessionQuery,
 		userID,
 		token,
 		time.Now().Add(expires),
@@ -364,7 +367,7 @@ func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string,
 	return session, err
 }
 
-const storeSessionQuery = `
+const StoreSessionQuery = `
 INSERT INTO sessions (user_id, token, created_at, expires_at)
 VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
 RETURNING id;
@@ -373,9 +376,9 @@ RETURNING id;
 func (ur *UserRepo) StoreSession(userID int, sessionID string) error {
 	var sessionId int
 
-	err := ur.db.QueryRow(
+	err := ur.DB.QueryRowContext(
 		context.Background(),
-		storeSessionQuery,
+		StoreSessionQuery,
 		userID,
 		sessionID,
 	).Scan(&sessionId)
@@ -383,19 +386,19 @@ func (ur *UserRepo) StoreSession(userID int, sessionID string) error {
 }
 
 func (ur *UserRepo) CloseRepo() error {
-	return ClosePostgresConnection(ur.db)
+	return ClosePostgresConnection(ur.DB)
 }
 
-const createUserQuery = `
+const CreateUserQuery = `
 INSERT INTO users (login, email, phone, password, status, created_at, updated_at, profile_id)
 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
 RETURNING user_id;
 `
 
 func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
-	err = ur.db.QueryRow(
+	err = ur.DB.QueryRowContext(
 		context.Background(),
-		createUserQuery,
+		CreateUserQuery,
 		user.Login,
 		user.Email,
 		user.Phone,
@@ -406,16 +409,16 @@ func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
 	return
 }
 
-const createProfileQuery = `
+const CreateProfileQuery = `
 INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING profile_id;
 `
 
 func (ur *UserRepo) StoreProfile(profile model.Profile) (profileId int, err error) {
-	err = ur.db.QueryRow(
+	err = ur.DB.QueryRowContext(
 		context.Background(),
-		createProfileQuery,
+		CreateProfileQuery,
 		profile.FirstName,
 		profile.LastName,
 		profile.IsMale,
@@ -432,17 +435,17 @@ func (ur *UserRepo) UserExists(ctx context.Context, login string) bool {
 }
 
 const (
-	findSessionQuery = `
+	FindSessionQuery = `
 SELECT id FROM sessions WHERE user_id = $1;
 `
-	deleteSessionQuery = `
+	DeleteSessionQuery = `
 DELETE FROM sessions WHERE user_id = $1;
 `
 )
 
 func (ur *UserRepo) DeleteSession(userId int) error {
 	var profileId int
-	err := ur.db.QueryRow(context.Background(), findSessionQuery, userId).Scan(&profileId)
+	err := ur.DB.QueryRowContext(context.Background(), FindSessionQuery, userId).Scan(&profileId)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return model.ErrSessionNotFound
@@ -450,7 +453,7 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 		return model.ErrDeleteSession
 	}
 
-	_, err = ur.db.Exec(context.Background(), deleteSessionQuery, userId)
+	_, err = ur.DB.ExecContext(context.Background(), DeleteSessionQuery, userId)
 	if err != nil {
 		return model.ErrDeleteSession
 	}
@@ -458,20 +461,20 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 }
 
 const (
-	deleteProfileQuery = `
+	DeleteProfileQuery = `
 DELETE FROM profiles WHERE profile_id = $1;
 `
-	deleteUserQuery = `
+	DeleteUserQuery = `
 DELETE FROM users WHERE user_id = $1;
 `
-	findUserProfileQuery = `
+	FindUserProfileQuery = `
 	SELECT profile_id FROM users WHERE user_id = $1;
 	`
 )
 
 func (ur *UserRepo) DeleteUserById(userId int) error {
 	var profileId int
-	err := ur.db.QueryRow(context.Background(), findUserProfileQuery, userId).Scan(&profileId)
+	err := ur.DB.QueryRowContext(context.Background(), FindUserProfileQuery, userId).Scan(&profileId)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return model.ErrProfileNotFound
@@ -479,19 +482,19 @@ func (ur *UserRepo) DeleteUserById(userId int) error {
 		return model.ErrDeleteUser
 	}
 
-	_, err = ur.db.Exec(context.Background(), deleteProfileQuery, profileId)
+	_, err = ur.DB.ExecContext(context.Background(), DeleteProfileQuery, profileId)
 	if err != nil {
 		return model.ErrDeleteProfile
 	}
 
-	_, err = ur.db.Exec(context.Background(), deleteUserQuery, userId)
+	_, err = ur.DB.ExecContext(context.Background(), DeleteUserQuery, userId)
 	if err != nil {
 		return model.ErrDeleteUser
 	}
 	return nil
 }
 
-const getProfileByIdQuery = `
+const GetProfileByIdQuery = `
 SELECT 
     p.profile_id, 
     p.firstname, 
@@ -533,7 +536,7 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var photo sql.NullString
 	var location sql.NullString
 
-	rows, err := ur.db.Query(context.Background(), getProfileByIdQuery, profileId)
+	rows, err := ur.DB.QueryContext(context.Background(), GetProfileByIdQuery, profileId)
 	if err != nil {
 		return profile, err
 	}
@@ -587,16 +590,16 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	return profile, nil
 }
 
-const createLikeQuery = `
+const CreateLikeQuery = `
 INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
 VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
 RETURNING like_id;
 `
 
 func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
-	err = ur.db.QueryRow(
+	err = ur.DB.QueryRowContext(
 		context.Background(),
-		createLikeQuery,
+		CreateLikeQuery,
 		from,
 		to,
 		status,
@@ -604,18 +607,18 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 	return
 }
 
-const uploadPhotoQuery = `
+const UploadPhotoQuery = `
 INSERT INTO static (profile_id, path, created_at, updated_at)
 VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING profile_id, path, created_at;
 `
 
 func (ur *UserRepo) StorePhoto(userID int, url string) error {
-	_, err := ur.db.Exec(context.Background(), uploadPhotoQuery, userID, url)
+	_, err := ur.DB.ExecContext(context.Background(), UploadPhotoQuery, userID, url)
 	return err
 }
 
-const getPhotoPathsQuery = `
+const GetPhotoPathsQuery = `
 SELECT path FROM static 
 WHERE profile_id = (
 	SELECT profile_id FROM users WHERE user_id = $1
@@ -623,7 +626,7 @@ WHERE profile_id = (
 `
 
 func (ur *UserRepo) GetPhotos(userID int) ([]string, error) {
-	rows, err := ur.db.Query(context.Background(), getPhotoPathsQuery, userID)
+	rows, err := ur.DB.QueryContext(context.Background(), GetPhotoPathsQuery, userID)
 	if err != nil {
 		return nil, err
 	}
