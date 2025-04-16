@@ -32,6 +32,7 @@ type UserHandler struct {
 
 type StaticHandler struct {
 	UploadUC usecase.StaticUpload
+	DeleteUC usecase.StaticDelete
 }
 
 type ProfileHandler struct {
@@ -416,4 +417,24 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	makeResponse(w, http.StatusOK, profiles)
+}
+
+func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	fileURL := r.URL.Query().Get("file_url")
+
+	user_id, err := strconv.Atoi(id)
+	if err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		return
+	}
+
+	err = sh.DeleteUC.DeleteImage(user_id, fileURL)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
+
 }

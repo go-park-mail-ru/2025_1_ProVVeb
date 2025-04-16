@@ -108,7 +108,11 @@ func main() {
 	}
 
 	staticHandler := &handlers.StaticHandler{
-		UploadUC: *usecase.NewStaticUseCase(
+		UploadUC: *usecase.NewStaticUploadCase(
+			postgresClient,
+			staticClient,
+		),
+		DeleteUC: *usecase.NewStaticDeleteCase(
 			postgresClient,
 			staticClient,
 		),
@@ -124,11 +128,11 @@ func main() {
 
 	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
 	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
+	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
+	r.HandleFunc("/profiles/match/{id}", profileHandler.GetMatches).Methods("GET")
 
 	r.HandleFunc("/profiles/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
-	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
-
-	r.HandleFunc("/profiles/match/{id}", profileHandler.GetMatches).Methods("GET")
+	r.HandleFunc("/profiles/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
 
 	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
 	// r.Use(handlery.PanicMiddleware)
