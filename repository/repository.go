@@ -63,7 +63,7 @@ type StaticRepository interface {
 }
 
 type UserRepo struct {
-	DB *sql.Conn
+	DB *sql.DB
 }
 
 type SessionRepo struct {
@@ -160,8 +160,6 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 	return results, nil
 }
 
-// endpoint := "213.219.214.83:8030"
-
 func NewStaticRepo() (*StaticRepo, error) {
 	endpoint := "minio:9000"
 	accessKeyID := "minioadmin"
@@ -253,7 +251,8 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-func InitPostgresConnection(cfg DatabaseConfig) (*sql.Conn, error) {
+// func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
+func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
 		return nil, model.ErrInvalidUserRepoConfig
@@ -266,18 +265,23 @@ func InitPostgresConnection(cfg DatabaseConfig) (*sql.Conn, error) {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
 
-	err = db.Ping()
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to ping the database: %v", err)
-	}
+	// err = db.Ping()
+	// if err != nil {
+	// 	db.Close()
+	// 	return nil, fmt.Errorf("failed to ping the database: %v", err)
+	// }
 
-	conn, _ := db.Conn(context.Background())
+	// conn, _ := db.Conn(context.Background())
+	// conn, _ := db.
+	// // db, err := sql.Open()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	return conn, nil
+	return db, nil
 }
 
-func ClosePostgresConnection(conn *sql.Conn) error {
+func ClosePostgresConnection(conn *sql.DB) error {
 	var err error
 	if conn != nil {
 		err = conn.Close()
