@@ -20,7 +20,7 @@ func (su *StaticUpload) UploadUserPhoto(user_id int, file []byte, filename strin
 		return err
 	}
 
-	err = su.userRepo.StorePhoto(user_id, "http://213.219.214.83:8030/profile-photos/"+filename)
+	err = su.userRepo.StorePhoto(user_id, filename)
 	if err != nil {
 		return err
 	}
