@@ -557,14 +557,6 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			return profile, err
 		}
 
-		if photo.Valid {
-			profile.Card = "http://213.219.214.83:8080/static/cards" + photo.String
-			profile.Avatar = "http://213.219.214.83:8080/static/avatars" + photo.String
-		} else {
-			profile.Card = "http://213.219.214.83:8080/static/cards/default.png"
-			profile.Avatar = "http://213.219.214.83:8080/static/avatars/default.png"
-		}
-
 		if birth.Valid {
 			profile.Birthday = birth.Time
 		}
@@ -583,7 +575,11 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 		if preferenceValue.Valid && !slices.Contains(profile.Preferences, preferenceValue.String) {
 			profile.Preferences = append(profile.Preferences, preferenceValue.String)
 		}
+		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
+			profile.Photos = append(profile.Photos, photo.String)
+		}
 	}
+
 	if rows.Err() != nil {
 		return profile, rows.Err()
 	}
