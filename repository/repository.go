@@ -507,7 +507,8 @@ SELECT
     liked.profile_id AS liked_by_profile_id,
     s.path AS avatar,
     i.description AS interest,
-    pr.preference_description || ':' || pr.preference_value AS preference
+    pr.preference_description,
+	pr.preference_value 
 FROM profiles p
 LEFT JOIN locations l 
     ON p.location_id = l.location_id
@@ -531,6 +532,7 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var profile model.Profile
 	var birth sql.NullTime
 	var interest sql.NullString
+	var preferenceDesc sql.NullString
 	var preferenceValue sql.NullString
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
@@ -555,17 +557,10 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&likedByProfileId,
 			&photo,
 			&interest,
+			&preferenceDesc,
 			&preferenceValue,
 		); err != nil {
 			return profile, err
-		}
-
-		if photo.Valid {
-			profile.Card = "http://213.219.214.83:8080/static/cards" + photo.String
-			profile.Avatar = "http://213.219.214.83:8080/static/avatars" + photo.String
-		} else {
-			profile.Avatar = ""
-			profile.Card = ""
 		}
 
 		if birth.Valid {
@@ -583,8 +578,14 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			profile.Interests = append(profile.Interests, interest.String)
 		}
 
-		if preferenceValue.Valid && !slices.Contains(profile.Preferences, preferenceValue.String) {
-			profile.Preferences = append(profile.Preferences, preferenceValue.String)
+		if preferenceDesc.Valid && preferenceValue.Valid {
+			pref := model.Preference{
+				Description: preferenceDesc.String,
+				Value:       preferenceValue.String,
+			}
+			if !slices.Contains(profile.Preferences, pref) {
+				profile.Preferences = append(profile.Preferences, pref)
+			}
 		}
 	}
 	if rows.Err() != nil {
