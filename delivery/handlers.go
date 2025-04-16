@@ -60,9 +60,9 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		LikeFrom string `json:"likeFrom"`
-		LikeTo   string `json:"likeTo"`
-		Status   string `json:"status"`
+		LikeFrom int `json:"likeFrom"`
+		LikeTo   int `json:"likeTo"`
+		Status   int `json:"status"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -70,30 +70,14 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	likeFrom, err := strconv.Atoi(input.LikeFrom)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
-		return
-	}
+	likeFrom, likeTo, status := input.LikeFrom, input.LikeTo, input.Status
 
-	status, err := strconv.Atoi(input.Status)
-	if (err != nil) || ((status != 1) && (status != -1)) {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid status"})
-		return
-	}
-
-	likeBy, err := strconv.Atoi(input.LikeTo)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
-		return
-	}
-
-	if likeBy == likeFrom {
+	if likeTo == likeFrom {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
 		return
 	}
 
-	err = ph.LikeUC.SetLike(likeBy, likeFrom, status)
+	err := ph.LikeUC.SetLike(likeTo, likeFrom, status)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return
