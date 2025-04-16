@@ -36,6 +36,8 @@ type UserRepository interface {
 	StorePhoto(userID int, url string) error
 	GetPhotos(userID int) ([]string, error)
 	GetMatches(forUserId int) ([]model.Profile, error)
+	StoreInterests(profileID int, interests []string) error
+	StorePhotos(profileID int, paths []string) error
 }
 
 type SessionRepository interface {
@@ -47,7 +49,7 @@ type SessionRepository interface {
 
 type PasswordHasher interface {
 	Hash(password string) string
-	Compare(hashedPassword, password string) bool
+	Compare(hashedPassword, login, password string) bool
 }
 
 type UserParamsValidator interface {
@@ -61,7 +63,7 @@ type StaticRepository interface {
 }
 
 type UserRepo struct {
-	DB *sql.Conn
+	DB *sql.DB
 }
 
 type SessionRepo struct {
@@ -158,8 +160,6 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 	return results, nil
 }
 
-// endpoint := "213.219.214.83:8030"
-
 func NewStaticRepo() (*StaticRepo, error) {
 	endpoint := "minio:9000"
 	accessKeyID := "minioadmin"
@@ -251,7 +251,8 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-func InitPostgresConnection(cfg DatabaseConfig) (*sql.Conn, error) {
+// func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
+func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
 		return nil, model.ErrInvalidUserRepoConfig
@@ -264,18 +265,23 @@ func InitPostgresConnection(cfg DatabaseConfig) (*sql.Conn, error) {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
 
-	err = db.Ping()
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to ping the database: %v", err)
-	}
+	// err = db.Ping()
+	// if err != nil {
+	// 	db.Close()
+	// 	return nil, fmt.Errorf("failed to ping the database: %v", err)
+	// }
 
-	conn, _ := db.Conn(context.Background())
+	// conn, _ := db.Conn(context.Background())
+	// conn, _ := db.
+	// // db, err := sql.Open()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	return conn, nil
+	return db, nil
 }
 
-func ClosePostgresConnection(conn *sql.Conn) error {
+func ClosePostgresConnection(conn *sql.DB) error {
 	var err error
 	if conn != nil {
 		err = conn.Close()
@@ -587,7 +593,11 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 				profile.Preferences = append(profile.Preferences, pref)
 			}
 		}
+		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
+			profile.Photos = append(profile.Photos, photo.String)
+		}
 	}
+
 	if rows.Err() != nil {
 		return profile, rows.Err()
 	}
@@ -653,10 +663,72 @@ func (ur *UserRepo) GetPhotos(userID int) ([]string, error) {
 	return photos, nil
 }
 
+const insertInterestIfNotExists = `
+ INSERT INTO interests (description)
+ VALUES ($1)
+ RETURNING interest_id
+`
+
+const getInterestIdByDescription = `
+ SELECT interest_id FROM interests WHERE description = $1
+`
+
+const insertProfileInterest = `
+ INSERT INTO profile_interests (profile_id, interest_id)
+ VALUES ($1, $2)
+ ON CONFLICT DO NOTHING
+`
+
+const insertStaticPhoto = `
+ INSERT INTO static (profile_id, path)
+ VALUES ($1, $2)
+`
+
+func (ur *UserRepo) StoreInterests(profileID int, interests []string) error {
+	ctx := context.Background()
+
+	tx, err := ur.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, desc := range interests {
+		var interestID int
+
+		err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+		if err != nil {
+			err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = tx.ExecContext(ctx, insertProfileInterest, profileID, interestID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (ur *UserRepo) StorePhotos(profileID int, paths []string) error {
+	ctx := context.Background()
+
+	for _, path := range paths {
+		_, err := ur.DB.ExecContext(ctx, insertStaticPhoto, profileID, path)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
 	amount := 0
-	for i := 0; amount < model.PageSize; i++ {
+	for i := 1; amount < model.PageSize; i++ {
 		if i != forUserId {
 			profile, err := ur.GetProfileById(i)
 			if err != nil {
@@ -706,8 +778,8 @@ func (ph *PassHasher) Hash(password string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func (ph *PassHasher) Compare(hashedPassword, inputPassword string) bool {
-	return hashedPassword == ph.Hash(inputPassword)
+func (ph *PassHasher) Compare(hashedPassword, inputLogin, inputPassword string) bool {
+	return hashedPassword == ph.Hash(inputLogin+"_"+inputPassword)
 }
 
 func (vr *UParamsValidator) ValidateLogin(login string) error {
