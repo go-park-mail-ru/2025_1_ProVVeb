@@ -76,7 +76,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		interests = append(interests, fake.Word())
 	}
 	photos := make([]string, 0, 6)
-	photos = append(photos, "/default.png")
+	photos = append(photos, "http://213.219.214.83:8030/profile-photos/default.png")
 
 	profile := model.Profile{
 		FirstName:   fname,
@@ -92,5 +92,20 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 
 	fmt.Println(fmt.Errorf("profile: %+v", profile))
 
-	return uc.userRepo.StoreProfile(profile)
+	profileId, err := uc.userRepo.StoreProfile(profile)
+	if err != nil {
+		return -1, err
+	}
+
+	err = uc.userRepo.StorePhotos(profileId, photos)
+	if err != nil {
+		return -1, err
+	}
+
+	err = uc.userRepo.StoreInterests(profileId, interests)
+	if err != nil {
+		return -1, err
+	}
+
+	return profileId, nil
 }
