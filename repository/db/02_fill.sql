@@ -39,16 +39,16 @@ INSERT INTO profiles (firstname, lastname, is_male, birthday, height, descriptio
 
 
 INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
-(1, 1, 'ivanivanov', 'ivan@example.com', '1111111111', 'ivanivanov_c789e1771c5bf1b6245ebb85b5d0ed883f1adedb49e86fe37c2c60c9ec0654ad'),
-(2, 1, 'annapetrova', 'anna@example.com', '1111111112', 'annapetrova_6d1d8812d805a2c48a7f099279df40f156637cb3dca365781509c3489e0e16ac'),
-(3, 1, 'olgasmirnova', 'olga@example.com', '1111111113', 'olgasmirnova_15f0b1cf493524a6b263064ebc906c8c1ef4353d4cd4a1c6b592698c5d0a352e'),
-(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '1111111114', 'dmitrykuznetsov_a7e75d733733063b93097c749dc90dc278e8035a240941073454feedfadd5512'),
-(5, 1, 'alexpopov', 'alex@example.com', '1111111115', 'alexpopov_6547276a4a638f90725f7df92e8b438ed4b81954669cdee1f302134afa256cfc'),
-(6, 1, 'maksorlov', 'maks@example.com', '1111111116', 'maksorlov_65d44d698f64f9916c587d4d622d7963d79ef909e4c0698f389328e59da3e768'),
-(7, 1, 'innalisova', 'inna@example.com', '1111111117', 'innalisova_65d44d698f64f9916c587d4d622d7963d79ef909e4c0698f389328e59da3e768'),
-(8, 1, 'leozaharov', 'leo@example.com', '1111111118', 'leozaharov_65d44d698f64f9916c587d4d622d7963d79ef909e4c0698f389328e59da3e768'),
-(9, 1, 'ninamoro', 'nina@example.com', '1111111119', 'ninamoro_65d44d698f64f9916c587d4d622d7963d79ef909e4c0698f389328e59da3e768'),
-(10, 1, 'verasokolova', 'vera@example.com', '1111111120', 'verasokolova_65d44d698f64f9916c587d4d622d7963d79ef909e4c0698f389328e59da3e768');
+(1, 1, 'ivanivanov', 'ivan@example.com', '1111111111', 'f40331940a2eb0ec842f09e39726335747f04e7cf3d3a56ea633f3b72ef2458d'),
+(2, 1, 'annapetrova', 'anna@example.com', '1111111112', 'eda6e9d3f2ff853757a9f864b8c793f5700d794f410252f1222b576e56b67983'),
+(3, 1, 'olgasmirnova', 'olga@example.com', '1111111113', 'ad98820e33eded62823c5abfc1db9780846d014b11d07eb28ac3186d68e15486'),
+(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '1111111114', '5bf6e3a85f0a1406b5602e21e0aad1369bc1ff57389c2f6174b2606db7b388ca'),
+(5, 1, 'alexpopov', 'alex@example.com', '1111111115', 'fbdd78794b1dbc3864c7bcbefb7c90f5c4ca5a1f409f9db1d492ffbeec6fb119'),
+(6, 1, 'maksorlov', 'maks@example.com', '1111111116', '78226589b60338ee48a4c411b34c9b93a3ee5a658ec8ea039e63a0e7c1274638'),
+(7, 1, 'innalisova', 'inna@example.com', '1111111117', '07e0c313ec2ea761e366fbda9dbdba9c903da501962ff298bbf050500e27be53'),
+(8, 1, 'leozaharov', 'leo@example.com', '1111111118', '0e03f2a800342f4bab3bb0ca88db5d37779f306898caf6ccf9d509c293f36f57'),
+(9, 1, 'ninamoro', 'nina@example.com', '1111111119', '2ee3914dee3e33b53083024874f141ce7050a11afa21cb2f04378642da9ad0a7'),
+(10, 1, 'verasokolova', 'vera@example.com', '1111111120', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
 
 
 INSERT INTO static (profile_id, path) VALUES
