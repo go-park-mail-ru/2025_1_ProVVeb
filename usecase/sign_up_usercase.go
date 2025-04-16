@@ -70,10 +70,13 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
 	height := rand.Int()%100 + 100
 	description := fake.SentencesN(5)
+	location := fake.City()
 	interests := make([]string, 0, 20)
 	for range 20 {
 		interests = append(interests, fake.Word())
 	}
+	photos := make([]string, 0, 6)
+	photos = append(photos, "/default.png")
 
 	profile := model.Profile{
 		FirstName:   fname,
@@ -83,6 +86,8 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Height:      height,
 		Description: description,
 		Interests:   interests,
+		Location:    location,
+		Photos:      photos,
 	}
 
 	fmt.Println(fmt.Errorf("profile: %+v", profile))

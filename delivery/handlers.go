@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -56,51 +55,7 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writer := multipart.NewWriter(w)
-	defer writer.Close()
-	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
-
-	profileJson, err := json.Marshal(profiles)
-	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error serializing profiles to JSON"})
-		return
-	}
-
-	part, err := writer.CreateFormField("profiles")
-	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error creating multipart field"})
-		return
-	}
-	_, err = part.Write(profileJson)
-	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error writing profile JSON"})
-		return
-	}
-
-	photoIndex := 1
-	for _, profile := range profiles {
-		if len(profile.LastName) == 0 {
-			continue
-		}
-		photos, urls, err := ph.GetProfileImageUC.GetUserPhoto(profile.ProfileId)
-		if err != nil {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
-			return
-		}
-		for i, img := range photos {
-			part, err := writer.CreateFormFile(urls[i], urls[i])
-			if err != nil {
-				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create image part"})
-				return
-			}
-			_, err = part.Write(img)
-			if err != nil {
-				makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to write image data"})
-				return
-			}
-			photoIndex++
-		}
-	}
+	makeResponse(w, http.StatusOK, profiles)
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
@@ -442,48 +397,7 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, urls, err := gh.GetProfileImage.GetUserPhoto(profileId)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("error loading images: %v", err)})
-		return
-	}
-
-	profile.Photos = urls
-
-	writer := multipart.NewWriter(w)
-	defer writer.Close()
-
-	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
-
-	jsonData, err := json.Marshal(profile)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to marshal profile"})
-		return
-	}
-
-	jsonPart, err := writer.CreateFormField("profile")
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create profile part"})
-		return
-	}
-	_, err = jsonPart.Write(jsonData)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write profile part"})
-		return
-	}
-
-	for i, file := range files {
-		part, err := writer.CreateFormFile(urls[i], urls[i])
-		if err != nil {
-			makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
-			return
-		}
-		_, err = part.Write(file)
-		if err != nil {
-			makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write image data"})
-			return
-		}
-	}
+	makeResponse(w, http.StatusOK, profile)
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
@@ -501,49 +415,5 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writer := multipart.NewWriter(w)
-	defer writer.Close()
-	w.Header().Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
-
-	profileJson, err := json.Marshal(profiles)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error serializing profiles to JSON"})
-		return
-	}
-
-	part, err := writer.CreateFormField("profiles")
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error creating multipart field"})
-		return
-	}
-	_, err = part.Write(profileJson)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Error writing profile JSON"})
-		return
-	}
-
-	photoIndex := 1
-	for _, profile := range profiles {
-		if len(profile.LastName) == 0 {
-			continue
-		}
-		photos, urls, err := gh.GetProfileImage.GetUserPhoto(profile.ProfileId)
-		if err != nil {
-			makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error loading images for profile %d: %v", profile.ProfileId, err)})
-			return
-		}
-		for i, img := range photos {
-			part, err := writer.CreateFormFile(urls[i], urls[i])
-			if err != nil {
-				makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to create image part"})
-				return
-			}
-			_, err = part.Write(img)
-			if err != nil {
-				makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Failed to write image data"})
-				return
-			}
-			photoIndex++
-		}
-	}
+	makeResponse(w, http.StatusOK, profiles)
 }
