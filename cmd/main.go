@@ -90,6 +90,13 @@ func main() {
 		MatchUC: *usecase.NewProfileMatchCase(
 			postgresClient,
 		),
+		UpdateUC: *usecase.NewProfileUpdateUseCase(
+			postgresClient,
+		),
+		GetProfileUC: *usecase.NewGetProfileUseCase(
+			postgresClient,
+			staticClient,
+		),
 		GetProfileImageUC: *usecase.NewGetUserPhotoUseCase(
 			postgresClient,
 			staticClient,
@@ -133,6 +140,8 @@ func main() {
 
 	r.HandleFunc("/profiles/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
 	r.HandleFunc("/profiles/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
+
+	r.HandleFunc("/profiles/update", profileHandler.UpdateProfile).Methods("POST")
 
 	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
 	// r.Use(handlery.PanicMiddleware)

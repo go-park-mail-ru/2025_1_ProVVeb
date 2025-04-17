@@ -38,7 +38,37 @@ type StaticHandler struct {
 type ProfileHandler struct {
 	LikeUC            usecase.ProfileSetLike
 	MatchUC           usecase.ProfileGetMatches
+	UpdateUC          usecase.ProfileUpdate
+	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto
+}
+
+func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	var profile model.Profile
+
+	// вставить валидацию данных
+	// вставит валидацию профиля после middleware
+
+	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
+	}
+
+	profileId := profile.ProfileId
+
+	table_profile, err := ph.GetProfileUC.GetProfile(profileId)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		return
+	}
+
+	err = ph.UpdateUC.UpdateProfile(profile, table_profile, profileId)
+	if err != nil {
+		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
+		return
+	}
+
+	makeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {

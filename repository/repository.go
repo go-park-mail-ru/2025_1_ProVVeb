@@ -40,6 +40,8 @@ type UserRepository interface {
 	StorePhotos(profileID int, paths []string) error
 
 	DeletePhoto(userID int, url string) error
+
+	UpdateProfile(int, model.Profile) error
 }
 
 type SessionRepository interface {
@@ -82,6 +84,32 @@ type UParamsValidator struct{}
 type StaticRepo struct {
 	client     *minio.Client
 	bucketName string
+}
+
+const UpdateProfileQuery = `
+UPDATE profiles
+SET
+	firstname = $1,
+	lastname = $2,
+	is_male = $3,
+	height = $4,
+	description = $5,
+	updated_at = CURRENT_TIMESTAMP
+WHERE profile_id = $6;
+`
+
+func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
+	_, err := ur.DB.ExecContext(
+		context.Background(),
+		UpdateProfileQuery,
+		new_profile.FirstName,
+		new_profile.LastName,
+		new_profile.IsMale,
+		new_profile.Height,
+		new_profile.Description,
+		profile_id,
+	)
+	return err
 }
 
 const GetMatches = `
@@ -165,7 +193,7 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 }
 
 func NewStaticRepo() (*StaticRepo, error) {
-	endpoint := "minio:9000"
+	endpoint := "127.0.0.1:9000"
 	accessKeyID := "minioadmin"
 	secretAccessKey := "miniopassword"
 	useSSL := false
@@ -210,7 +238,7 @@ func NewUserRepo() (*UserRepo, error) {
 
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
-		Host:     "postgres",
+		Host:     "localhost",
 		Port:     5432,
 		User:     "postgres",
 		Password: "Grey31415",
@@ -298,7 +326,7 @@ func ClosePostgresConnection(conn *sql.DB) error {
 
 func NewSessionRepo() (*SessionRepo, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
+		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})
