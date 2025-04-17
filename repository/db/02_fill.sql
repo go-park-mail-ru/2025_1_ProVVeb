@@ -52,16 +52,16 @@ INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
 
 
 INSERT INTO static (profile_id, path) VALUES
-(1, '/default.png'),
+(1, '/anatolini.jpg'),
 (2, '/eva.png'),
 (3, '/katya.png'),
-(4, '/default.png'),
-(5, '/default.png'),
-(6, '/default.png'),
-(7, '/default.png'),
-(8, '/default.png'),
-(9, '/default.png'),
-(10, '/default.png');
+(4, '/dima.jpg'),
+(5, '/anton.jpg'),
+(6, '/fernando.jpg'),
+(7, '/kamilla.jpg'),
+(8, '/georgio.jpg'),
+(9, '/liza.jpg'),
+(10, '/nona.jpg');
 
 
 INSERT INTO sessions (user_id, token, expires_at) VALUES
