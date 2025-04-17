@@ -17,14 +17,13 @@ func TestValidateProfile(t *testing.T) {
 		expectedError error
 	}{
 		{profile: utils.Profile{Profile: model.Profile{
-			ProfileId:   1,
-			FirstName:   "John",
-			LastName:    "Doe",
-			Height:      180,
-			Birthday:    time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-			Location:    "USA",
-			Interests:   []string{"Reading", "Traveling"},
-			Preferences: []string{"Reading", "Traveling"},
+			ProfileId: 1,
+			FirstName: "John",
+			LastName:  "Doe",
+			Height:    180,
+			Birthday:  time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
+			Location:  "USA",
+			Interests: []string{"Reading", "Traveling"},
 		}}, expectedError: nil},
 
 		{profile: utils.Profile{Profile: model.Profile{
@@ -38,14 +37,13 @@ func TestValidateProfile(t *testing.T) {
 		}}, expectedError: utils.ErrInvalidFirstName},
 
 		{profile: utils.Profile{Profile: model.Profile{
-			ProfileId:   3,
-			FirstName:   "Jane",
-			LastName:    "Doe",
-			Height:      165,
-			Birthday:    time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-			Location:    "Germany",
-			Interests:   []string{"Photography", "Cycling"},
-			Preferences: []string{"Photography", "Cycling"},
+			ProfileId: 3,
+			FirstName: "Jane",
+			LastName:  "Doe",
+			Height:    165,
+			Birthday:  time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
+			Location:  "Germany",
+			Interests: []string{"Photography", "Cycling"},
 		}}, expectedError: nil},
 
 		{profile: utils.Profile{Profile: model.Profile{

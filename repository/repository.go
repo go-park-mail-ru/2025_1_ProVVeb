@@ -38,6 +38,8 @@ type UserRepository interface {
 	GetMatches(forUserId int) ([]model.Profile, error)
 	StoreInterests(profileID int, interests []string) error
 	StorePhotos(profileID int, paths []string) error
+
+	DeletePhoto(userID int, url string) error
 }
 
 type SessionRepository interface {
@@ -60,6 +62,8 @@ type UserParamsValidator interface {
 type StaticRepository interface {
 	GetImages(urls []string) ([][]byte, error)
 	UploadImages(fileBytes []byte, filename, contentType string) error
+
+	DeleteImage(user_id int, filename string) error
 }
 
 type UserRepo struct {
@@ -805,4 +809,30 @@ func (vr *UParamsValidator) ValidatePassword(password string) error {
 	// password must not contain invalid characters
 
 	return nil
+}
+
+const (
+	DeleteStaticQuery = `
+DELETE FROM "static" WHERE id = $1;
+`
+	FindStaticQuery = `
+	SELECT id FROM "static" WHERE profile_id = $1 AND path = $2;
+	`
+)
+
+func (ur *UserRepo) DeletePhoto(userID int, url string) error {
+	var photo_id int
+	err := ur.DB.QueryRowContext(context.Background(), FindStaticQuery, userID, url).Scan(&photo_id)
+	if err != nil {
+		return err
+	}
+
+	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, photo_id)
+	return err
+}
+
+func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
+	ctx := context.Background()
+
+	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
 }

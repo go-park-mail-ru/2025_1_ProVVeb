@@ -76,7 +76,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		interests = append(interests, fake.Word())
 	}
 	photos := make([]string, 0, 6)
-	photos = append(photos, "default.png")
+	photos = append(photos, "/default.png")
 
 	profile := model.Profile{
 		FirstName:   fname,

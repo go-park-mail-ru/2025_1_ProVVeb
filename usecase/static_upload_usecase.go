@@ -9,7 +9,7 @@ type StaticUpload struct {
 	staticRepo repository.StaticRepository
 }
 
-func NewStaticUseCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *StaticUpload {
+func NewStaticUploadCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *StaticUpload {
 	return &StaticUpload{userRepo: userRepo, staticRepo: staticRepo}
 }
 
@@ -20,7 +20,7 @@ func (su *StaticUpload) UploadUserPhoto(user_id int, file []byte, filename strin
 		return err
 	}
 
-	err = su.userRepo.StorePhoto(user_id, "/"+filename)
+	err = su.userRepo.StorePhoto(user_id, filename)
 	if err != nil {
 		return err
 	}
