@@ -65,7 +65,6 @@ func main() {
 	}
 
 	// NewUser... должен возвращать ошибку
-	// done
 	// создать свой конструктор с теми же ошибками и тд - потом
 	sessionHandler := &handlers.SessionHandler{
 		LoginUC: *usecase.NewUserLogInUseCase(
