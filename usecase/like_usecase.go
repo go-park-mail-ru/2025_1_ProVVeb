@@ -12,7 +12,6 @@ func NewProfileLikeCase(userRepo repository.UserRepository) *ProfileSetLike {
 	return &ProfileSetLike{userRepo: userRepo}
 }
 
-func (l *ProfileSetLike) SetLike(from int, to int, status int) error {
-	_, err := l.userRepo.SetLike(from, to, status)
-	return err
+func (l *ProfileSetLike) SetLike(from int, to int, status int) (int, error) {
+	return l.userRepo.SetLike(from, to, status)
 }

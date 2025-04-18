@@ -40,6 +40,8 @@ type UserRepository interface {
 	StorePhotos(profileID int, paths []string) error
 
 	DeletePhoto(userID int, url string) error
+
+	UpdateProfile(int, model.Profile) error
 }
 
 type SessionRepository interface {
@@ -609,13 +611,34 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	return profile, nil
 }
 
-const CreateLikeQuery = `
-INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
-VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
-RETURNING like_id;
-`
+const (
+	CheckLikeExistsQuery = `
+	SELECT like_id, status FROM likes
+	WHERE profile_id = $1 AND liked_profile_id = $2;
+	`
+
+	CreateLikeQuery = `
+	INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
+	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+	RETURNING like_id;
+	`
+
+	CreateMatchQuery = `
+	INSERT INTO matches (profile_id, matched_profile_id, created_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP)
+	`
+)
 
 func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
+	var existingID int
+	var existing_status int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID, &existing_status)
+	if err == nil {
+		return 0, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, fmt.Errorf("error checking existing like: %w", err)
+	}
 	err = ur.DB.QueryRowContext(
 		context.Background(),
 		CreateLikeQuery,
@@ -623,7 +646,28 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 		to,
 		status,
 	).Scan(&likeID)
-	return
+
+	if err != nil {
+		return 0, fmt.Errorf("error inserting like: %w", err)
+	}
+
+	var reverseStatus int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, to, from).Scan(&existingID, &reverseStatus)
+	if err == nil && reverseStatus == 1 && status == 1 {
+		_, err = ur.DB.ExecContext(
+			context.Background(),
+			CreateMatchQuery,
+			from,
+			to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error creating match: %w", err)
+		}
+
+	}
+
+	return likeID, nil
+
 }
 
 const UploadPhotoQuery = `
@@ -813,26 +857,55 @@ func (vr *UParamsValidator) ValidatePassword(password string) error {
 
 const (
 	DeleteStaticQuery = `
-DELETE FROM "static" WHERE id = $1;
+	DELETE FROM "static" WHERE profile_id = $1 AND path = $2;
 `
-	FindStaticQuery = `
-	SELECT id FROM "static" WHERE profile_id = $1 AND path = $2;
-	`
 )
 
-func (ur *UserRepo) DeletePhoto(userID int, url string) error {
-	var photo_id int
-	err := ur.DB.QueryRowContext(context.Background(), FindStaticQuery, userID, url).Scan(&photo_id)
+func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
+	result, err := ur.DB.ExecContext(context.Background(), DeleteStaticQuery, profileID, "/"+url)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting photo: %w", err)
 	}
 
-	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, photo_id)
-	return err
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no photo found to delete")
+	}
+
+	return nil
 }
 
 func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
 	ctx := context.Background()
 
 	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
+}
+
+const UpdateProfileQuery = `
+UPDATE profiles
+SET
+	firstname = $1,
+	lastname = $2,
+	is_male = $3,
+	height = $4,
+	description = $5,
+	updated_at = CURRENT_TIMESTAMP
+WHERE profile_id = $6;
+`
+
+func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
+	_, err := ur.DB.ExecContext(
+		context.Background(),
+		UpdateProfileQuery,
+		new_profile.FirstName,
+		new_profile.LastName,
+		new_profile.IsMale,
+		new_profile.Height,
+		new_profile.Description,
+		profile_id,
+	)
+	return err
 }

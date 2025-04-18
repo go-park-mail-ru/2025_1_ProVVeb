@@ -36,7 +36,7 @@ func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {
 		fmt.Println("urls", err)
 		return nil, nil, err
 	}
-	
+
 	files, err := gp.staticRepo.GetImages(urls)
 	if err != nil {
 		fmt.Println("files", err)
