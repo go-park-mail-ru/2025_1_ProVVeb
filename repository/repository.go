@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -68,7 +69,7 @@ type StaticRepository interface {
 	GetImages(urls []string) ([][]byte, error)
 	UploadImages(fileBytes []byte, filename, contentType string) error
 	DeleteImage(user_id int, filename string) error
-	GenerateImage(contentType string) ([]byte, error)
+	GenerateImage(contentType string, ismale bool) ([]byte, error)
 }
 
 type UserRepo struct {
@@ -871,8 +872,16 @@ func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
 	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
 }
 
-func (sr *StaticRepo) GenerateImage(contentType string) ([]byte, error) {
-	img, err := govatar.Generate(govatar.MALE)
+func (sr *StaticRepo) GenerateImage(contentType string, ismale bool) ([]byte, error) {
+	var img image.Image
+	var sex govatar.Gender
+	if ismale {
+		sex = govatar.MALE
+	} else {
+		sex = govatar.FEMALE
+	}
+
+	img, err := govatar.Generate(sex)
 	if err != nil {
 		return []byte{}, fmt.Errorf("error generating image: %v", err)
 	}

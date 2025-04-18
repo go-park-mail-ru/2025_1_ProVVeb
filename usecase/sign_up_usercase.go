@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -67,9 +66,20 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 }
 
 func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
-	fname := fake.FirstName()
-	lname := fake.LastName()
-	ismale := true
+	gender := fake.GenderAbbrev()
+	var fname string
+	var lname string
+
+	ismale := (gender == "m")
+
+	if ismale {
+		fname = fake.MaleFirstName()
+		lname = fake.MaleLastName()
+	} else {
+		fname = fake.FemaleFirstName()
+		lname = fake.FemaleLastName()
+	}
+
 	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
 	height := rand.Int()%100 + 100
 	description := fake.SentencesN(5)
@@ -95,18 +105,18 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Photos:      photos,
 	}
 
-	fmt.Println(fmt.Errorf("profile: %+v", profile))
+	// fmt.Println(fmt.Errorf("profile: %+v", profile))
 
-	imgBytes, err := uc.statRepo.GenerateImage("image/png")
+	imgBytes, err := uc.statRepo.GenerateImage("image/png", ismale)
 	if err != nil {
 		return -1, err
 	}
-	
+
 	err = uc.statRepo.UploadImages(imgBytes, defaultFileName, "image/png")
 	if err != nil {
 		return -1, err
 	}
-	
+
 	profileId, err := uc.userRepo.StoreProfile(profile)
 	if err != nil {
 		return -1, err

@@ -233,7 +233,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Password: input.Password,
 	})
 
-	fmt.Println(fmt.Errorf("%+v", session))
+	// fmt.Println(fmt.Errorf("%+v", session))
 
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
@@ -305,7 +305,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
-	fmt.Println(fmt.Errorf("cookies^ %+v", session))
+	// fmt.Println(fmt.Errorf("cookies^ %+v", session))
 	if err == http.ErrNoCookie {
 		response := struct {
 			Message   string `json:"message"`
