@@ -613,7 +613,7 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 
 const (
 	CheckLikeExistsQuery = `
-	SELECT like_id FROM likes
+	SELECT like_id, status FROM likes
 	WHERE profile_id = $1 AND liked_profile_id = $2;
 	`
 
@@ -622,11 +622,17 @@ const (
 	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
 	RETURNING like_id;
 	`
+
+	CreateMatchQuery = `
+	INSERT INTO matches (profile_id, matched_profile_id, created_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP)
+	`
 )
 
 func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
 	var existingID int
-	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID)
+	var existing_status int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID, &existing_status)
 	if err == nil {
 		return 0, nil
 	}
@@ -643,6 +649,20 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 
 	if err != nil {
 		return 0, fmt.Errorf("error inserting like: %w", err)
+	}
+
+	var reverseStatus int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, to, from).Scan(&existingID, &reverseStatus)
+	if err == nil && reverseStatus == 1 && status == 1 {
+		_, err = ur.DB.ExecContext(
+			context.Background(),
+			CreateMatchQuery,
+			from,
+			to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error creating match: %w", err)
+		}
 	}
 
 	return likeID, nil
