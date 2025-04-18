@@ -12,6 +12,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.90
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
+	github.com/o1egl/govatar v0.4.1
 	go.uber.org/mock v0.5.1
 )
 
