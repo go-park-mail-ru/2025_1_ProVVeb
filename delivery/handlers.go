@@ -108,7 +108,11 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := ph.LikeUC.SetLike(likeTo, likeFrom, status)
+	like_id, err := ph.LikeUC.SetLike(likeFrom, likeTo, status)
+	if (like_id == 0) && (err == nil) {
+		makeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
+		return
+	}
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return

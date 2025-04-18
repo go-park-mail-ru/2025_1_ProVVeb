@@ -611,13 +611,28 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	return profile, nil
 }
 
-const CreateLikeQuery = `
-INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
-VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
-RETURNING like_id;
-`
+const (
+	CheckLikeExistsQuery = `
+	SELECT like_id FROM likes
+	WHERE profile_id = $1 AND liked_profile_id = $2;
+	`
+
+	CreateLikeQuery = `
+	INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
+	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+	RETURNING like_id;
+	`
+)
 
 func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
+	var existingID int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID)
+	if err == nil {
+		return 0, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, fmt.Errorf("error checking existing like: %w", err)
+	}
 	err = ur.DB.QueryRowContext(
 		context.Background(),
 		CreateLikeQuery,
@@ -625,7 +640,13 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 		to,
 		status,
 	).Scan(&likeID)
-	return
+
+	if err != nil {
+		return 0, fmt.Errorf("error inserting like: %w", err)
+	}
+
+	return likeID, nil
+
 }
 
 const UploadPhotoQuery = `
