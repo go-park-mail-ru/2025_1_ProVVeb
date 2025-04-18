@@ -106,6 +106,7 @@ func main() {
 	userHandler := &handlers.UserHandler{
 		SignupUC: *usecase.NewUserSignUpUseCase(
 			postgresClient,
+			staticClient,
 			hasher,
 			validator,
 		),

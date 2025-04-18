@@ -14,17 +14,20 @@ import (
 
 type UserSignUp struct {
 	userRepo  repository.UserRepository
+	statRepo  repository.StaticRepository
 	hasher    repository.PasswordHasher
 	validator repository.UserParamsValidator
 }
 
 func NewUserSignUpUseCase(
 	userRepo repository.UserRepository,
+	statRepo repository.StaticRepository,
 	hasher repository.PasswordHasher,
 	validator repository.UserParamsValidator,
 ) *UserSignUp {
 	return &UserSignUp{
 		userRepo:  userRepo,
+		statRepo:  statRepo,
 		hasher:    hasher,
 		validator: validator,
 	}
@@ -75,8 +78,10 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	for range 20 {
 		interests = append(interests, fake.Word())
 	}
+
 	photos := make([]string, 0, 6)
-	photos = append(photos, "/default.png")
+	defaultFileName := "/" + fake.CharactersN(15) + ".png"
+	photos = append(photos, defaultFileName)
 
 	profile := model.Profile{
 		FirstName:   fname,
@@ -92,6 +97,16 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 
 	fmt.Println(fmt.Errorf("profile: %+v", profile))
 
+	imgBytes, err := uc.statRepo.GenerateImage("image/png")
+	if err != nil {
+		return -1, err
+	}
+	
+	err = uc.statRepo.UploadImages(imgBytes, defaultFileName, "image/png")
+	if err != nil {
+		return -1, err
+	}
+	
 	profileId, err := uc.userRepo.StoreProfile(profile)
 	if err != nil {
 		return -1, err

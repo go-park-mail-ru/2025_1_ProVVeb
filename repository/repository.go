@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"regexp"
 	"slices"
@@ -17,6 +19,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/o1egl/govatar"
 )
 
 type UserRepository interface {
@@ -64,8 +67,8 @@ type UserParamsValidator interface {
 type StaticRepository interface {
 	GetImages(urls []string) ([][]byte, error)
 	UploadImages(fileBytes []byte, filename, contentType string) error
-
 	DeleteImage(user_id int, filename string) error
+	GenerateImage(contentType string) ([]byte, error)
 }
 
 type UserRepo struct {
@@ -257,7 +260,6 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-// func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
@@ -270,19 +272,6 @@ func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
-
-	// err = db.Ping()
-	// if err != nil {
-	// 	db.Close()
-	// 	return nil, fmt.Errorf("failed to ping the database: %v", err)
-	// }
-
-	// conn, _ := db.Conn(context.Background())
-	// conn, _ := db.
-	// // db, err := sql.Open()
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	return db, nil
 }
@@ -310,7 +299,6 @@ func NewSessionRepo() (*SessionRepo, error) {
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		return &SessionRepo{}, err
-		// логгировать ошибку подключения к Редис с печатью ошибки
 	}
 
 	return &SessionRepo{
@@ -537,7 +525,6 @@ LEFT JOIN preferences pr
 LEFT JOIN likes liked
     ON liked.liked_profile_id = p.profile_id
 WHERE p.profile_id = $1;
-
 `
 
 func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -882,6 +869,28 @@ func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
 	ctx := context.Background()
 
 	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
+}
+
+func (sr *StaticRepo) GenerateImage(contentType string) ([]byte, error) {
+	img, err := govatar.Generate(govatar.MALE)
+	if err != nil {
+		return []byte{}, fmt.Errorf("error generating image: %v", err)
+	}
+
+	var buf bytes.Buffer
+
+	if contentType == "image/png" {
+		err = png.Encode(&buf, img)
+	} else if contentType == "image/jpeg" {
+		err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 75})
+	}
+
+	if err != nil {
+		return []byte{}, fmt.Errorf("error generating image: %v", err)
+	}
+
+	ansBytes := buf.Bytes()
+	return ansBytes, nil
 }
 
 const UpdateProfileQuery = `
