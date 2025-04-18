@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type GetHandler struct {
@@ -72,9 +73,10 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	id := mux.Vars(r)["id"]
 
-	profileId, err := strconv.Atoi(id)
+	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
@@ -101,7 +103,9 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	likeFrom, likeTo, status := input.LikeFrom, input.LikeTo, input.Status
+	likeFrom := input.LikeFrom
+	likeTo := input.LikeTo
+	status := input.Status
 
 	if likeTo == likeFrom {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
@@ -134,6 +138,7 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 }
 
 func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var maxMemory int64 = model.MaxFileSize
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
@@ -142,7 +147,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userId := r.URL.Query().Get("forUser")
-	user_id, err := strconv.Atoi(userId)
+	user_id, err := strconv.Atoi(sanitizer.Sanitize(userId))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
 		return
@@ -175,7 +180,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 
-		contentType := fileHeader.Header.Get("Content-Type")
+		contentType := sanitizer.Sanitize(fileHeader.Header.Get("Content-Type"))
 		if !allowedTypes[contentType] {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (unsupported type)")
 			continue
@@ -186,6 +191,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (read error)")
 			continue
 		}
+		buf = sanitizer.SanitizeBytes(buf)
 
 		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
 
@@ -213,6 +219,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
@@ -222,6 +229,9 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
+
+	input.Login = sanitizer.Sanitize(input.Login)
+	input.Password = sanitizer.Sanitize(input.Password)
 
 	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
@@ -269,6 +279,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
@@ -278,6 +289,9 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
+
+	input.Login = sanitizer.Sanitize(input.Login)
+	input.Password = sanitizer.Sanitize(input.Password)
 
 	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
@@ -384,10 +398,11 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	userId, err := strconv.Atoi(id)
+	userId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
@@ -402,9 +417,10 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	id := mux.Vars(r)["id"]
 
-	profileId, err := strconv.Atoi(id)
+	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
@@ -420,9 +436,10 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	userId := r.URL.Query().Get("forUser")
 
-	profileId, err := strconv.Atoi(userId)
+	profileId, err := strconv.Atoi(sanitizer.Sanitize(userId))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
@@ -438,8 +455,9 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	fileURL := r.URL.Query().Get("file_url")
+	sanitizer := bluemonday.UGCPolicy()
+	id := sanitizer.Sanitize(r.URL.Query().Get("id"))
+	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
 	user_id, err := strconv.Atoi(id)
 	if err != nil {
