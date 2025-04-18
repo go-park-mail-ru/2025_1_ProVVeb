@@ -653,9 +653,7 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 
 	var reverseStatus int
 	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, to, from).Scan(&existingID, &reverseStatus)
-	fmt.Println(reverseStatus, status, existingID)
 	if err == nil && reverseStatus == 1 && status == 1 {
-		fmt.Println(reverseStatus, status, existingID)
 		_, err = ur.DB.ExecContext(
 			context.Background(),
 			CreateMatchQuery,
