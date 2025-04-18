@@ -18,6 +18,7 @@ func NewGetProfileUseCase(userRepo repository.UserRepository, staticRepo reposit
 
 func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
 	profile, err := gp.userRepo.GetProfileById(userId)
+	fmt.Println("gor")
 	return profile, err
 }
 
@@ -32,7 +33,6 @@ func NewGetUserPhotoUseCase(userRepo repository.UserRepository, staticRepo repos
 
 func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {
 	urls, err := gp.userRepo.GetPhotos(user_id)
-	fmt.Println(urls)
 	if err != nil {
 		fmt.Println("urls", err)
 		return nil, nil, err
