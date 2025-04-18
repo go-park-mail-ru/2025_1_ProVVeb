@@ -815,7 +815,7 @@ func (vr *UParamsValidator) ValidatePassword(password string) error {
 
 const (
 	DeleteStaticQuery = `
-DELETE FROM "static" WHERE id = $1;
+	DELETE FROM "static" WHERE profile_id = $1 AND path = $2;
 `
 	FindStaticQuery = `
 	SELECT id FROM "static" WHERE profile_id = $1 AND path = $2;
@@ -829,7 +829,7 @@ func (ur *UserRepo) DeletePhoto(userID int, url string) error {
 		return err
 	}
 
-	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, photo_id)
+	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, userID, url)
 	return err
 }
 
