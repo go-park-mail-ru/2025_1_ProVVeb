@@ -764,17 +764,19 @@ func (ur *UserRepo) StorePhotos(profileID int, paths []string) error {
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
 	amount := 0
-	for i := 1; amount < model.PageSize; i++ {
+	for i := 1; ; i++ {
 		if i != forUserId {
 			profile, err := ur.GetProfileById(i)
 			if err != nil {
 				return profiles, err
 			}
+			if profile.ProfileId == 0 && profile.FirstName == "" {
+				return profiles, nil
+			}
 			profiles = append(profiles, profile)
 			amount++
 		}
 	}
-	return profiles, nil
 }
 
 func (sr *SessionRepo) DeleteSession(sessionID string) error {
