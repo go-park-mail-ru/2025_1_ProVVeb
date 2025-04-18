@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"log"
 	"regexp"
 	"slices"
 	"time"
@@ -605,24 +604,6 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 		}
 	}
 
-	rows, err = ur.DB.QueryContext(context.Background(), "SELECT id, profile_id, path FROM static")
-	if err != nil {
-		log.Fatalf("Query failed: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var a int
-		var b int
-		var c string
-		err := rows.Scan(a, b, c)
-		if err != nil {
-			log.Printf("Row scan failed: %v", err)
-			continue
-		}
-		fmt.Println("User: ", a, b, c)
-	}
-
 	if rows.Err() != nil {
 		return profile, rows.Err()
 	}
@@ -841,15 +822,21 @@ const (
 	`
 )
 
-func (ur *UserRepo) DeletePhoto(userID int, url string) error {
-	var photo_id int
-	err := ur.DB.QueryRowContext(context.Background(), FindStaticQuery, userID, url).Scan(&photo_id)
+func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
+	result, err := ur.DB.ExecContext(context.Background(), DeleteStaticQuery, profileID, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting photo: %w", err)
 	}
 
-	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, userID, url)
-	return err
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no photo found to delete")
+	}
+
+	return nil
 }
 
 func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
