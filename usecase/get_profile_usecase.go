@@ -32,11 +32,12 @@ func NewGetUserPhotoUseCase(userRepo repository.UserRepository, staticRepo repos
 
 func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {
 	urls, err := gp.userRepo.GetPhotos(user_id)
+	fmt.Println(urls)
 	if err != nil {
 		fmt.Println("urls", err)
 		return nil, nil, err
 	}
-	
+
 	files, err := gp.staticRepo.GetImages(urls)
 	if err != nil {
 		fmt.Println("files", err)
