@@ -13,7 +13,7 @@ var MaxLoginLength = 15
 var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
-var PageSize = 5
+var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
 // errors
