@@ -817,13 +817,10 @@ const (
 	DeleteStaticQuery = `
 	DELETE FROM "static" WHERE profile_id = $1 AND path = $2;
 `
-	FindStaticQuery = `
-	SELECT id FROM "static" WHERE profile_id = $1 AND path = $2;
-	`
 )
 
 func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
-	result, err := ur.DB.ExecContext(context.Background(), DeleteStaticQuery, profileID, url)
+	result, err := ur.DB.ExecContext(context.Background(), DeleteStaticQuery, profileID, "/"+url)
 	if err != nil {
 		return fmt.Errorf("error deleting photo: %w", err)
 	}
