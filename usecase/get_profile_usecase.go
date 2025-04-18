@@ -18,7 +18,6 @@ func NewGetProfileUseCase(userRepo repository.UserRepository, staticRepo reposit
 
 func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
 	profile, err := gp.userRepo.GetProfileById(userId)
-	fmt.Println("gor")
 	return profile, err
 }
 

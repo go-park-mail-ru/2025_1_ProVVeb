@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"regexp"
 	"slices"
 	"time"
@@ -602,6 +603,24 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
 			profile.Photos = append(profile.Photos, photo.String)
 		}
+	}
+
+	rows, err = ur.DB.QueryContext(context.Background(), "SELECT id, profile_id, path FROM static")
+	if err != nil {
+		log.Fatalf("Query failed: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var a int
+		var b int
+		var c string
+		err := rows.Scan(a, b, c)
+		if err != nil {
+			log.Printf("Row scan failed: %v", err)
+			continue
+		}
+		fmt.Println("User: ", a, b, c)
 	}
 
 	if rows.Err() != nil {
