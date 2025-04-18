@@ -191,7 +191,6 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (read error)")
 			continue
 		}
-		buf = sanitizer.SanitizeBytes(buf)
 
 		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
 
