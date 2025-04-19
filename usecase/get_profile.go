@@ -12,8 +12,14 @@ type GetProfile struct {
 	staticRepo repository.StaticRepository
 }
 
-func NewGetProfileUseCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *GetProfile {
-	return &GetProfile{userRepo: userRepo, staticRepo: staticRepo}
+func NewGetProfileUseCase(
+	userRepo repository.UserRepository,
+	staticRepo repository.StaticRepository,
+) (*GetProfile, error) {
+	if userRepo == nil || staticRepo == nil {
+		return &GetProfile{}, fmt.Errorf("userRepo or staticRepo undefined")
+	}
+	return &GetProfile{userRepo: userRepo, staticRepo: staticRepo}, nil
 }
 
 func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
@@ -26,8 +32,17 @@ type GetUserPhoto struct {
 	staticRepo repository.StaticRepository
 }
 
-func NewGetUserPhotoUseCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *GetUserPhoto {
-	return &GetUserPhoto{userRepo: userRepo, staticRepo: staticRepo}
+func NewGetUserPhotoUseCase(
+	userRepo repository.UserRepository,
+	staticRepo repository.StaticRepository,
+) (*GetUserPhoto, error) {
+	if userRepo == nil || staticRepo == nil {
+		return nil, fmt.Errorf("userRepo or staticRepo undefined")
+	}
+	return &GetUserPhoto{
+		userRepo:   userRepo,
+		staticRepo: staticRepo,
+	}, nil
 }
 
 func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {

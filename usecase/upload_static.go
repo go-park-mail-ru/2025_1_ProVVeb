@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"fmt"
+
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
 
@@ -9,8 +11,14 @@ type StaticUpload struct {
 	staticRepo repository.StaticRepository
 }
 
-func NewStaticUploadCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *StaticUpload {
-	return &StaticUpload{userRepo: userRepo, staticRepo: staticRepo}
+func NewStaticUploadUseCase(
+	userRepo repository.UserRepository,
+	staticRepo repository.StaticRepository,
+) (*StaticUpload, error) {
+	if userRepo == nil || staticRepo == nil {
+		return nil, fmt.Errorf("userRepo or staticRepo is nil")
+	}
+	return &StaticUpload{userRepo: userRepo, staticRepo: staticRepo}, nil
 }
 
 func (su *StaticUpload) UploadUserPhoto(user_id int, file []byte, filename string, content_type string) error {

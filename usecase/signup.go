@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -23,13 +24,16 @@ func NewUserSignUpUseCase(
 	statRepo repository.StaticRepository,
 	hasher repository.PasswordHasher,
 	validator repository.UserParamsValidator,
-) *UserSignUp {
+) (*UserSignUp, error) {
+	if userRepo == nil || statRepo == nil || hasher == nil || validator == nil {
+		return nil, fmt.Errorf("userRepo, statRepo, hasher, validator are nil")
+	}
 	return &UserSignUp{
 		userRepo:  userRepo,
 		statRepo:  statRepo,
 		hasher:    hasher,
 		validator: validator,
-	}
+	}, nil
 }
 
 type UserSignUpInput struct {
@@ -70,7 +74,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	var fname string
 	var lname string
 
-	ismale := (gender == "m")
+	ismale := (gender == "M")
 
 	if ismale {
 		fname = fake.MaleFirstName()
@@ -80,7 +84,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		lname = fake.FemaleLastName()
 	}
 
-	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
+	birthdate := time.Now().AddDate(-rand.Int()%27-18, -rand.Int()%12, -rand.Int()%30)
 	height := rand.Int()%100 + 100
 	description := fake.SentencesN(2)
 	location := fake.City()

@@ -1,4 +1,4 @@
-package handlery
+package handlers
 
 import (
 	"encoding/json"
@@ -33,12 +33,12 @@ type UserHandler struct {
 
 type StaticHandler struct {
 	UploadUC usecase.StaticUpload
-	DeleteUC usecase.StaticDelete
+	DeleteUC usecase.DeleteStatic
 }
 
 type ProfileHandler struct {
 	LikeUC            usecase.ProfileSetLike
-	MatchUC           usecase.ProfileGetMatches
+	MatchUC           usecase.GetProfileMatches
 	UpdateUC          usecase.ProfileUpdate
 	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto

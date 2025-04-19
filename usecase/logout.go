@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -12,11 +13,17 @@ type UserLogOut struct {
 	sessionRepo repository.SessionRepository
 }
 
-func NewUserLogOutUseCase(userRepo repository.UserRepository, sessionRepo repository.SessionRepository) *UserLogOut {
+func NewUserLogOutUseCase(
+	userRepo repository.UserRepository,
+	sessionRepo repository.SessionRepository,
+) (*UserLogOut, error) {
+	if userRepo == nil || sessionRepo == nil {
+		return nil, fmt.Errorf("userRepo or sessionRepo is nil")
+	}
 	return &UserLogOut{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
-	}
+	}, nil
 }
 
 func (ul *UserLogOut) Logout(sessionId string) error {
