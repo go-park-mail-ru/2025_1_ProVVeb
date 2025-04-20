@@ -1,8 +1,6 @@
 package usecase
 
 import (
-	"fmt"
-
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
@@ -13,7 +11,7 @@ type ProfileUpdate struct {
 
 func NewProfileUpdateUseCase(userRepo repository.UserRepository) (*ProfileUpdate, error) {
 	if userRepo == nil {
-		return nil, fmt.Errorf("userRepo is nil")
+		return nil, model.ErrProfileUpdateUC
 	}
 	return &ProfileUpdate{userRepo: userRepo}, nil
 }

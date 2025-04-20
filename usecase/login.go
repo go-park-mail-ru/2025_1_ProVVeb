@@ -2,8 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"strconv"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -24,7 +22,7 @@ func NewUserLogInUseCase(
 	validator repository.UserParamsValidator,
 ) (*UserLogIn, error) {
 	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
-		return nil, fmt.Errorf("userRepo, sessionRepo, hasher, validator undefined")
+		return nil, model.ErrUserLogInUC
 	}
 	return &UserLogIn{
 		userRepo:    userRepo,
@@ -39,15 +37,6 @@ type LogInInput struct {
 	Password string
 }
 
-func RandStringRunes(n int) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-	return string(b)
-}
-
 func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model.Session, error) {
 	user, err := uc.userRepo.GetUserByLogin(ctx, input.Login)
 	if err != nil {
@@ -58,14 +47,7 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 		return model.Session{}, model.ErrInvalidPassword
 	}
 
-	session_id := RandStringRunes(model.SessionIdLength)
-	expires := model.SessionDuration
-
-	session := model.Session{
-		SessionId: session_id,
-		UserId:    user.UserId,
-		Expires:   expires,
-	}
+	session := uc.sessionRepo.CreateSession(user.UserId)
 
 	return session, nil
 }

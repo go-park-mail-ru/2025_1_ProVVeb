@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -14,7 +13,7 @@ type UserCheckSession struct {
 
 func NewUserCheckSessionUseCase(sessionRepo repository.SessionRepository) (*UserCheckSession, error) {
 	if sessionRepo == nil {
-		return nil, fmt.Errorf("sessionRepo is nil")
+		return nil, model.ErrUserCheckSessionUC
 	}
 	return &UserCheckSession{sessionRepo: sessionRepo}, nil
 }

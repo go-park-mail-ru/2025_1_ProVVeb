@@ -17,7 +17,7 @@ func NewGetProfileUseCase(
 	staticRepo repository.StaticRepository,
 ) (*GetProfile, error) {
 	if userRepo == nil || staticRepo == nil {
-		return &GetProfile{}, fmt.Errorf("userRepo or staticRepo undefined")
+		return &GetProfile{}, model.ErrGetProfileUC
 	}
 	return &GetProfile{userRepo: userRepo, staticRepo: staticRepo}, nil
 }
@@ -37,7 +37,7 @@ func NewGetUserPhotoUseCase(
 	staticRepo repository.StaticRepository,
 ) (*GetUserPhoto, error) {
 	if userRepo == nil || staticRepo == nil {
-		return nil, fmt.Errorf("userRepo or staticRepo undefined")
+		return nil, model.ErrGetUserPhotoUC
 	}
 	return &GetUserPhoto{
 		userRepo:   userRepo,

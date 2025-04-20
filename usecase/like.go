@@ -1,8 +1,7 @@
 package usecase
 
 import (
-	"fmt"
-
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
 
@@ -12,7 +11,7 @@ type ProfileSetLike struct {
 
 func NewProfileSetLikeUseCase(userRepo repository.UserRepository) (*ProfileSetLike, error) {
 	if userRepo == nil {
-		return nil, fmt.Errorf("userRepo is nil")
+		return nil, model.ErrProfileSetLikeUC
 	}
 	return &ProfileSetLike{userRepo: userRepo}, nil
 }
