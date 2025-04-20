@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/jackc/pgx/v5"
@@ -13,27 +12,28 @@ import (
 
 type UserRepository interface {
 	GetUserByLogin(ctx context.Context, login string) (model.User, error)
-	CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error)
-	CloseRepo() error
-	UserExists(ctx context.Context, login string) bool
 	StoreUser(model.User) (int, error)
-	StoreProfile(model.Profile) (int, error)
-	DeleteSession(userId int) error
-	StoreSession(userID int, sessionID string) error
 	DeleteUserById(userId int) error
+	UserExists(ctx context.Context, login string) bool
+
 	GetProfileById(userId int) (model.Profile, error)
+	StoreProfile(model.Profile) (int, error)
 	GetProfilesByUserId(forUserId int) ([]model.Profile, error)
-	SetLike(from int, to int, status int) (likeID int, err error)
-
-	StorePhoto(userID int, url string) error
-	GetPhotos(userID int) ([]string, error)
 	GetMatches(forUserId int) ([]model.Profile, error)
-	StoreInterests(profileID int, interests []string) error
-	StorePhotos(profileID int, paths []string) error
-
-	DeletePhoto(userID int, url string) error
-
 	UpdateProfile(int, model.Profile) error
+
+	StoreSession(userId int, sessionId string) error
+	DeleteSession(userId int) error
+
+	GetPhotos(userId int) ([]string, error)
+	StorePhoto(userId int, url string) error
+	StorePhotos(profileId int, paths []string) error
+	DeletePhoto(userId int, url string) error
+
+	SetLike(from int, to int, status int) (likeId int, err error)
+	StoreInterests(profileId int, interests []string) error
+	
+	CloseRepo() error
 }
 
 type UserRepo struct {
@@ -195,31 +195,6 @@ func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.Use
 	)
 
 	return user, err
-}
-
-const CreateSessionQuery = `
-INSERT INTO sessions (user_id, token, expires_at)
-VALUES ($1, $2, $3)
-RETURNING token, user_id, 
-	EXTRACT(EPOCH FROM (expires_at - NOW()))::int
-`
-
-func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error) {
-	var session model.Session
-
-	err := ur.DB.QueryRowContext(
-		ctx,
-		CreateSessionQuery,
-		userID,
-		token,
-		time.Now().Add(expires),
-	).Scan(
-		&session.SessionId,
-		&session.UserId,
-		&session.Expires,
-	)
-
-	return session, err
 }
 
 const StoreSessionQuery = `

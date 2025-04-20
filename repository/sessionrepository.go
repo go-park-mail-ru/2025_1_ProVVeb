@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -9,6 +10,7 @@ import (
 )
 
 type SessionRepository interface {
+	CreateSession(userId int) model.Session
 	GetSession(sessionId string) (string, error)
 	StoreSession(sessionId string, data string, ttl time.Duration) error
 	DeleteSession(sessionId string) error
@@ -38,6 +40,26 @@ func NewSessionRepo() (*SessionRepo, error) {
 		client: client,
 		ctx:    ctx,
 	}, nil
+}
+
+func RandStringRunes(n int) string {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
+
+func (sr *SessionRepo) CreateSession(userId int) model.Session {
+	session_id := RandStringRunes(model.SessionIdLength)
+	expires := model.SessionDuration
+
+	return model.Session{
+		SessionId: session_id,
+		UserId:    userId,
+		Expires:   expires,
+	}
 }
 
 func (sr *SessionRepo) DeleteSession(sessionId string) error {
