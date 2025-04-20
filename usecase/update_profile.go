@@ -9,8 +9,11 @@ type ProfileUpdate struct {
 	userRepo repository.UserRepository
 }
 
-func NewProfileUpdateUseCase(userRepo repository.UserRepository) *ProfileUpdate {
-	return &ProfileUpdate{userRepo: userRepo}
+func NewProfileUpdateUseCase(userRepo repository.UserRepository) (*ProfileUpdate, error) {
+	if userRepo == nil {
+		return nil, model.ErrProfileUpdateUC
+	}
+	return &ProfileUpdate{userRepo: userRepo}, nil
 }
 
 func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, profileId int) error {

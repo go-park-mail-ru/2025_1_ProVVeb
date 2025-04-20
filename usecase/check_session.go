@@ -11,8 +11,11 @@ type UserCheckSession struct {
 	sessionRepo repository.SessionRepository
 }
 
-func NewUserCheckSessionUseCase(sessionRepo repository.SessionRepository) *UserCheckSession {
-	return &UserCheckSession{sessionRepo: sessionRepo}
+func NewUserCheckSessionUseCase(sessionRepo repository.SessionRepository) (*UserCheckSession, error) {
+	if sessionRepo == nil {
+		return nil, model.ErrUserCheckSessionUC
+	}
+	return &UserCheckSession{sessionRepo: sessionRepo}, nil
 }
 
 func (uc *UserCheckSession) CheckSession(sessionId string) (int, error) {

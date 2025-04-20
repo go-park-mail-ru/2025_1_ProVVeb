@@ -10,8 +10,18 @@ type GetProfilesForUser struct {
 	staticRepo repository.StaticRepository
 }
 
-func NewGetProfilesForUserUseCase(userRepo repository.UserRepository, staticRepo repository.StaticRepository) *GetProfilesForUser {
-	return &GetProfilesForUser{userRepo: userRepo, staticRepo: staticRepo}
+func NewGetProfilesForUserUseCase(
+	userRepo repository.UserRepository,
+	staticRepo repository.StaticRepository,
+) (*GetProfilesForUser, error) {
+	if userRepo == nil || staticRepo == nil {
+		return nil, model.ErrGetProfilesForUserUC
+	}
+
+	return &GetProfilesForUser{
+		userRepo:   userRepo,
+		staticRepo: staticRepo,
+	}, nil
 }
 
 func (gp *GetProfilesForUser) GetProfiles(forUserId int) ([]model.Profile, error) {

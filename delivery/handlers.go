@@ -1,4 +1,4 @@
-package handlery
+package handlers
 
 import (
 	"encoding/json"
@@ -33,12 +33,12 @@ type UserHandler struct {
 
 type StaticHandler struct {
 	UploadUC usecase.StaticUpload
-	DeleteUC usecase.StaticDelete
+	DeleteUC usecase.DeleteStatic
 }
 
 type ProfileHandler struct {
 	LikeUC            usecase.ProfileSetLike
-	MatchUC           usecase.ProfileGetMatches
+	MatchUC           usecase.GetProfileMatches
 	UpdateUC          usecase.ProfileUpdate
 	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto
@@ -51,7 +51,7 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	// вставит валидацию профиля после middleware
 
 	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
@@ -59,17 +59,17 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 
 	table_profile, err := ph.GetProfileUC.GetProfile(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
 		return
 	}
 
 	err = ph.UpdateUC.UpdateProfile(profile, table_profile, profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
@@ -78,17 +78,17 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profiles, err := ph.MatchUC.GetMatches(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profiles)
+	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
@@ -108,21 +108,21 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	status := input.Status
 
 	if likeTo == likeFrom {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
 		return
 	}
 
 	like_id, err := ph.LikeUC.SetLike(likeFrom, likeTo, status)
 	if (like_id == 0) && (err == nil) {
-		makeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
+		MakeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
 		return
 	}
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
 }
 
 func CreateCookies(session model.Session) (*model.Cookie, error) {
@@ -149,13 +149,13 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("forUser")
 	user_id, err := strconv.Atoi(sanitizer.Sanitize(userId))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
 		return
 	}
 
 	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
 		return
 	}
 
@@ -163,7 +163,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	files := form.File["images"]
 
 	if len(files) == 0 {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
 		return
 	}
 
@@ -204,14 +204,14 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(failedUploads) != 0 {
-		makeResponse(w, http.StatusInternalServerError, map[string]interface{}{
+		MakeResponse(w, http.StatusInternalServerError, map[string]interface{}{
 			"message":        "Some uploads failed",
 			"failed_uploads": failedUploads,
 		})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]interface{}{
+	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message":        "All files uploaded",
 		"uploaded_files": successUploads,
 	})
@@ -225,7 +225,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
@@ -233,7 +233,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	input.Password = sanitizer.Sanitize(input.Password)
 
 	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
@@ -245,19 +245,19 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println(fmt.Errorf("%+v", session))
 
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
 	}
 
 	cookie, err := CreateCookies(session)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
 		return
 	}
 
 	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
 		fmt.Println(fmt.Errorf("error storing session: %v", err))
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
 	}
 
@@ -271,7 +271,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	makeResponse(w, http.StatusOK, map[string]interface{}{
+	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message": "Logged in",
 		"user_id": session.UserId,
 	})
@@ -285,7 +285,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
@@ -293,27 +293,27 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	input.Password = sanitizer.Sanitize(input.Password)
 
 	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
 	if uh.SignupUC.UserExists(r.Context(), input.Login) {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
 	}
 
 	profileId, err := uh.SignupUC.SaveUserProfile(input.Login)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
 		return
 	}
 
 	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}
 
-	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
@@ -327,22 +327,22 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			Message:   "No cookies got",
 			InSession: false,
 		}
-		makeResponse(w, http.StatusOK, response)
+		MakeResponse(w, http.StatusOK, response)
 		return
 	}
 
 	userId, err := sh.CheckSessionUC.CheckSession(session.Value)
 	if err != nil {
 		if err == model.ErrSessionNotFound {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
 			return
 		}
 		if err == model.ErrGetSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
 			return
 		}
 		if err == model.ErrInvalidSessionId {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
 			return
 		}
 	}
@@ -357,27 +357,27 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		UserId:    userId,
 	}
 
-	makeResponse(w, http.StatusOK, response)
+	MakeResponse(w, http.StatusOK, response)
 }
 
 func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
 		return
 	}
 
 	if err := sh.LogoutUC.Logout(session.Value); err != nil {
 		if err == model.ErrSessionNotFound {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
 			return
 		}
 		if err == model.ErrGetSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
 			return
 		}
 		if err == model.ErrDeleteSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
 			return
 		}
 	}
@@ -393,7 +393,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, expiredCookie)
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
 
 func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -403,16 +403,16 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	userId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	if err := uh.DeleteUserUC.DeleteUser(userId); err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -421,17 +421,17 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profile, err := gh.GetProfileUC.GetProfile(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profile)
+	MakeResponse(w, http.StatusOK, profile)
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
@@ -440,17 +440,17 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := strconv.Atoi(sanitizer.Sanitize(userId))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profiles)
+	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
@@ -460,16 +460,16 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 
 	user_id, err := strconv.Atoi(id)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	err = sh.DeleteUC.DeleteImage(user_id, fileURL)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
 
 }

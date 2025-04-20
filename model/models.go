@@ -16,10 +16,24 @@ var SessionIdLength = 32
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
+// regexps
+var (
+	ReStartsWithLetter             = `^[a-zA-Z]`
+	ReContainsLettersDigitsSymbols = `^[a-zA-Z0-9._-]+$`
+)
+
+// ideas for future
+// password must contain at least one digit
+// password must contain only letters and digits
+// password must contain at least one special character
+// password must not contain invalid characters
+
 // errors
 var (
 	ErrInvalidLogin          = errors.New("invalid login")
+	ErrInvalidLoginSize      = errors.New("invalid login size")
 	ErrInvalidPassword       = errors.New("invalid password")
+	ErrInvalidPasswordSize   = errors.New("invalid password size")
 	ErrSessionNotFound       = errors.New("session not found")
 	ErrInvalidSession        = errors.New("invalid session")
 	ErrInvalidUserRepoConfig = errors.New("invalid user repository config")
@@ -30,6 +44,19 @@ var (
 	ErrProfileNotFound       = errors.New("profile not found")
 	ErrDeleteUser            = errors.New("failed to delete user")
 	ErrDeleteProfile         = errors.New("failed to delete profile")
+	ErrUserCheckSessionUC    = errors.New("failed user check session")
+	ErrDeleteStaticUC        = errors.New("failed to delete static")
+	ErrUserDeleteUC          = errors.New("failed to delete user")
+	ErrGetProfileMatchesUC   = errors.New("failed to get profile matches")
+	ErrGetProfileUC          = errors.New("failed to get profile")
+	ErrGetUserPhotoUC        = errors.New("failed to get user photo")
+	ErrGetProfilesForUserUC  = errors.New("failed to get profiles for user")
+	ErrProfileSetLikeUC      = errors.New("failed to set like")
+	ErrUserLogInUC           = errors.New("failed to log in user")
+	ErrUserLogOutUC          = errors.New("failed to log out user")
+	ErrUserSignUpUC          = errors.New("failed to sign up user")
+	ErrProfileUpdateUC       = errors.New("failed to update profile")
+	ErrStaticUploadUC        = errors.New("failed to upload static")
 )
 
 type User struct {

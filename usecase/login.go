@@ -5,7 +5,37 @@ import (
 	"strconv"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
+
+type UserLogIn struct {
+	userRepo    repository.UserRepository
+	sessionRepo repository.SessionRepository
+	hasher      repository.PasswordHasher
+	validator   repository.UserParamsValidator
+}
+
+func NewUserLogInUseCase(
+	userRepo repository.UserRepository,
+	sessionRepo repository.SessionRepository,
+	hasher repository.PasswordHasher,
+	validator repository.UserParamsValidator,
+) (*UserLogIn, error) {
+	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
+		return nil, model.ErrUserLogInUC
+	}
+	return &UserLogIn{
+		userRepo:    userRepo,
+		sessionRepo: sessionRepo,
+		hasher:      hasher,
+		validator:   validator,
+	}, nil
+}
+
+type LogInInput struct {
+	Login    string
+	Password string
+}
 
 func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model.Session, error) {
 	user, err := uc.userRepo.GetUserByLogin(ctx, input.Login)
@@ -17,14 +47,7 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 		return model.Session{}, model.ErrInvalidPassword
 	}
 
-	session_id := RandStringRunes(model.SessionIdLength)
-	expires := model.SessionDuration
-
-	session := model.Session{
-		SessionId: session_id,
-		UserId:    user.UserId,
-		Expires:   expires,
-	}
+	session := uc.sessionRepo.CreateSession(user.UserId)
 
 	return session, nil
 }
