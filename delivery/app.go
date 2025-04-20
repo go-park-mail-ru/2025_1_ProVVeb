@@ -76,22 +76,24 @@ func Run() {
 		return
 	}
 
+	r.Use(PanicMiddleware)
+
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
-	r.HandleFunc("/profiles/{id}", getHandler.GetProfile).Methods("GET")
-	r.HandleFunc("/profiles", getHandler.GetProfiles).Methods("GET")
-	r.HandleFunc("/profiles/like", profileHandler.SetLike).Methods("POST")
-	r.HandleFunc("/profiles/match/{id}", profileHandler.GetMatches).Methods("GET")
-	r.HandleFunc("/profiles/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
-	r.HandleFunc("/profiles/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
-	r.HandleFunc("/profiles/update", profileHandler.UpdateProfile).Methods("POST")
+	authSubrouter := r.PathPrefix("/profiles").Subrouter()
+	authSubrouter.Use(AdminAuthMiddleware(sessionHandler))
 
-	// r.Use(handlery.AdminAuthMiddleware(sessionHandler))
-	// r.Use(handlery.PanicMiddleware)
+	authSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
+	authSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
+	authSubrouter.HandleFunc("/like", profileHandler.SetLike).Methods("POST")
+	authSubrouter.HandleFunc("/match/{id}", profileHandler.GetMatches).Methods("GET")
+	authSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
+	authSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
+	authSubrouter.HandleFunc("/update", profileHandler.UpdateProfile).Methods("POST")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
