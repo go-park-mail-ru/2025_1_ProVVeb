@@ -1,8 +1,7 @@
 package usecase
 
 import (
-	"fmt"
-
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
 
@@ -12,7 +11,7 @@ type UserDelete struct {
 
 func NewUserDeleteUseCase(userRepo repository.UserRepository) (*UserDelete, error) {
 	if userRepo == nil {
-		return nil, fmt.Errorf("userRepo is nil")
+		return nil, model.ErrUserDeleteUC
 	}
 	return &UserDelete{userRepo: userRepo}, nil
 }

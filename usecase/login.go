@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strconv"
 
@@ -24,7 +23,7 @@ func NewUserLogInUseCase(
 	validator repository.UserParamsValidator,
 ) (*UserLogIn, error) {
 	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
-		return nil, fmt.Errorf("userRepo, sessionRepo, hasher, validator undefined")
+		return nil, model.ErrUserLogInUC
 	}
 	return &UserLogIn{
 		userRepo:    userRepo,

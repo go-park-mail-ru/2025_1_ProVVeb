@@ -1,8 +1,7 @@
 package usecase
 
 import (
-	"fmt"
-
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
 
@@ -16,7 +15,7 @@ func NewStaticUploadUseCase(
 	staticRepo repository.StaticRepository,
 ) (*StaticUpload, error) {
 	if userRepo == nil || staticRepo == nil {
-		return nil, fmt.Errorf("userRepo or staticRepo is nil")
+		return nil, model.ErrStaticUploadUC
 	}
 	return &StaticUpload{userRepo: userRepo, staticRepo: staticRepo}, nil
 }
