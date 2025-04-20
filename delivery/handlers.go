@@ -45,17 +45,22 @@ type ProfileHandler struct {
 }
 
 func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		return
+	}
+
 	var profile model.Profile
-
-	// вставить валидацию данных
-	// вставит валидацию профиля после middleware
-
 	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
-
-	profileId := profile.ProfileId
+	if profileId != profile.ProfileId {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access for this"})
+		return
+	}
 
 	table_profile, err := ph.GetProfileUC.GetProfile(profileId)
 	if err != nil {
@@ -73,12 +78,10 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
-	sanitizer := bluemonday.UGCPolicy()
-	id := mux.Vars(r)["id"]
-
-	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
@@ -92,6 +95,13 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		return
+	}
+
 	var input struct {
 		LikeFrom int `json:"likeFrom"`
 		LikeTo   int `json:"likeTo"`
@@ -109,6 +119,11 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 
 	if likeTo == likeFrom {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
+		return
+	}
+
+	if profileId != likeFrom {
+		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "You are unauthorized to like this user"})
 		return
 	}
 
@@ -146,14 +161,14 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		"image/webp": true,
 	}
 
-	userId := r.URL.Query().Get("forUser")
-	user_id, err := strconv.Atoi(sanitizer.Sanitize(userId))
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	err = r.ParseMultipartForm(maxMemory)
+	err := r.ParseMultipartForm(maxMemory)
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
 		return
@@ -416,12 +431,11 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	sanitizer := bluemonday.UGCPolicy()
-	id := mux.Vars(r)["id"]
-
-	profileId, err := strconv.Atoi(sanitizer.Sanitize(id))
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -438,10 +452,10 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(int)
 	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	fmt.Println(profileId)
 
 	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
 	if err != nil {
@@ -454,16 +468,16 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 	sanitizer := bluemonday.UGCPolicy()
-	id := sanitizer.Sanitize(r.URL.Query().Get("id"))
 	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
-	user_id, err := strconv.Atoi(id)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(int)
+	if !ok {
+		makeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	err = sh.DeleteUC.DeleteImage(user_id, fileURL)
+	err := sh.DeleteUC.DeleteImage(user_id, fileURL)
 	if err != nil {
 		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
 		return
