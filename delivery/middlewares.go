@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
+
+type contextKey string
+
+const userIDKey contextKey = "userID"
 
 func AdminAuthMiddleware(u *SessionHandler) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
@@ -18,14 +23,16 @@ func AdminAuthMiddleware(u *SessionHandler) mux.MiddlewareFunc {
 				return
 			}
 
-			value, err := u.LoginUC.GetSession(session.Value)
+			userID, err := u.LoginUC.GetSession(session.Value)
 			if err != nil {
 				fmt.Println("no auth at", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
-			fmt.Println(value, session)
-			next.ServeHTTP(w, r)
+
+			ctx := context.WithValue(r.Context(), userIDKey, userID)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

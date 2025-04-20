@@ -438,6 +438,13 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	sanitizer := bluemonday.UGCPolicy()
 	userId := r.URL.Query().Get("forUser")
 
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	fmt.Println(profileId)
 	profileId, err := strconv.Atoi(sanitizer.Sanitize(userId))
 	if err != nil {
 		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
