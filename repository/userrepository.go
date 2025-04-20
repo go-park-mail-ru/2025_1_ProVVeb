@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/jackc/pgx/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type UserRepository interface {
@@ -32,7 +33,7 @@ type UserRepository interface {
 
 	SetLike(from int, to int, status int) (likeId int, err error)
 	StoreInterests(profileId int, interests []string) error
-	
+
 	CloseRepo() error
 }
 
