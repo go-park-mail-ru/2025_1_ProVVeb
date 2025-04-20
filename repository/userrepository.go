@@ -1,26 +1,14 @@
 package repository
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
-	"io"
-	"regexp"
 	"slices"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/o1egl/govatar"
 )
 
 type UserRepository interface {
@@ -48,160 +36,8 @@ type UserRepository interface {
 	UpdateProfile(int, model.Profile) error
 }
 
-type SessionRepository interface {
-	GetSession(sessionID string) (string, error)
-	StoreSession(sessionID string, data string, ttl time.Duration) error
-	CloseRepo() error
-	DeleteSession(sessionID string) error
-}
-
-type PasswordHasher interface {
-	Hash(password string) string
-	Compare(hashedPassword, login, password string) bool
-}
-
-type UserParamsValidator interface {
-	ValidateLogin(login string) error
-	ValidatePassword(password string) error
-}
-
-type StaticRepository interface {
-	GetImages(urls []string) ([][]byte, error)
-	UploadImages(fileBytes []byte, filename, contentType string) error
-	DeleteImage(user_id int, filename string) error
-	GenerateImage(contentType string, ismale bool) ([]byte, error)
-}
-
 type UserRepo struct {
 	DB *sql.DB
-}
-
-type SessionRepo struct {
-	client *redis.Client
-	ctx    context.Context
-}
-
-type PassHasher struct{}
-
-type UParamsValidator struct{}
-
-type StaticRepo struct {
-	client     *minio.Client
-	bucketName string
-}
-
-const GetMatches = `
-SELECT 
-    profile_id, 
-    matched_profile_id
-FROM matches
-WHERE profile_id = $1 OR matched_profile_id = $1;
-`
-
-func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
-	rows, err := ur.DB.QueryContext(context.Background(), GetMatches, forUserId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var matches [][2]int
-
-	for rows.Next() {
-		var a, b int
-		if err := rows.Scan(&a, &b); err != nil {
-			return nil, err
-		}
-		matches = append(matches, [2]int{a, b})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	profiles := make([]model.Profile, 0, model.PageSize)
-	amount := 0
-	for i := 0; amount < len(matches); i++ {
-		targ := matches[i][0]
-		if matches[i][0] == forUserId {
-			targ = matches[i][1]
-		}
-		profile, err := ur.GetProfileById(targ)
-		if err != nil {
-			return profiles, err
-		}
-		profiles = append(profiles, profile)
-		amount++
-	}
-	return profiles, nil
-}
-
-func (sr *StaticRepo) UploadImages(fileBytes []byte, filename, contentType string) error {
-	ctx := context.Background()
-
-	_, err := sr.client.PutObject(ctx, sr.bucketName, filename,
-		bytes.NewReader(fileBytes),
-		int64(len(fileBytes)),
-		minio.PutObjectOptions{ContentType: contentType},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to upload image to minio: %w", err)
-	}
-	return nil
-}
-
-func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
-	var results [][]byte
-
-	for _, objectName := range urls {
-		obj, err := sr.client.GetObject(context.Background(), sr.bucketName, objectName, minio.GetObjectOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get object %s: %w", objectName, err)
-		}
-
-		data, err := io.ReadAll(obj)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read object %s: %w", objectName, err)
-		}
-
-		results = append(results, data)
-	}
-
-	return results, nil
-}
-
-func NewStaticRepo() (*StaticRepo, error) {
-	endpoint := "minio:9000"
-	accessKeyID := "minioadmin"
-	secretAccessKey := "miniopassword"
-	useSSL := false
-
-	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		fmt.Println("Error connecting to database:", err)
-		return &StaticRepo{}, err
-	}
-
-	bucketName := "profile-photos"
-	ctx := context.Background()
-	exists, err := minioClient.BucketExists(ctx, bucketName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &StaticRepo{
-		client:     minioClient,
-		bucketName: bucketName,
-	}, nil
 }
 
 func NewUserRepo() (*UserRepo, error) {
@@ -288,32 +124,50 @@ func ClosePostgresConnection(conn *sql.DB) error {
 	return err
 }
 
-func NewSessionRepo() (*SessionRepo, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "",
-		DB:       0,
-	})
+const GetMatches = `
+SELECT 
+    profile_id, 
+    matched_profile_id
+FROM matches
+WHERE profile_id = $1 OR matched_profile_id = $1;
+`
 
-	ctx := context.Background()
-
-	_, err := client.Ping(ctx).Result()
+func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
+	rows, err := ur.DB.QueryContext(context.Background(), GetMatches, forUserId)
 	if err != nil {
-		return &SessionRepo{}, err
+		return nil, err
+	}
+	defer rows.Close()
+
+	var matches [][2]int
+
+	for rows.Next() {
+		var a, b int
+		if err := rows.Scan(&a, &b); err != nil {
+			return nil, err
+		}
+		matches = append(matches, [2]int{a, b})
 	}
 
-	return &SessionRepo{
-		client: client,
-		ctx:    ctx,
-	}, nil
-}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-func NewPassHasher() (*PassHasher, error) {
-	return &PassHasher{}, nil
-}
-
-func NewUParamsValidator() (*UParamsValidator, error) {
-	return &UParamsValidator{}, nil
+	profiles := make([]model.Profile, 0, model.PageSize)
+	amount := 0
+	for i := 0; amount < len(matches); i++ {
+		targ := matches[i][0]
+		if matches[i][0] == forUserId {
+			targ = matches[i][1]
+		}
+		profile, err := ur.GetProfileById(targ)
+		if err != nil {
+			return profiles, err
+		}
+		profiles = append(profiles, profile)
+		amount++
+	}
+	return profiles, nil
 }
 
 const GetUserByLoginQuery = `
@@ -779,72 +633,6 @@ func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) 
 	}
 }
 
-func (sr *SessionRepo) DeleteSession(sessionID string) error {
-	return sr.client.Del(sr.ctx, sessionID).Err()
-}
-
-func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
-	data, err := sr.client.Get(sr.ctx, sessionID).Result()
-	if err != nil {
-		if err == redis.Nil {
-			return "", model.ErrSessionNotFound
-		}
-		return "", model.ErrGetSession
-	}
-	return data, nil
-}
-
-func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Duration) error {
-	err := sr.client.Set(sr.ctx, sessionID, data, ttl).Err()
-	if err != nil {
-		return model.ErrStoreSession
-	}
-	return nil
-}
-
-func (sr *SessionRepo) DeleteAllSessions() error {
-	return sr.client.FlushAll(sr.ctx).Err()
-}
-
-func (sr *SessionRepo) CloseRepo() error {
-	return sr.client.Close()
-}
-
-func (ph *PassHasher) Hash(password string) string {
-	hash := sha256.New()
-	hash.Write([]byte(password))
-	return fmt.Sprintf("%x", hash.Sum(nil))
-}
-
-func (ph *PassHasher) Compare(hashedPassword, inputLogin, inputPassword string) bool {
-	return hashedPassword == ph.Hash(inputLogin+"_"+inputPassword)
-}
-
-func (vr *UParamsValidator) ValidateLogin(login string) error {
-	if (len(login) < model.MinLoginLength) || (len(login) > model.MaxLoginLength) {
-		return fmt.Errorf("incorrect size of login")
-	}
-
-	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
-	if !re.MatchString(login) {
-		return fmt.Errorf("incorrect format of login")
-	}
-	return nil
-}
-
-func (vr *UParamsValidator) ValidatePassword(password string) error {
-	if (len(password) < model.MinPasswordLength) || (len(password) > model.MaxPasswordLength) {
-		return fmt.Errorf("incorrect size of password")
-	}
-	// ideas for future
-	// password must contain at least one digit
-	// password must contain only letters and digits
-	// password must contain at least one special character
-	// password must not contain invalid characters
-
-	return nil
-}
-
 const (
 	DeleteStaticQuery = `
 	DELETE FROM "static" WHERE profile_id = $1 AND path = $2;
@@ -866,42 +654,6 @@ func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
 	}
 
 	return nil
-}
-
-func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
-	ctx := context.Background()
-
-	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
-}
-
-func (sr *StaticRepo) GenerateImage(contentType string, ismale bool) ([]byte, error) {
-	var img image.Image
-	var sex govatar.Gender
-	if ismale {
-		sex = govatar.MALE
-	} else {
-		sex = govatar.FEMALE
-	}
-
-	img, err := govatar.Generate(sex)
-	if err != nil {
-		return []byte{}, fmt.Errorf("error generating image: %v", err)
-	}
-
-	var buf bytes.Buffer
-
-	if contentType == "image/png" {
-		err = png.Encode(&buf, img)
-	} else if contentType == "image/jpeg" {
-		err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 75})
-	}
-
-	if err != nil {
-		return []byte{}, fmt.Errorf("error generating image: %v", err)
-	}
-
-	ansBytes := buf.Bytes()
-	return ansBytes, nil
 }
 
 const UpdateProfileQuery = `
