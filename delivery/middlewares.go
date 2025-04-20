@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -23,12 +24,14 @@ func AdminAuthMiddleware(u *SessionHandler) mux.MiddlewareFunc {
 				return
 			}
 
-			userID, err := u.LoginUC.GetSession(session.Value)
+			value_id, err := u.LoginUC.GetSession(session.Value)
 			if err != nil {
 				fmt.Println("no auth at", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
+
+			userID, _ := strconv.Atoi(value_id)
 
 			ctx := context.WithValue(r.Context(), userIDKey, userID)
 
