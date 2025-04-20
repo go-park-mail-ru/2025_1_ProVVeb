@@ -16,7 +16,7 @@ import (
 
 type StaticRepository interface {
 	GetImages(urls []string) ([][]byte, error)
-	UploadImages(fileBytes []byte, filename, contentType string) error
+	UploadImage(fileBytes []byte, filename, contentType string) error
 	DeleteImage(user_id int, filename string) error
 	GenerateImage(contentType string, ismale bool) ([]byte, error)
 }
@@ -26,7 +26,7 @@ type StaticRepo struct {
 	bucketName string
 }
 
-func (sr *StaticRepo) UploadImages(fileBytes []byte, filename, contentType string) error {
+func (sr *StaticRepo) UploadImage(fileBytes []byte, filename, contentType string) error {
 	ctx := context.Background()
 
 	_, err := sr.client.PutObject(ctx, sr.bucketName, filename,

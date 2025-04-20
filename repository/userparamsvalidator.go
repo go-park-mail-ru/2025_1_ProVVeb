@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -18,27 +17,28 @@ func NewUParamsValidator() (*UParamsValidator, error) {
 	return &UParamsValidator{}, nil
 }
 
-func (vr *UParamsValidator) ValidateLogin(login string) error {
+func (uv *UParamsValidator) ValidateLogin(login string) error {
 	if (len(login) < model.MinLoginLength) || (len(login) > model.MaxLoginLength) {
-		return fmt.Errorf("incorrect size of login")
+		return model.ErrInvalidLoginSize
 	}
 
-	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
+	re := regexp.MustCompile(model.ReStartsWithLetter)
 	if !re.MatchString(login) {
-		return fmt.Errorf("incorrect format of login")
+		return model.ErrInvalidLogin
 	}
+
+	re = regexp.MustCompile(model.ReContainsLettersDigitsSymbols)
+	if !re.MatchString(login) {
+		return model.ErrInvalidLogin
+	}
+
 	return nil
 }
 
-func (vr *UParamsValidator) ValidatePassword(password string) error {
+func (uv *UParamsValidator) ValidatePassword(password string) error {
 	if (len(password) < model.MinPasswordLength) || (len(password) > model.MaxPasswordLength) {
-		return fmt.Errorf("incorrect size of password")
+		return model.ErrInvalidPasswordSize
 	}
-	// ideas for future
-	// password must contain at least one digit
-	// password must contain only letters and digits
-	// password must contain at least one special character
-	// password must not contain invalid characters
 
 	return nil
 }

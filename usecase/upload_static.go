@@ -21,7 +21,7 @@ func NewStaticUploadUseCase(
 }
 
 func (su *StaticUpload) UploadUserPhoto(user_id int, file []byte, filename string, content_type string) error {
-	err := su.staticRepo.UploadImages(file, "/"+filename, content_type)
+	err := su.staticRepo.UploadImage(file, "/"+filename, content_type)
 
 	if err != nil {
 		return err

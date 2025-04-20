@@ -16,10 +16,24 @@ var SessionIdLength = 32
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
+// regexps
+var (
+	ReStartsWithLetter             = `^[a-zA-Z]`
+	ReContainsLettersDigitsSymbols = `^[a-zA-Z0-9._-]+$`
+)
+
+// ideas for future
+// password must contain at least one digit
+// password must contain only letters and digits
+// password must contain at least one special character
+// password must not contain invalid characters
+
 // errors
 var (
 	ErrInvalidLogin          = errors.New("invalid login")
+	ErrInvalidLoginSize      = errors.New("invalid login size")
 	ErrInvalidPassword       = errors.New("invalid password")
+	ErrInvalidPasswordSize   = errors.New("invalid password size")
 	ErrSessionNotFound       = errors.New("session not found")
 	ErrInvalidSession        = errors.New("invalid session")
 	ErrInvalidUserRepoConfig = errors.New("invalid user repository config")

@@ -22,6 +22,6 @@ func (ph *PassHasher) Hash(password string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func (ph *PassHasher) Compare(hashedPassword, inputLogin, inputPassword string) bool {
-	return hashedPassword == ph.Hash(inputLogin+"_"+inputPassword)
+func (ph *PassHasher) Compare(hashedPassword, salt, inputPassword string) bool {
+	return hashedPassword == ph.Hash(salt+"_"+inputPassword)
 }

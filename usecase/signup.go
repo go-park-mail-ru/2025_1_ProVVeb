@@ -115,7 +115,7 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		return -1, err
 	}
 
-	err = uc.statRepo.UploadImages(imgBytes, defaultFileName, "image/png")
+	err = uc.statRepo.UploadImage(imgBytes, defaultFileName, "image/png")
 	if err != nil {
 		return -1, err
 	}

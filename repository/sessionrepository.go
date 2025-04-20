@@ -9,10 +9,10 @@ import (
 )
 
 type SessionRepository interface {
-	GetSession(sessionID string) (string, error)
-	StoreSession(sessionID string, data string, ttl time.Duration) error
+	GetSession(sessionId string) (string, error)
+	StoreSession(sessionId string, data string, ttl time.Duration) error
+	DeleteSession(sessionId string) error
 	CloseRepo() error
-	DeleteSession(sessionID string) error
 }
 
 type SessionRepo struct {
@@ -40,12 +40,12 @@ func NewSessionRepo() (*SessionRepo, error) {
 	}, nil
 }
 
-func (sr *SessionRepo) DeleteSession(sessionID string) error {
-	return sr.client.Del(sr.ctx, sessionID).Err()
+func (sr *SessionRepo) DeleteSession(sessionId string) error {
+	return sr.client.Del(sr.ctx, sessionId).Err()
 }
 
-func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
-	data, err := sr.client.Get(sr.ctx, sessionID).Result()
+func (sr *SessionRepo) GetSession(sessionId string) (string, error) {
+	data, err := sr.client.Get(sr.ctx, sessionId).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return "", model.ErrSessionNotFound
@@ -55,8 +55,8 @@ func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
 	return data, nil
 }
 
-func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Duration) error {
-	err := sr.client.Set(sr.ctx, sessionID, data, ttl).Err()
+func (sr *SessionRepo) StoreSession(sessionId string, data string, ttl time.Duration) error {
+	err := sr.client.Set(sr.ctx, sessionId, data, ttl).Err()
 	if err != nil {
 		return model.ErrStoreSession
 	}
