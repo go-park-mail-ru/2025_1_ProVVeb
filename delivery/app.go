@@ -92,7 +92,6 @@ func Run() {
 
 	profileSubrouter.Use(AdminAuthMiddleware(sessionHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(megabyte * max_query_size_str)))
-	profileSubrouter.Use(JSONOnlyMiddleware())
 
 	profileSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
 	profileSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
