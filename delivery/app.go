@@ -11,6 +11,10 @@ import (
 	"github.com/rs/cors"
 )
 
+const megabyte int = 8 * 1024 * 1024
+const max_query_size_str int = 5
+const max_query_size_photo int = 10
+
 func Run() {
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
@@ -84,16 +88,25 @@ func Run() {
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
-	authSubrouter := r.PathPrefix("/profiles").Subrouter()
-	authSubrouter.Use(AdminAuthMiddleware(sessionHandler))
+	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
 
-	authSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
-	authSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
-	authSubrouter.HandleFunc("/like", profileHandler.SetLike).Methods("POST")
-	authSubrouter.HandleFunc("/match/{id}", profileHandler.GetMatches).Methods("GET")
-	authSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
-	authSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
-	authSubrouter.HandleFunc("/update", profileHandler.UpdateProfile).Methods("POST")
+	profileSubrouter.Use(AdminAuthMiddleware(sessionHandler))
+	profileSubrouter.Use(BodySizeLimitMiddleware(int64(megabyte * max_query_size_str)))
+	profileSubrouter.Use(JSONOnlyMiddleware())
+
+	profileSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
+	profileSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
+	profileSubrouter.HandleFunc("/like", profileHandler.SetLike).Methods("POST")
+	profileSubrouter.HandleFunc("/match/{id}", profileHandler.GetMatches).Methods("GET")
+	profileSubrouter.HandleFunc("/update", profileHandler.UpdateProfile).Methods("POST")
+
+	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
+
+	photoSubrouter.Use(AdminAuthMiddleware(sessionHandler))
+	photoSubrouter.Use(BodySizeLimitMiddleware(int64(megabyte * max_query_size_photo)))
+
+	photoSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
+	photoSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
