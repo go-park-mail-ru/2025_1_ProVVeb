@@ -69,11 +69,10 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 }
 
 func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
-	gender := fake.GenderAbbrev()
 	var fname string
 	var lname string
 
-	ismale := (gender == "M")
+	ismale := (rand.Intn(2) == 0)
 
 	if ismale {
 		fname = fake.MaleFirstName()

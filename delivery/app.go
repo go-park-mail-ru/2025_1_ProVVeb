@@ -122,12 +122,6 @@ func Run() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		pathTemplate, _ := route.GetPathTemplate()
-		methods, _ := route.GetMethods()
-		fmt.Printf("Route: %-30s Methods: %v\n", pathTemplate, methods)
-		return nil
-	})
 
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
