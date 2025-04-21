@@ -632,7 +632,8 @@ func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
 	return nil
 }
 
-const UpdateProfileQuery = `
+const (
+	UpdateProfileQuery = `
 UPDATE profiles
 SET
 	firstname = $1,
@@ -643,10 +644,43 @@ SET
 	updated_at = CURRENT_TIMESTAMP
 WHERE profile_id = $6;
 `
+	DeleteProfileInterests = `
+DELETE FROM profile_interests WHERE profile_id = $1
+`
+
+	DeleteProfilePreferences = `
+DELETE FROM profile_preferences WHERE profile_id = $1
+`
+
+	GetPreferenceIDByFields = `
+SELECT preference_id FROM preferences
+WHERE preference_type = $1 AND preference_description = $2 AND preference_value = $3
+`
+
+	InsertPreferenceIfNotExists = `
+INSERT INTO preferences (preference_type, preference_description, preference_value)
+VALUES ($1, $2, $3)
+RETURNING preference_id
+`
+
+	InsertProfilePreference = `
+INSERT INTO profile_preferences (profile_id, preference_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+)
 
 func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
-	_, err := ur.DB.ExecContext(
-		context.Background(),
+	ctx := context.Background()
+
+	tx, err := ur.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(
+		ctx,
 		UpdateProfileQuery,
 		new_profile.FirstName,
 		new_profile.LastName,
@@ -655,5 +689,64 @@ func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) err
 		new_profile.Description,
 		profile_id,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	if len(new_profile.Interests) != 0 {
+
+		if _, err := tx.ExecContext(ctx, DeleteProfileInterests, profile_id); err != nil {
+			return fmt.Errorf("failed to delete old interests: %w", err)
+		}
+
+		for _, desc := range new_profile.Interests {
+			var interestID int
+
+			err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+			if err != nil {
+				err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+				if err != nil {
+					return fmt.Errorf("failed to insert new interest '%s': %w", desc, err)
+				}
+			}
+
+			_, err = tx.ExecContext(ctx, insertProfileInterest, profile_id, interestID)
+			if err != nil {
+				return fmt.Errorf("failed to insert profile interest: %w", err)
+			}
+		}
+	}
+
+	if len(new_profile.Preferences) != 0 {
+		if _, err := tx.ExecContext(ctx, DeleteProfilePreferences, profile_id); err != nil {
+			return fmt.Errorf("failed to delete old preferences: %w", err)
+		}
+
+		for _, pref := range new_profile.Preferences {
+			var preferenceID int
+
+			err := tx.QueryRowContext(ctx, GetPreferenceIDByFields,
+				1, pref.Description, pref.Value,
+			).Scan(&preferenceID)
+
+			if err != nil {
+				err = tx.QueryRowContext(ctx, InsertPreferenceIfNotExists,
+					1, pref.Description, pref.Value,
+				).Scan(&preferenceID)
+				if err != nil {
+					return fmt.Errorf("failed to insert preference %+v: %w", pref, err)
+				}
+			}
+
+			_, err = tx.ExecContext(ctx, InsertProfilePreference, profile_id, preferenceID)
+			if err != nil {
+				return fmt.Errorf("failed to insert profile preference: %w", err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

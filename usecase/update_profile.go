@@ -36,5 +36,13 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		targ.Location = value.Location
 	}
 
+	if len(value.Interests) != 0 {
+		targ.Interests = value.Interests
+	}
+
+	if len(value.Preferences) != 0 {
+		targ.Preferences = value.Preferences
+	}
+
 	return pu.userRepo.UpdateProfile(profileId, targ)
 }

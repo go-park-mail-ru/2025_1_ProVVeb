@@ -13,7 +13,7 @@ import (
 
 const megabyte int = 8 * 1024 * 1024
 const max_query_size_str int = 5
-const max_query_size_photo int = 10
+const max_query_size_photo int = 15
 
 func Run() {
 	postgresClient, err := repository.NewUserRepo()
