@@ -289,8 +289,16 @@ func NewUserHandler(
 		return &UserHandler{}, err
 	}
 
+	getParam, err := usecase.NewUserGetParamsUseCase(
+		userRepo,
+	)
+	if err != nil {
+		return &UserHandler{}, err
+	}
+
 	return &UserHandler{
 		SignupUC:     *signupUC,
 		DeleteUserUC: *deleteUserUC,
+		GetParamsUC:  *getParam,
 	}, nil
 }

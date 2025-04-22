@@ -134,15 +134,15 @@ const GetUserByIdQuery = `
 func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 	var user model.User
 
-	// err := ur.DB.QueryRowContext(context.Background(), GetUserByIdQuery, userID).Scan(
-	// 	&user.Login,
-	// 	&user.Email,
-	// 	&user.Phone,
-	// 	&user.Status,
-	// )
-	// if err != nil {
-	// 	return user, err
-	// }
+	err := ur.DB.QueryRowContext(context.Background(), GetUserByIdQuery, userID).Scan(
+		&user.Login,
+		&user.Email,
+		&user.Phone,
+		&user.Status,
+	)
+	if err != nil {
+		return user, err
+	}
 
 	return user, nil
 }
