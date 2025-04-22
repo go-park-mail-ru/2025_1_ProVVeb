@@ -12,6 +12,7 @@ type UserLogIn struct {
 	userRepo    repository.UserRepository
 	sessionRepo repository.SessionRepository
 	hasher      repository.PasswordHasher
+	token       repository.JwtToken
 	validator   repository.UserParamsValidator
 }
 
@@ -19,6 +20,7 @@ func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
+	token repository.JwtToken,
 	validator repository.UserParamsValidator,
 ) (*UserLogIn, error) {
 	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
@@ -28,6 +30,7 @@ func NewUserLogInUseCase(
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
 		hasher:      hasher,
+		token:       token,
 		validator:   validator,
 	}, nil
 }
@@ -60,6 +63,10 @@ func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) er
 
 	err = uc.userRepo.StoreSession(session.UserId, session.SessionId)
 	return err
+}
+
+func (uc *UserLogIn) CreateJwtToken(s *repository.Session, tokenExpTime int64) (string, error) {
+	return uc.token.CreateJwtToken(s, tokenExpTime)
 }
 
 func (uc *UserLogIn) GetSession(sessionId string) (string, error) {

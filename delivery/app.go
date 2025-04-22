@@ -13,6 +13,7 @@ import (
 )
 
 func Run() {
+	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
@@ -51,7 +52,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, validator)
+	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, *tokenValidator, validator)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -76,7 +77,6 @@ func Run() {
 	}
 
 	r := mux.NewRouter()
-	tokenValidator, _ := NewJwtToken("secret")
 
 	r.Use(PanicMiddleware)
 
@@ -162,12 +162,14 @@ func NewSessionHandler(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
+	token repository.JwtToken,
 	validator repository.UserParamsValidator,
 ) (*SessionHandler, error) {
 	loginUC, err := usecase.NewUserLogInUseCase(
 		userRepo,
 		sessionRepo,
 		hasher,
+		token,
 		validator,
 	)
 	if err != nil {

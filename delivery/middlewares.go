@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/gorilla/mux"
 )
 
@@ -33,7 +34,7 @@ func BodySizeLimitMiddleware(limit int64) mux.MiddlewareFunc {
 	}
 }
 
-func AuthWithCSRFMiddleware(tokenValidator *JwtToken, u *SessionHandler) mux.MiddlewareFunc {
+func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandler) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sessionCookie, err := r.Cookie("session_id")
@@ -58,17 +59,19 @@ func AuthWithCSRFMiddleware(tokenValidator *JwtToken, u *SessionHandler) mux.Mid
 				return
 			}
 
-			sess := &Session{
+			sess := &repository.Session{
 				ID:     sessionID,
 				UserID: uint32(userID),
 			}
 
 			if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
-				token := r.Header.Get("csrf-token")
-				if token == "" {
+				csrfCookie, err := r.Cookie("csrf_token")
+				if err != nil {
 					http.Error(w, "Missing CSRF token", http.StatusForbidden)
 					return
 				}
+
+				token := csrfCookie.Value
 
 				valid, err := tokenValidator.CheckJwtToken(sess, token)
 				if err != nil || !valid {

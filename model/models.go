@@ -20,6 +20,8 @@ const Megabyte int = 8 * 1024 * 1024
 const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
 
+var Key string = "Hello"
+
 // regexps
 var (
 	ReStartsWithLetter             = `^[a-zA-Z]`

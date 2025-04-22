@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
@@ -257,8 +258,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Password: input.Password,
 	})
 
-	// fmt.Println(fmt.Errorf("%+v", session))
-
 	if err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
@@ -283,6 +282,21 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Secure:   cookie.Secure,
 		Expires:  cookie.Expires,
 		Path:     cookie.Path,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	token, _ := sh.LoginUC.CreateJwtToken(&repository.Session{
+		ID:     session.SessionId,
+		UserID: uint32(session.UserId),
+	}, time.Now().Add(12*time.Hour).Unix())
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    token,
+		HttpOnly: false,
+		Secure:   false,
+		Path:     "/",
+		Expires:  time.Now().Add(12 * time.Hour),
 		SameSite: http.SameSiteLaxMode,
 	})
 
