@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -135,6 +136,8 @@ func (sr *SessionRepo) CheckAttempts(userIP string) error {
 			return errors.New("too many login attempts, try later")
 		}
 	}
+
+	fmt.Println(count, blockUntilStr)
 
 	return nil
 }
