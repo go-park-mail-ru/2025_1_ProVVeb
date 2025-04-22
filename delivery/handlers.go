@@ -323,17 +323,18 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user model.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+	type SignUpRequest struct {
+		User    model.User    `json:"user"`
+		Profile model.Profile `json:"profile"`
+	}
+	var req SignUpRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
 		return
 	}
 
-	var profile model.Profile
-	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
-		return
-	}
+	user := req.User
+	profile := req.Profile
 
 	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
