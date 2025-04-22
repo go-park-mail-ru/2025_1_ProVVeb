@@ -26,16 +26,16 @@ INSERT INTO subscription_types (type_description) VALUES
 ('Платиновая');
 
 INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id) VALUES
-('Иван', 'Иванов', TRUE, '1990-05-15', 180, 'Программист', 1),
-('Анна', 'Петрова', FALSE, '1988-07-20', 165, 'Дизайнер', 2),
-('Ольга', 'Смирнова', FALSE, '1995-03-22', 170, 'Маркетолог', 3),
-('Дмитрий', 'Кузнецов', TRUE, '1992-11-30', 175, 'Инженер', 4),
-('Александр', 'Попов', TRUE, '1991-09-25', 185, 'Фотограф', 5),
-('Максим', 'Орлов', TRUE, '1989-08-10', 182, 'Менеджер', 1),
-('Инна', 'Лисова', FALSE, '1993-04-12', 168, 'Юрист', 2),
-('Леонид', 'Захаров', TRUE, '1987-01-05', 178, 'Врач', 3),
-('Нина', 'Морозова', FALSE, '1996-12-30', 160, 'Писатель', 4),
-('Вера', 'Соколова', FALSE, '1990-10-15', 172, 'Актриса', 5);
+('Иван', 'Иванов', TRUE, '1990-05-15', 180, 'Программист, в свободное время увлекаюсь рисованием, больше всего люблю портреты', 1),
+('Анна', 'Петрова', FALSE, '1988-07-20', 165, 'Дизайнер, работаю в крупной компании, люблю своё дело :)', 2),
+('Ольга', 'Смирнова', FALSE, '1995-03-22', 170, 'Маркетолог, учу английский и китайский', 3),
+('Дмитрий', 'Кузнецов', TRUE, '1992-11-30', 175, 'Инженер из Бауманки, люблю участвовать с друзьями в CTF', 4),
+('Александр', 'Попов', TRUE, '1991-09-25', 185, 'Фотограф, еще ооочень люблю играть на фортепиано!', 5),
+('Максим', 'Орлов', TRUE, '1989-08-10', 182, 'Менеджер компании по переработке металлов. В школе вел кружок по химии', 1),
+('Инна', 'Лисова', FALSE, '1993-04-12', 168, 'Юрист, высшая квалификация... А вообще большой души человек :)', 2),
+('Леонид', 'Захаров', TRUE, '1987-01-05', 178, 'Врач в Подмосковье, работаю с детьми, хочу своих :3', 3),
+('Нина', 'Морозова', FALSE, '1996-12-30', 160, 'Писатель новелл и рассказов на тему science-fiction', 4),
+('Вера', 'Соколова', FALSE, '1990-10-15', 172, 'Актриса в Большом театре, также работаю с подростками в собственных постановках', 5);
 
 
 INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
@@ -52,16 +52,16 @@ INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
 
 
 INSERT INTO static (profile_id, path) VALUES
-(1, '/default.png'),
+(1, '/anatolini.jpg'),
 (2, '/eva.png'),
 (3, '/katya.png'),
-(4, '/default.png'),
-(5, '/default.png'),
-(6, '/default.png'),
-(7, '/default.png'),
-(8, '/default.png'),
-(9, '/default.png'),
-(10, '/default.png');
+(4, '/dima.jpg'),
+(5, '/anton.jpg'),
+(6, '/fernando.jpg'),
+(7, '/kamilla.jpg'),
+(8, '/georgio.jpg'),
+(9, '/liza.jpg'),
+(10, '/nona.jpg');
 
 
 INSERT INTO sessions (user_id, token, expires_at) VALUES
@@ -131,33 +131,33 @@ INSERT INTO messages (sender_profile_id, receiver_profile_id, content, status) V
 (4, 5, 'Как твои дела?', 1),
 (5, 1, 'Ты очень интересный человек!', 1);
 
-INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
-(1, 2, 1), 
-(2, 3, 1), 
-(3, 4, 1), 
-(4, 5, 1),
-(5, 6, 1), 
-(6, 7, 1), 
-(7, 8, 1), 
-(8, 9, 1), 
-(9, 10, 1), 
-(10, 1, 1);
+-- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
+-- (1, 2, 1), 
+-- (2, 3, 1), 
+-- (3, 4, 1), 
+-- (4, 5, 1),
+-- (5, 6, 1), 
+-- (6, 7, 1), 
+-- (7, 8, 1), 
+-- (8, 9, 1), 
+-- (9, 10, 1), 
+-- (10, 1, 1);
 
-INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
-(1, 3, 2),
-(2, 4, 2),
-(3, 5, 2),
-(4, 6, 2),
-(5, 7, 2),
-(6, 8, 2),
-(7, 9, 2),
-(8, 10, 2),
-(9, 1, 2),
-(10, 2, 2);
+-- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
+-- (1, 3, 2),
+-- (2, 4, 2),
+-- (3, 5, 2),
+-- (4, 6, 2),
+-- (5, 7, 2),
+-- (6, 8, 2),
+-- (7, 9, 2),
+-- (8, 10, 2),
+-- (9, 1, 2),
+-- (10, 2, 2);
 
 
-INSERT INTO matches (profile_id, matched_profile_id) VALUES
-(10, 2), (3, 4);
+-- INSERT INTO matches (profile_id, matched_profile_id) VALUES
+-- (10, 2), (3, 4);
 
 
 INSERT INTO subscriptions (user_id, sub_type, transaction_data) VALUES 

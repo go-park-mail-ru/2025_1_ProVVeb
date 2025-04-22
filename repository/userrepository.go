@@ -1,201 +1,44 @@
 package repository
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"io"
-	"regexp"
 	"slices"
-	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 type UserRepository interface {
 	GetUserByLogin(ctx context.Context, login string) (model.User, error)
-	CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error)
-	CloseRepo() error
-	UserExists(ctx context.Context, login string) bool
 	StoreUser(model.User) (int, error)
-	StoreProfile(model.Profile) (int, error)
-	DeleteSession(userId int) error
-	StoreSession(userID int, sessionID string) error
 	DeleteUserById(userId int) error
+	UserExists(ctx context.Context, login string) bool
+
 	GetProfileById(userId int) (model.Profile, error)
+	StoreProfile(model.Profile) (int, error)
 	GetProfilesByUserId(forUserId int) ([]model.Profile, error)
-	SetLike(from int, to int, status int) (likeID int, err error)
-
-	StorePhoto(userID int, url string) error
-	GetPhotos(userID int) ([]string, error)
 	GetMatches(forUserId int) ([]model.Profile, error)
-	StoreInterests(profileID int, interests []string) error
-	StorePhotos(profileID int, paths []string) error
+	UpdateProfile(int, model.Profile) error
 
-	DeletePhoto(userID int, url string) error
-}
+	StoreSession(userId int, sessionId string) error
+	DeleteSession(userId int) error
 
-type SessionRepository interface {
-	GetSession(sessionID string) (string, error)
-	StoreSession(sessionID string, data string, ttl time.Duration) error
+	GetPhotos(userId int) ([]string, error)
+	StorePhoto(userId int, url string) error
+	StorePhotos(profileId int, paths []string) error
+	DeletePhoto(userId int, url string) error
+
+	SetLike(from int, to int, status int) (likeId int, err error)
+	StoreInterests(profileId int, interests []string) error
+
 	CloseRepo() error
-	DeleteSession(sessionID string) error
-}
-
-type PasswordHasher interface {
-	Hash(password string) string
-	Compare(hashedPassword, login, password string) bool
-}
-
-type UserParamsValidator interface {
-	ValidateLogin(login string) error
-	ValidatePassword(password string) error
-}
-
-type StaticRepository interface {
-	GetImages(urls []string) ([][]byte, error)
-	UploadImages(fileBytes []byte, filename, contentType string) error
-
-	DeleteImage(user_id int, filename string) error
 }
 
 type UserRepo struct {
 	DB *sql.DB
-}
-
-type SessionRepo struct {
-	client *redis.Client
-	ctx    context.Context
-}
-
-type PassHasher struct{}
-
-type UParamsValidator struct{}
-
-type StaticRepo struct {
-	client     *minio.Client
-	bucketName string
-}
-
-const GetMatches = `
-SELECT 
-    profile_id, 
-    matched_profile_id
-FROM matches
-WHERE profile_id = $1 OR matched_profile_id = $1;
-`
-
-func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
-	rows, err := ur.DB.QueryContext(context.Background(), GetMatches, forUserId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var matches [][2]int
-
-	for rows.Next() {
-		var a, b int
-		if err := rows.Scan(&a, &b); err != nil {
-			return nil, err
-		}
-		matches = append(matches, [2]int{a, b})
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	profiles := make([]model.Profile, 0, model.PageSize)
-	amount := 0
-	for i := 0; amount < len(matches); i++ {
-		targ := matches[i][0]
-		if matches[i][0] == forUserId {
-			targ = matches[i][1]
-		}
-		profile, err := ur.GetProfileById(targ)
-		if err != nil {
-			return profiles, err
-		}
-		profiles = append(profiles, profile)
-		amount++
-	}
-	return profiles, nil
-}
-
-func (sr *StaticRepo) UploadImages(fileBytes []byte, filename, contentType string) error {
-	ctx := context.Background()
-
-	_, err := sr.client.PutObject(ctx, sr.bucketName, filename,
-		bytes.NewReader(fileBytes),
-		int64(len(fileBytes)),
-		minio.PutObjectOptions{ContentType: contentType},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to upload image to minio: %w", err)
-	}
-	return nil
-}
-
-func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
-	var results [][]byte
-
-	for _, objectName := range urls {
-		obj, err := sr.client.GetObject(context.Background(), sr.bucketName, objectName, minio.GetObjectOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get object %s: %w", objectName, err)
-		}
-
-		data, err := io.ReadAll(obj)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read object %s: %w", objectName, err)
-		}
-
-		results = append(results, data)
-	}
-
-	return results, nil
-}
-
-func NewStaticRepo() (*StaticRepo, error) {
-	endpoint := "minio:9000"
-	accessKeyID := "minioadmin"
-	secretAccessKey := "miniopassword"
-	useSSL := false
-
-	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		fmt.Println("Error connecting to database:", err)
-		return &StaticRepo{}, err
-	}
-
-	bucketName := "profile-photos"
-	ctx := context.Background()
-	exists, err := minioClient.BucketExists(ctx, bucketName)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &StaticRepo{
-		client:     minioClient,
-		bucketName: bucketName,
-	}, nil
 }
 
 func NewUserRepo() (*UserRepo, error) {
@@ -255,7 +98,6 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-// func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
@@ -268,19 +110,6 @@ func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to a database: %v", err)
 	}
-
-	// err = db.Ping()
-	// if err != nil {
-	// 	db.Close()
-	// 	return nil, fmt.Errorf("failed to ping the database: %v", err)
-	// }
-
-	// conn, _ := db.Conn(context.Background())
-	// conn, _ := db.
-	// // db, err := sql.Open()
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	return db, nil
 }
@@ -296,33 +125,50 @@ func ClosePostgresConnection(conn *sql.DB) error {
 	return err
 }
 
-func NewSessionRepo() (*SessionRepo, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "",
-		DB:       0,
-	})
+const GetMatches = `
+SELECT 
+    profile_id, 
+    matched_profile_id
+FROM matches
+WHERE profile_id = $1 OR matched_profile_id = $1;
+`
 
-	ctx := context.Background()
-
-	_, err := client.Ping(ctx).Result()
+func (ur *UserRepo) GetMatches(forUserId int) ([]model.Profile, error) {
+	rows, err := ur.DB.QueryContext(context.Background(), GetMatches, forUserId)
 	if err != nil {
-		return &SessionRepo{}, err
-		// логгировать ошибку подключения к Редис с печатью ошибки
+		return nil, err
+	}
+	defer rows.Close()
+
+	var matches [][2]int
+
+	for rows.Next() {
+		var a, b int
+		if err := rows.Scan(&a, &b); err != nil {
+			return nil, err
+		}
+		matches = append(matches, [2]int{a, b})
 	}
 
-	return &SessionRepo{
-		client: client,
-		ctx:    ctx,
-	}, nil
-}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-func NewPassHasher() (*PassHasher, error) {
-	return &PassHasher{}, nil
-}
-
-func NewUParamsValidator() (*UParamsValidator, error) {
-	return &UParamsValidator{}, nil
+	profiles := make([]model.Profile, 0, model.PageSize)
+	amount := 0
+	for i := 0; amount < len(matches); i++ {
+		targ := matches[i][0]
+		if matches[i][0] == forUserId {
+			targ = matches[i][1]
+		}
+		profile, err := ur.GetProfileById(targ)
+		if err != nil {
+			return profiles, err
+		}
+		profiles = append(profiles, profile)
+		amount++
+	}
+	return profiles, nil
 }
 
 const GetUserByLoginQuery = `
@@ -350,31 +196,6 @@ func (ur *UserRepo) GetUserByLogin(ctx context.Context, login string) (model.Use
 	)
 
 	return user, err
-}
-
-const CreateSessionQuery = `
-INSERT INTO sessions (user_id, token, expires_at)
-VALUES ($1, $2, $3)
-RETURNING token, user_id, 
-	EXTRACT(EPOCH FROM (expires_at - NOW()))::int
-`
-
-func (ur *UserRepo) CreateSession(ctx context.Context, userID int, token string, expires time.Duration) (model.Session, error) {
-	var session model.Session
-
-	err := ur.DB.QueryRowContext(
-		ctx,
-		CreateSessionQuery,
-		userID,
-		token,
-		time.Now().Add(expires),
-	).Scan(
-		&session.SessionId,
-		&session.UserId,
-		&session.Expires,
-	)
-
-	return session, err
 }
 
 const StoreSessionQuery = `
@@ -535,7 +356,6 @@ LEFT JOIN preferences pr
 LEFT JOIN likes liked
     ON liked.liked_profile_id = p.profile_id
 WHERE p.profile_id = $1;
-
 `
 
 func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -609,13 +429,34 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	return profile, nil
 }
 
-const CreateLikeQuery = `
-INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
-VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
-RETURNING like_id;
-`
+const (
+	CheckLikeExistsQuery = `
+	SELECT like_id, status FROM likes
+	WHERE profile_id = $1 AND liked_profile_id = $2;
+	`
+
+	CreateLikeQuery = `
+	INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
+	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+	RETURNING like_id;
+	`
+
+	CreateMatchQuery = `
+	INSERT INTO matches (profile_id, matched_profile_id, created_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP)
+	`
+)
 
 func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error) {
+	var existingID int
+	var existing_status int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID, &existing_status)
+	if err == nil {
+		return 0, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, fmt.Errorf("error checking existing like: %w", err)
+	}
 	err = ur.DB.QueryRowContext(
 		context.Background(),
 		CreateLikeQuery,
@@ -623,7 +464,28 @@ func (ur *UserRepo) SetLike(from int, to int, status int) (likeID int, err error
 		to,
 		status,
 	).Scan(&likeID)
-	return
+
+	if err != nil {
+		return 0, fmt.Errorf("error inserting like: %w", err)
+	}
+
+	var reverseStatus int
+	err = ur.DB.QueryRowContext(context.Background(), CheckLikeExistsQuery, to, from).Scan(&existingID, &reverseStatus)
+	if err == nil && reverseStatus == 1 && status == 1 {
+		_, err = ur.DB.ExecContext(
+			context.Background(),
+			CreateMatchQuery,
+			from,
+			to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error creating match: %w", err)
+		}
+
+	}
+
+	return likeID, nil
+
 }
 
 const UploadPhotoQuery = `
@@ -732,107 +594,159 @@ func (ur *UserRepo) StorePhotos(profileID int, paths []string) error {
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
 	amount := 0
-	for i := 1; amount < model.PageSize; i++ {
+	for i := 1; ; i++ {
 		if i != forUserId {
 			profile, err := ur.GetProfileById(i)
 			if err != nil {
 				return profiles, err
 			}
+			if profile.ProfileId == 0 && profile.FirstName == "" {
+				return profiles, nil
+			}
 			profiles = append(profiles, profile)
 			amount++
 		}
 	}
-	return profiles, nil
 }
 
-func (sr *SessionRepo) DeleteSession(sessionID string) error {
-	return sr.client.Del(sr.ctx, sessionID).Err()
-}
+const (
+	DeleteStaticQuery = `
+	DELETE FROM "static" WHERE profile_id = $1 AND path = $2;
+`
+)
 
-func (sr *SessionRepo) GetSession(sessionID string) (string, error) {
-	data, err := sr.client.Get(sr.ctx, sessionID).Result()
+func (ur *UserRepo) DeletePhoto(profileID int, url string) error {
+	result, err := ur.DB.ExecContext(context.Background(), DeleteStaticQuery, profileID, "/"+url)
 	if err != nil {
-		if err == redis.Nil {
-			return "", model.ErrSessionNotFound
-		}
-		return "", model.ErrGetSession
+		return fmt.Errorf("error deleting photo: %w", err)
 	}
-	return data, nil
-}
 
-func (sr *SessionRepo) StoreSession(sessionID string, data string, ttl time.Duration) error {
-	err := sr.client.Set(sr.ctx, sessionID, data, ttl).Err()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return model.ErrStoreSession
+		return fmt.Errorf("error checking rows affected: %w", err)
 	}
-	return nil
-}
-
-func (sr *SessionRepo) DeleteAllSessions() error {
-	return sr.client.FlushAll(sr.ctx).Err()
-}
-
-func (sr *SessionRepo) CloseRepo() error {
-	return sr.client.Close()
-}
-
-func (ph *PassHasher) Hash(password string) string {
-	hash := sha256.New()
-	hash.Write([]byte(password))
-	return fmt.Sprintf("%x", hash.Sum(nil))
-}
-
-func (ph *PassHasher) Compare(hashedPassword, inputLogin, inputPassword string) bool {
-	return hashedPassword == ph.Hash(inputLogin+"_"+inputPassword)
-}
-
-func (vr *UParamsValidator) ValidateLogin(login string) error {
-	if (len(login) < model.MinLoginLength) || (len(login) > model.MaxLoginLength) {
-		return fmt.Errorf("incorrect size of login")
+	if rowsAffected == 0 {
+		return fmt.Errorf("no photo found to delete")
 	}
-
-	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
-	if !re.MatchString(login) {
-		return fmt.Errorf("incorrect format of login")
-	}
-	return nil
-}
-
-func (vr *UParamsValidator) ValidatePassword(password string) error {
-	if (len(password) < model.MinPasswordLength) || (len(password) > model.MaxPasswordLength) {
-		return fmt.Errorf("incorrect size of password")
-	}
-	// ideas for future
-	// password must contain at least one digit
-	// password must contain only letters and digits
-	// password must contain at least one special character
-	// password must not contain invalid characters
 
 	return nil
 }
 
 const (
-	DeleteStaticQuery = `
-DELETE FROM "static" WHERE id = $1;
+	UpdateProfileQuery = `
+UPDATE profiles
+SET
+	firstname = $1,
+	lastname = $2,
+	is_male = $3,
+	height = $4,
+	description = $5,
+	updated_at = CURRENT_TIMESTAMP
+WHERE profile_id = $6;
 `
-	FindStaticQuery = `
-	SELECT id FROM "static" WHERE profile_id = $1 AND path = $2;
-	`
+	DeleteProfileInterests = `
+DELETE FROM profile_interests WHERE profile_id = $1
+`
+
+	DeleteProfilePreferences = `
+DELETE FROM profile_preferences WHERE profile_id = $1
+`
+
+	GetPreferenceIDByFields = `
+SELECT preference_id FROM preferences
+WHERE preference_type = $1 AND preference_description = $2 AND preference_value = $3
+`
+
+	InsertPreferenceIfNotExists = `
+INSERT INTO preferences (preference_type, preference_description, preference_value)
+VALUES ($1, $2, $3)
+RETURNING preference_id
+`
+
+	InsertProfilePreference = `
+INSERT INTO profile_preferences (profile_id, preference_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
 )
 
-func (ur *UserRepo) DeletePhoto(userID int, url string) error {
-	var photo_id int
-	err := ur.DB.QueryRowContext(context.Background(), FindStaticQuery, userID, url).Scan(&photo_id)
-	if err != nil {
-		return err
-	}
-
-	_, err = ur.DB.ExecContext(context.Background(), DeleteStaticQuery, photo_id)
-	return err
-}
-
-func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
+func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
 	ctx := context.Background()
 
-	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
+	tx, err := ur.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(
+		ctx,
+		UpdateProfileQuery,
+		new_profile.FirstName,
+		new_profile.LastName,
+		new_profile.IsMale,
+		new_profile.Height,
+		new_profile.Description,
+		profile_id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	if len(new_profile.Interests) != 0 {
+
+		if _, err := tx.ExecContext(ctx, DeleteProfileInterests, profile_id); err != nil {
+			return fmt.Errorf("failed to delete old interests: %w", err)
+		}
+
+		for _, desc := range new_profile.Interests {
+			var interestID int
+
+			err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+			if err != nil {
+				err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+				if err != nil {
+					return fmt.Errorf("failed to insert new interest '%s': %w", desc, err)
+				}
+			}
+
+			_, err = tx.ExecContext(ctx, insertProfileInterest, profile_id, interestID)
+			if err != nil {
+				return fmt.Errorf("failed to insert profile interest: %w", err)
+			}
+		}
+	}
+
+	if len(new_profile.Preferences) != 0 {
+		if _, err := tx.ExecContext(ctx, DeleteProfilePreferences, profile_id); err != nil {
+			return fmt.Errorf("failed to delete old preferences: %w", err)
+		}
+
+		for _, pref := range new_profile.Preferences {
+			var preferenceID int
+
+			err := tx.QueryRowContext(ctx, GetPreferenceIDByFields,
+				1, pref.Description, pref.Value,
+			).Scan(&preferenceID)
+
+			if err != nil {
+				err = tx.QueryRowContext(ctx, InsertPreferenceIfNotExists,
+					1, pref.Description, pref.Value,
+				).Scan(&preferenceID)
+				if err != nil {
+					return fmt.Errorf("failed to insert preference %+v: %w", pref, err)
+				}
+			}
+
+			_, err = tx.ExecContext(ctx, InsertProfilePreference, profile_id, preferenceID)
+			if err != nil {
+				return fmt.Errorf("failed to insert profile preference: %w", err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

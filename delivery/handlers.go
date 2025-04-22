@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type GetHandler struct {
@@ -32,34 +34,75 @@ type UserHandler struct {
 
 type StaticHandler struct {
 	UploadUC usecase.StaticUpload
-	DeleteUC usecase.StaticDelete
+	DeleteUC usecase.DeleteStatic
 }
 
 type ProfileHandler struct {
 	LikeUC            usecase.ProfileSetLike
-	MatchUC           usecase.ProfileGetMatches
+	MatchUC           usecase.GetProfileMatches
+	UpdateUC          usecase.ProfileUpdate
+	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto
 }
 
+func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		return
+	}
+
+	var profile model.Profile
+	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
+	}
+	if int(profileId) != profile.ProfileId {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access for this"})
+		return
+	}
+
+	table_profile, err := ph.GetProfileUC.GetProfile(int(profileId))
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		return
+	}
+
+	err = ph.UpdateUC.UpdateProfile(profile, table_profile, int(profileId))
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
+		return
+	}
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
+}
+
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	profileId, err := strconv.Atoi(id)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	profiles, err := ph.MatchUC.GetMatches(profileId)
+	profiles, err := ph.MatchUC.GetMatches(int(profileId))
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profiles)
+	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		return
+	}
+
 	var input struct {
 		LikeFrom int `json:"likeFrom"`
 		LikeTo   int `json:"likeTo"`
@@ -67,24 +110,35 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
-	likeFrom, likeTo, status := input.LikeFrom, input.LikeTo, input.Status
+	likeFrom := input.LikeFrom
+	likeTo := input.LikeTo
+	status := input.Status
 
 	if likeTo == likeFrom {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
 		return
 	}
 
-	err := ph.LikeUC.SetLike(likeTo, likeFrom, status)
+	if int(profileId) != likeFrom {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You are unauthorized to like this user"})
+		return
+	}
+
+	like_id, err := ph.LikeUC.SetLike(likeFrom, likeTo, status)
+	if (like_id == 0) && (err == nil) {
+		MakeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
+		return
+	}
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
 }
 
 func CreateCookies(session model.Session) (*model.Cookie, error) {
@@ -100,6 +154,7 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 }
 
 func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var maxMemory int64 = model.MaxFileSize
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
@@ -107,16 +162,16 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		"image/webp": true,
 	}
 
-	userId := r.URL.Query().Get("forUser")
-	user_id, err := strconv.Atoi(userId)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid user id: %v", err)})
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	err = r.ParseMultipartForm(maxMemory)
+	err := r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
 		return
 	}
 
@@ -124,7 +179,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	files := form.File["images"]
 
 	if len(files) == 0 {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
 		return
 	}
 
@@ -141,7 +196,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 
-		contentType := fileHeader.Header.Get("Content-Type")
+		contentType := sanitizer.Sanitize(fileHeader.Header.Get("Content-Type"))
 		if !allowedTypes[contentType] {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (unsupported type)")
 			continue
@@ -155,7 +210,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
 
-		err = sh.UploadUC.UploadUserPhoto(user_id, buf, filename, contentType)
+		err = sh.UploadUC.UploadUserPhoto(int(user_id), buf, filename, contentType)
 		if err != nil {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (upload error)")
 			continue
@@ -165,32 +220,43 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(failedUploads) != 0 {
-		makeResponse(w, http.StatusInternalServerError, map[string]interface{}{
+		MakeResponse(w, http.StatusInternalServerError, map[string]interface{}{
 			"message":        "Some uploads failed",
 			"failed_uploads": failedUploads,
 		})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]interface{}{
+	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message":        "All files uploaded",
 		"uploaded_files": successUploads,
 	})
 }
 
 func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
+	input.Login = sanitizer.Sanitize(input.Login)
+	input.Password = sanitizer.Sanitize(input.Password)
+
 	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		return
+	}
+
+	ip := r.RemoteAddr
+	err := sh.LoginUC.CheckAttempts(r.Context(), ip)
+	if err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
 		return
 	}
 
@@ -198,23 +264,21 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
-
-	fmt.Println(fmt.Errorf("%+v", session))
-
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
+		sh.LoginUC.IncreaseAttempts(r.Context(), ip)
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
 	}
 
 	cookie, err := CreateCookies(session)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
 		return
 	}
 
 	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
 		fmt.Println(fmt.Errorf("error storing session: %v", err))
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
 		return
 	}
 
@@ -228,50 +292,71 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	makeResponse(w, http.StatusOK, map[string]interface{}{
+	token, _ := sh.LoginUC.CreateJwtToken(&repository.Session{
+		ID:     session.SessionId,
+		UserID: uint32(session.UserId),
+	}, time.Now().Add(12*time.Hour).Unix())
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    token,
+		HttpOnly: false,
+		Secure:   false,
+		Path:     "/",
+		Expires:  time.Now().Add(12 * time.Hour),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	_ = sh.LoginUC.DeleteAttempts(r.Context(), ip)
+
+	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message": "Logged in",
 		"user_id": session.UserId,
 	})
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
+	input.Login = sanitizer.Sanitize(input.Login)
+	input.Password = sanitizer.Sanitize(input.Password)
+
 	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
 	if uh.SignupUC.UserExists(r.Context(), input.Login) {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
 	}
 
 	profileId, err := uh.SignupUC.SaveUserProfile(input.Login)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
 		return
 	}
 
 	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}
 
-	makeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
-	fmt.Println(fmt.Errorf("cookies^ %+v", session))
+	// fmt.Println(fmt.Errorf("cookies^ %+v", session))
 	if err == http.ErrNoCookie {
 		response := struct {
 			Message   string `json:"message"`
@@ -280,22 +365,22 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			Message:   "No cookies got",
 			InSession: false,
 		}
-		makeResponse(w, http.StatusOK, response)
+		MakeResponse(w, http.StatusOK, response)
 		return
 	}
 
 	userId, err := sh.CheckSessionUC.CheckSession(session.Value)
 	if err != nil {
 		if err == model.ErrSessionNotFound {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
 			return
 		}
 		if err == model.ErrGetSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
 			return
 		}
 		if err == model.ErrInvalidSessionId {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
 			return
 		}
 	}
@@ -310,27 +395,27 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		UserId:    userId,
 	}
 
-	makeResponse(w, http.StatusOK, response)
+	MakeResponse(w, http.StatusOK, response)
 }
 
 func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
 		return
 	}
 
 	if err := sh.LogoutUC.Logout(session.Value); err != nil {
 		if err == model.ErrSessionNotFound {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
 			return
 		}
 		if err == model.ErrGetSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
 			return
 		}
 		if err == model.ErrDeleteSession {
-			makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
 			return
 		}
 	}
@@ -343,82 +428,92 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().AddDate(-1, 0, 0),
 		Path:     "/",
 	}
-
 	http.SetCookie(w, expiredCookie)
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   false,
+		Expires:  time.Now().AddDate(-1, 0, 0),
+		Path:     "/",
+	})
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
 
 func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	sanitizer := bluemonday.UGCPolicy()
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	userId, err := strconv.Atoi(id)
+	userId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
 		return
 	}
 
 	if err := uh.DeleteUserUC.DeleteUser(userId); err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	profileId, err := strconv.Atoi(id)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	profile, err := gh.GetProfileUC.GetProfile(profileId)
+	profile, err := gh.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profile)
+	MakeResponse(w, http.StatusOK, profile)
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
-	userId := r.URL.Query().Get("forUser")
-
-	profileId, err := strconv.Atoi(userId)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
+	profiles, err := gh.GetProfilesUC.GetProfiles(int(profileId))
 	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, profiles)
+	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	fileURL := r.URL.Query().Get("file_url")
+	sanitizer := bluemonday.UGCPolicy()
+	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
-	user_id, err := strconv.Atoi(id)
-	if err != nil {
-		makeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	err = sh.DeleteUC.DeleteImage(user_id, fileURL)
+	err := sh.DeleteUC.DeleteImage(int(user_id), fileURL)
 	if err != nil {
-		makeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
 		return
 	}
 
-	makeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
+	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
 
 }

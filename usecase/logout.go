@@ -12,11 +12,17 @@ type UserLogOut struct {
 	sessionRepo repository.SessionRepository
 }
 
-func NewUserLogOutUseCase(userRepo repository.UserRepository, sessionRepo repository.SessionRepository) *UserLogOut {
+func NewUserLogOutUseCase(
+	userRepo repository.UserRepository,
+	sessionRepo repository.SessionRepository,
+) (*UserLogOut, error) {
+	if userRepo == nil || sessionRepo == nil {
+		return nil, model.ErrUserLogOutUC
+	}
 	return &UserLogOut{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
-	}
+	}, nil
 }
 
 func (ul *UserLogOut) Logout(sessionId string) error {

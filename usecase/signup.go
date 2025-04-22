@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -14,20 +13,26 @@ import (
 
 type UserSignUp struct {
 	userRepo  repository.UserRepository
+	statRepo  repository.StaticRepository
 	hasher    repository.PasswordHasher
 	validator repository.UserParamsValidator
 }
 
 func NewUserSignUpUseCase(
 	userRepo repository.UserRepository,
+	statRepo repository.StaticRepository,
 	hasher repository.PasswordHasher,
 	validator repository.UserParamsValidator,
-) *UserSignUp {
+) (*UserSignUp, error) {
+	if userRepo == nil || statRepo == nil || hasher == nil || validator == nil {
+		return nil, model.ErrUserSignUpUC
+	}
 	return &UserSignUp{
 		userRepo:  userRepo,
+		statRepo:  statRepo,
 		hasher:    hasher,
 		validator: validator,
-	}
+	}, nil
 }
 
 type UserSignUpInput struct {
@@ -64,19 +69,31 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 }
 
 func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
-	fname := fake.FirstName()
-	lname := fake.LastName()
-	ismale := true
-	birthdate, _ := time.Parse("2006-01-02", "1990-01-01")
+	var fname string
+	var lname string
+
+	ismale := (rand.Intn(2) == 0)
+
+	if ismale {
+		fname = fake.MaleFirstName()
+		lname = fake.MaleLastName()
+	} else {
+		fname = fake.FemaleFirstName()
+		lname = fake.FemaleLastName()
+	}
+
+	birthdate := time.Now().AddDate(-rand.Int()%27-18, -rand.Int()%12, -rand.Int()%30)
 	height := rand.Int()%100 + 100
-	description := fake.SentencesN(5)
+	description := fake.SentencesN(2)
 	location := fake.City()
-	interests := make([]string, 0, 20)
-	for range 20 {
+	interests := make([]string, 0, 5)
+	for range 5 {
 		interests = append(interests, fake.Word())
 	}
+
 	photos := make([]string, 0, 6)
-	photos = append(photos, "/default.png")
+	defaultFileName := "/" + fake.CharactersN(15) + ".png"
+	photos = append(photos, defaultFileName)
 
 	profile := model.Profile{
 		FirstName:   fname,
@@ -90,7 +107,17 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Photos:      photos,
 	}
 
-	fmt.Println(fmt.Errorf("profile: %+v", profile))
+	// fmt.Println(fmt.Errorf("profile: %+v", profile))
+
+	imgBytes, err := uc.statRepo.GenerateImage("image/png", ismale)
+	if err != nil {
+		return -1, err
+	}
+
+	err = uc.statRepo.UploadImage(imgBytes, defaultFileName, "image/png")
+	if err != nil {
+		return -1, err
+	}
 
 	profileId, err := uc.userRepo.StoreProfile(profile)
 	if err != nil {
