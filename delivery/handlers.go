@@ -469,22 +469,22 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
-	userIDRaw := r.Context().Value(userIDKey)
-	userID, ok := userIDRaw.(uint32)
-	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	// userIDRaw := r.Context().Value(userIDKey)
+	// userID, ok := userIDRaw.(uint32)
+	// if !ok {
+	// 	MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+	// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// 	return
+	// }
 
-	user, err := uh.GetParamsUC.GetUserParams(int(userID))
+	// user, err := uh.GetParamsUC.GetUserParams(int(userID))
 
-	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
-		return
-	}
+	// if err != nil {
+	// 	MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
+	// 	return
+	// }
 
-	MakeResponse(w, http.StatusOK, user)
+	MakeResponse(w, http.StatusOK, nil)
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
