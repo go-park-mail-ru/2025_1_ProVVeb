@@ -137,7 +137,7 @@ func (sr *SessionRepo) CheckAttempts(userIP string) error {
 		}
 	}
 
-	fmt.Println(count, blockUntilStr)
+	fmt.Println(userIP, count, blockUntilStr)
 
 	return nil
 }
