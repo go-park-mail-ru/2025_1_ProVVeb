@@ -46,7 +46,7 @@ type ProfileHandler struct {
 
 func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	profileId, ok := userIDRaw.(int)
+	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
@@ -57,18 +57,18 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
-	if profileId != profile.ProfileId {
+	if int(profileId) != profile.ProfileId {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access for this"})
 		return
 	}
 
-	table_profile, err := ph.GetProfileUC.GetProfile(profileId)
+	table_profile, err := ph.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
 		return
 	}
 
-	err = ph.UpdateUC.UpdateProfile(profile, table_profile, profileId)
+	err = ph.UpdateUC.UpdateProfile(profile, table_profile, int(profileId))
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
 		return
@@ -79,13 +79,13 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	profileId, ok := userIDRaw.(int)
+	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	profiles, err := ph.MatchUC.GetMatches(profileId)
+	profiles, err := ph.MatchUC.GetMatches(int(profileId))
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
@@ -96,7 +96,7 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	profileId, ok := userIDRaw.(int)
+	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
@@ -122,7 +122,7 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if profileId != likeFrom {
+	if int(profileId) != likeFrom {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You are unauthorized to like this user"})
 		return
 	}
@@ -162,7 +162,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(int)
+	user_id, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
@@ -209,7 +209,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
 
-		err = sh.UploadUC.UploadUserPhoto(user_id, buf, filename, contentType)
+		err = sh.UploadUC.UploadUserPhoto(int(user_id), buf, filename, contentType)
 		if err != nil {
 			failedUploads = append(failedUploads, fileHeader.Filename+" (upload error)")
 			continue
@@ -432,7 +432,12 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	profileId, _ := userIDRaw.(uint32)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	profile, err := gh.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
@@ -445,14 +450,14 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	profileId, ok := userIDRaw.(int)
+	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	profiles, err := gh.GetProfilesUC.GetProfiles(profileId)
+	profiles, err := gh.GetProfilesUC.GetProfiles(int(profileId))
 	if err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
 		return
@@ -466,13 +471,13 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(int)
+	user_id, ok := userIDRaw.(uint32)
 	if !ok {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
-	err := sh.DeleteUC.DeleteImage(user_id, fileURL)
+	err := sh.DeleteUC.DeleteImage(int(user_id), fileURL)
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
 		return
