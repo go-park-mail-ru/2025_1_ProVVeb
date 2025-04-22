@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -119,6 +120,7 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	}
 
 	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
+	fmt.Println(blockUntilStr, count, userIP)
 	if err != nil && err != redis.Nil {
 		return "", err
 	}
