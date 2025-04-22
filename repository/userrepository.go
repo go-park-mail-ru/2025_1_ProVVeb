@@ -34,6 +34,8 @@ type UserRepository interface {
 	SetLike(from int, to int, status int) (likeId int, err error)
 	StoreInterests(profileId int, interests []string) error
 
+	GetUserParams(userID int) (model.User, error)
+
 	CloseRepo() error
 }
 
@@ -123,6 +125,35 @@ func ClosePostgresConnection(conn *sql.DB) error {
 		}
 	}
 	return err
+}
+
+const GetUserByIdQuery = `
+	SELECT login, email, phone, status FROM users WHERE user_id = $1;
+`
+
+func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
+	var user model.User
+
+	rows, err := ur.DB.QueryContext(context.Background(), GetProfileByIdQuery, userID)
+	if err != nil {
+		return user, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(
+			&user.Login,
+			&user.Email,
+			&user.Phone,
+			user.Status); err != nil {
+			return user, err
+		}
+	}
+
+	if rows.Err() != nil {
+		return user, rows.Err()
+	}
+	return user, nil
 }
 
 const GetMatches = `

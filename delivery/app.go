@@ -83,17 +83,16 @@ func Run() {
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
-	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
-	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
 	usersSubrouter := r.PathPrefix("/users").Subrouter()
+	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	usersSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	usersSubrouter.HandleFunc("/{id}", userHandler.DeleteUser).Methods("DELETE")
 	usersSubrouter.HandleFunc("/checkSession", sessionHandler.CheckSession).Methods("GET")
-	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	usersSubrouter.HandleFunc("/getParams", userHandler.GetUserParams).Methods("GET")
 
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
-
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
@@ -104,7 +103,6 @@ func Run() {
 	profileSubrouter.HandleFunc("/update", profileHandler.UpdateProfile).Methods("POST")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
-
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	photoSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizePhoto)))
 

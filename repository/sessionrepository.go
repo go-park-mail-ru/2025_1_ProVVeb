@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -120,7 +119,6 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	}
 
 	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
-	fmt.Println(blockUntilStr, count, userIP)
 	if err != nil && err != redis.Nil {
 		return "", err
 	}
@@ -152,7 +150,6 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 	if count >= model.MaxAttempts {
 		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
 		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
-		fmt.Println(blockUntil)
 		return sr.client.Set(sr.ctx, timeKey, blockUntil, additionalDelay).Err()
 	}
 

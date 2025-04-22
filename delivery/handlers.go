@@ -31,6 +31,7 @@ type SessionHandler struct {
 type UserHandler struct {
 	SignupUC     usecase.UserSignUp
 	DeleteUserUC usecase.UserDelete
+	GetParamsUC  usecase.UserGetParams
 }
 
 type StaticHandler struct {
@@ -465,6 +466,25 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
+}
+
+func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	userID, ok := userIDRaw.(uint32)
+	if !ok {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := uh.GetParamsUC.GetUserParams(int(userID))
+
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
+		return
+	}
+
+	MakeResponse(w, http.StatusOK, user)
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
