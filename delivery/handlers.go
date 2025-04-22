@@ -257,9 +257,16 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
-
 	if err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
+		return
+	}
+
+	ip := r.RemoteAddr
+	err = sh.LoginUC.CheckAttempts(r.Context(), ip)
+	if err != nil {
+		sh.LoginUC.IncreaseAttempts(r.Context(), ip)
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
 		return
 	}
 
@@ -299,6 +306,8 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().Add(12 * time.Hour),
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	_ = sh.LoginUC.DeleteAttempts(r.Context(), ip)
 
 	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message": "Logged in",

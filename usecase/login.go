@@ -55,6 +55,18 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 	return session, nil
 }
 
+func (uc *UserLogIn) CheckAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.CheckAttempts(userIP)
+}
+
+func (uc *UserLogIn) IncreaseAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.IncreaseAttempts(userIP)
+}
+
+func (uc *UserLogIn) DeleteAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.DeleteAttempts(userIP)
+}
+
 func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) error {
 	err := uc.sessionRepo.StoreSession(session.SessionId, strconv.Itoa(session.UserId), session.Expires)
 	if err != nil {

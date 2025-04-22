@@ -22,6 +22,13 @@ const MaxQuerySizePhoto int = 15 * 6
 
 var Key string = "Hello"
 
+const (
+	AttemptsKeyPrefix     = "login_attempts:"
+	TimeAttemptsKeyPrefix = "time:"
+	MaxAttempts           = 5
+	AttemptTTL            = 10 * time.Minute
+)
+
 // regexps
 var (
 	ReStartsWithLetter             = `^[a-zA-Z]`
