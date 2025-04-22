@@ -140,20 +140,20 @@ func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		if err := rows.Scan(
-			&user.Login,
-			&user.Email,
-			&user.Phone,
-			&user.Status,
-		); err != nil {
-			return user, err
-		}
-	}
+	// for rows.Next() {
+	// 	if err := rows.Scan(
+	// 		&user.Login,
+	// 		&user.Email,
+	// 		&user.Phone,
+	// 		&user.Status,
+	// 	); err != nil {
+	// 		return user, err
+	// 	}
+	// }
 
-	if rows.Err() != nil {
-		return user, rows.Err()
-	}
+	// if rows.Err() != nil {
+	// 	return user, rows.Err()
+	// }
 	return user, nil
 }
 
