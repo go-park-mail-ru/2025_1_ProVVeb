@@ -55,7 +55,7 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 	return session, nil
 }
 
-func (uc *UserLogIn) CheckAttempts(ctx context.Context, userIP string) error {
+func (uc *UserLogIn) CheckAttempts(ctx context.Context, userIP string) (string, error) {
 	return uc.sessionRepo.CheckAttempts(userIP)
 }
 

@@ -259,9 +259,10 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Cannot parse IP", http.StatusInternalServerError)
 		return
 	}
-	err = sh.LoginUC.CheckAttempts(r.Context(), ip)
+
+	blockTime, err := sh.LoginUC.CheckAttempts(r.Context(), ip)
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("you have been temporary blocked, please try again at %s ", blockTime)})
 		return
 	}
 
