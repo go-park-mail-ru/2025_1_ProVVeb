@@ -478,6 +478,7 @@ func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := uh.GetParamsUC.GetUserParams(int(userID))
+	fmt.Printf("Error getting user: %v", err)
 
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
