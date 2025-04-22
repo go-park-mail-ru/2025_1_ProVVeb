@@ -149,7 +149,7 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 		return err
 	}
 
-	if count > model.MaxAttempts {
+	if count >= model.MaxAttempts {
 		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
 		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
 		fmt.Println(blockUntil)
