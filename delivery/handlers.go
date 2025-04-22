@@ -428,8 +428,16 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().AddDate(-1, 0, 0),
 		Path:     "/",
 	}
-
 	http.SetCookie(w, expiredCookie)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   false,
+		Expires:  time.Now().AddDate(-1, 0, 0),
+		Path:     "/",
+	})
 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
