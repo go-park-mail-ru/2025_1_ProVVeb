@@ -145,7 +145,8 @@ func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 			&user.Login,
 			&user.Email,
 			&user.Phone,
-			user.Status); err != nil {
+			&user.Status,
+		); err != nil {
 			return user, err
 		}
 	}
