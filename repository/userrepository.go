@@ -134,7 +134,7 @@ const GetUserByIdQuery = `
 func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 	var user model.User
 
-	rows, err := ur.DB.QueryContext(context.Background(), GetProfileByIdQuery, userID)
+	rows, err := ur.DB.QueryContext(context.Background(), GetUserByIdQuery, userID)
 	if err != nil {
 		return user, err
 	}

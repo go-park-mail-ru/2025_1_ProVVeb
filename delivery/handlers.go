@@ -477,14 +477,14 @@ func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// user, err := uh.GetParamsUC.GetUserParams(int(userID))
+	user, err := uh.GetParamsUC.GetUserParams(int(userID))
 
-	// if err != nil {
-	// 	MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
-	// 	return
-	// }
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
+		return
+	}
 
-	MakeResponse(w, http.StatusOK, userID)
+	MakeResponse(w, http.StatusOK, user)
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
