@@ -432,15 +432,7 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
-	fmt.Println(userIDRaw)
-	profileId, ok := userIDRaw.(uint32)
-	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	fmt.Println(userIDRaw)
+	profileId, _ := userIDRaw.(uint32)
 
 	profile, err := gh.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
