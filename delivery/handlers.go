@@ -323,37 +323,35 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	sanitizer := bluemonday.UGCPolicy()
-	var input struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	var user model.User
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
 		return
 	}
 
-	input.Login = sanitizer.Sanitize(input.Login)
-	input.Password = sanitizer.Sanitize(input.Password)
+	var profile model.Profile
+	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		return
+	}
 
-	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
+	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
-	if uh.SignupUC.UserExists(r.Context(), input.Login) {
+	if uh.SignupUC.UserExists(r.Context(), user.Login) {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
 	}
 
-	profileId, err := uh.SignupUC.SaveUserProfile(input.Login)
+	profileId, err := uh.SignupUC.SaveUserProfile(profile)
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
 		return
 	}
 
-	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
+	if _, err := uh.SignupUC.SaveUserData(profileId, user); err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}

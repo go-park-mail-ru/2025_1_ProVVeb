@@ -52,13 +52,24 @@ func (uc *UserSignUp) UserExists(ctx context.Context, login string) bool {
 	return uc.userRepo.UserExists(ctx, login)
 }
 
-func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, error) {
-	email := fake.EmailAddress()
-	phone := fake.Phone()
+func (uc *UserSignUp) SaveUserData(userId int, sent_user model.User) (int, error) {
+	var email string
+	if sent_user.Email == "" {
+		email = fake.EmailAddress()
+	} else {
+		email = sent_user.Email
+	}
+
+	var phone string
+	if sent_user.Phone == "" {
+		phone = fake.Phone()
+	} else {
+		phone = sent_user.Phone
+	}
 	status := 0
 	user := model.User{
-		Login:    login,
-		Password: uc.hasher.Hash(login + "_" + password),
+		Login:    sent_user.Login,
+		Password: uc.hasher.Hash(sent_user.Login + "_" + sent_user.Password),
 		Email:    email,
 		Phone:    phone,
 		Status:   status,
@@ -68,27 +79,55 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 	return uc.userRepo.StoreUser(user)
 }
 
-func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
-	var fname string
-	var lname string
-
-	ismale := (rand.Intn(2) == 0)
-
-	if ismale {
-		fname = fake.MaleFirstName()
-		lname = fake.MaleLastName()
+func (uc *UserSignUp) SaveUserProfile(sent_profile model.Profile) (int, error) {
+	var fname, lname string
+	if sent_profile.FirstName != "" {
+		fname = sent_profile.FirstName
 	} else {
-		fname = fake.FemaleFirstName()
-		lname = fake.FemaleLastName()
+		if sent_profile.IsMale {
+			fname = fake.MaleFirstName()
+		} else {
+			fname = fake.FemaleFirstName()
+		}
 	}
 
-	birthdate := time.Now().AddDate(-rand.Int()%27-18, -rand.Int()%12, -rand.Int()%30)
-	height := rand.Int()%100 + 100
-	description := fake.SentencesN(2)
-	location := fake.City()
-	interests := make([]string, 0, 5)
-	for range 5 {
-		interests = append(interests, fake.Word())
+	if sent_profile.LastName != "" {
+		lname = sent_profile.LastName
+	} else {
+		if sent_profile.IsMale {
+			lname = fake.MaleLastName()
+		} else {
+			lname = fake.FemaleLastName()
+		}
+	}
+
+	var birthdate time.Time
+	if sent_profile.Birthday.IsZero() {
+		birthdate = time.Now().AddDate(-(rand.Intn(27) + 18), -rand.Intn(12), -rand.Intn(30))
+	} else {
+		birthdate = sent_profile.Birthday
+	}
+
+	height := sent_profile.Height
+	if height == 0 {
+		height = rand.Intn(100) + 100
+	}
+
+	description := sent_profile.Description
+	if description == "" {
+		description = fake.SentencesN(2)
+	}
+
+	location := sent_profile.Location
+	if location == "" {
+		location = fake.City()
+	}
+
+	interests := sent_profile.Interests
+	if len(interests) == 0 {
+		for i := 0; i < 5; i++ {
+			interests = append(interests, fake.Word())
+		}
 	}
 
 	photos := make([]string, 0, 6)
@@ -98,18 +137,20 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 	profile := model.Profile{
 		FirstName:   fname,
 		LastName:    lname,
-		IsMale:      ismale,
+		IsMale:      sent_profile.IsMale,
 		Birthday:    birthdate,
 		Height:      height,
 		Description: description,
-		Interests:   interests,
 		Location:    location,
+		Interests:   interests,
 		Photos:      photos,
+		Preferences: sent_profile.Preferences,
+		LikedBy:     sent_profile.LikedBy,
 	}
 
 	// fmt.Println(fmt.Errorf("profile: %+v", profile))
 
-	imgBytes, err := uc.statRepo.GenerateImage("image/png", ismale)
+	imgBytes, err := uc.statRepo.GenerateImage("image/png", sent_profile.IsMale)
 	if err != nil {
 		return -1, err
 	}
