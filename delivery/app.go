@@ -5,15 +5,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
-
-const megabyte int = 8 * 1024 * 1024
-const max_query_size_str int = 5
-const max_query_size_photo int = 15
 
 func Run() {
 	postgresClient, err := repository.NewUserRepo()
@@ -48,8 +45,6 @@ func Run() {
 		return
 	}
 
-	r := mux.NewRouter()
-
 	getHandler, err := NewGetHandler(postgresClient, staticClient)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with getHandler: %v", err))
@@ -80,6 +75,9 @@ func Run() {
 		return
 	}
 
+	r := mux.NewRouter()
+	tokenValidator, _ := NewJwtToken("secret")
+
 	r.Use(PanicMiddleware)
 
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
@@ -88,10 +86,16 @@ func Run() {
 	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
 	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
+	usersSubrouter := r.PathPrefix("/users").Subrouter()
+
+	usersSubrouter.HandleFunc("/{id}", userHandler.DeleteUser).Methods("DELETE")
+	usersSubrouter.HandleFunc("/checkSession", sessionHandler.CheckSession).Methods("GET")
+	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
 
-	profileSubrouter.Use(AdminAuthMiddleware(sessionHandler))
-	profileSubrouter.Use(BodySizeLimitMiddleware(int64(megabyte * max_query_size_str)))
+	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	profileSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
 	profileSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
@@ -101,8 +105,8 @@ func Run() {
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 
-	photoSubrouter.Use(AdminAuthMiddleware(sessionHandler))
-	photoSubrouter.Use(BodySizeLimitMiddleware(int64(megabyte * max_query_size_photo)))
+	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	photoSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizePhoto)))
 
 	photoSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
 	photoSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
