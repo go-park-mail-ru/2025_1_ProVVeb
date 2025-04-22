@@ -615,6 +615,10 @@ func (ur *UserRepo) StorePhotos(profileID int, paths []string) error {
 
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
+	my_profile, err := ur.GetProfileById(forUserId)
+	if err != nil {
+		return profiles, err
+	}
 	amount := 0
 	for i := 1; ; i++ {
 		if i != forUserId {
@@ -625,7 +629,9 @@ func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) 
 			if profile.ProfileId == 0 && profile.FirstName == "" {
 				return profiles, nil
 			}
-			profiles = append(profiles, profile)
+			if profile.IsMale != my_profile.IsMale {
+				profiles = append(profiles, profile)
+			}
 			amount++
 		}
 	}
