@@ -253,20 +253,20 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip := r.RemoteAddr
+	err := sh.LoginUC.CheckAttempts(r.Context(), ip)
+	if err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
+		return
+	}
+
 	session, err := sh.LoginUC.CreateSession(r.Context(), usecase.LogInInput{
 		Login:    input.Login,
 		Password: input.Password,
 	})
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
-		return
-	}
-
-	ip := r.RemoteAddr
-	err = sh.LoginUC.CheckAttempts(r.Context(), ip)
-	if err != nil {
 		sh.LoginUC.IncreaseAttempts(r.Context(), ip)
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
 		return
 	}
 
