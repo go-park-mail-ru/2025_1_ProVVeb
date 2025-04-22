@@ -103,6 +103,7 @@ func (sr *SessionRepo) CloseRepo() error {
 func (sr *SessionRepo) CheckAttempts(userIP string) error {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
+	fmt.Println(userIP, tsKey, timeKey)
 
 	countStr, err := sr.client.Get(sr.ctx, tsKey).Result()
 	if err == redis.Nil {
@@ -113,6 +114,7 @@ func (sr *SessionRepo) CheckAttempts(userIP string) error {
 	} else if err != nil {
 		return err
 	}
+	fmt.Println(userIP, tsKey, timeKey)
 
 	count, err := strconv.Atoi(countStr)
 	if err != nil {
@@ -122,6 +124,7 @@ func (sr *SessionRepo) CheckAttempts(userIP string) error {
 	if count >= model.MaxAttempts {
 		return errors.New("too many login attempts, try later")
 	}
+	fmt.Println(userIP, tsKey, timeKey)
 
 	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
 	if err != nil && err != redis.Nil {
