@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -253,8 +254,12 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
-	err := sh.LoginUC.CheckAttempts(r.Context(), ip)
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		http.Error(w, "Cannot parse IP", http.StatusInternalServerError)
+		return
+	}
+	err = sh.LoginUC.CheckAttempts(r.Context(), ip)
 	if err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
 		return
