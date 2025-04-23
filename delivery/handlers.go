@@ -8,33 +8,39 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/sirupsen/logrus"
 )
 
 type GetHandler struct {
 	GetProfileUC    usecase.GetProfile
 	GetProfilesUC   usecase.GetProfilesForUser
 	GetProfileImage usecase.GetUserPhoto
+	Logger          *logger.LogrusLogger
 }
 
 type SessionHandler struct {
 	LoginUC        usecase.UserLogIn
 	CheckSessionUC usecase.UserCheckSession
 	LogoutUC       usecase.UserLogOut
+	Logger         *logger.LogrusLogger
 }
 
 type UserHandler struct {
 	SignupUC     usecase.UserSignUp
 	DeleteUserUC usecase.UserDelete
+	Logger       *logger.LogrusLogger
 }
 
 type StaticHandler struct {
 	UploadUC usecase.StaticUpload
 	DeleteUC usecase.DeleteStatic
+	Logger   *logger.LogrusLogger
 }
 
 type ProfileHandler struct {
@@ -43,63 +49,150 @@ type ProfileHandler struct {
 	UpdateUC          usecase.ProfileUpdate
 	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto
+	Logger            *logger.LogrusLogger
 }
 
 func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("start processing UpdateProfile request")
+
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		ph.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
 	var profile model.Profile
 	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		ph.Logger.WithFields(&logrus.Fields{
+			"error":      err.Error(),
+			"profile_id": profileId,
+		}).Warn("failed to decode request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
 		return
 	}
-	if int(profileId) != profile.ProfileId {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access for this"})
+
+	if profile.ProfileId != 0 && int(profileId) != profile.ProfileId {
+		ph.Logger.WithFields(&logrus.Fields{
+			"request_profile_id":  profileId,
+			"provided_profile_id": profile.ProfileId,
+		}).Warn("profile ID mismatch")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access for this"},
+		)
 		return
 	}
 
 	table_profile, err := ph.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get profile from database")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)},
+		)
 		return
 	}
 
 	err = ph.UpdateUC.UpdateProfile(profile, table_profile, int(profileId))
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)})
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id":   profileId,
+			"error":        err.Error(),
+			"profile_data": profile,
+		}).Error("failed to update profile")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)},
+		)
 		return
 	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Info("profile updated successfully")
 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
 }
 
 func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("GetMatches request started")
+
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		ph.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Debug("attempting to get matches")
+
 	profiles, err := ph.MatchUC.GetMatches(int(profileId))
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get matches")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		)
 		return
 	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id":    profileId,
+		"matches_count": len(profiles),
+	}).Info("successfully retrieved matches")
 
 	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("SetLike request started")
+
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		ph.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
@@ -110,7 +203,14 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to decode like request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
 		return
 	}
 
@@ -118,25 +218,59 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	likeTo := input.LikeTo
 	status := input.Status
 
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+		"like_from":  likeFrom,
+		"like_to":    likeTo,
+		"status":     status,
+	}).Debug("processing like action")
+
 	if likeTo == likeFrom {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+		}).Warn("attempt to like oneself")
+
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
 		return
 	}
 
 	if int(profileId) != likeFrom {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"like_from":  likeFrom,
+		}).Warn("unauthorized like attempt")
+
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You are unauthorized to like this user"})
 		return
 	}
 
 	like_id, err := ph.LikeUC.SetLike(likeFrom, likeTo, status)
 	if (like_id == 0) && (err == nil) {
+		ph.Logger.WithFields(&logrus.Fields{
+			"like_from": likeFrom,
+			"like_to":   likeTo,
+		}).Info("duplicate like detected")
+
 		MakeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
 		return
 	}
 	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"like_from": likeFrom,
+			"like_to":   likeTo,
+			"error":     err.Error(),
+		}).Error("failed to set like")
+
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
 		return
 	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"like_id":   like_id,
+		"like_from": likeFrom,
+		"like_to":   likeTo,
+		"status":    status,
+	}).Info("like successfully processed")
 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
 }
@@ -154,6 +288,13 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 }
 
 func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":       r.Method,
+		"path":         r.URL.Path,
+		"request_id":   r.Header.Get("request_id"),
+		"content_type": r.Header.Get("Content-Type"),
+	}).Info("UploadPhoto request started")
+
 	sanitizer := bluemonday.UGCPolicy()
 	var maxMemory int64 = model.MaxFileSize
 	allowedTypes := map[string]bool{
@@ -165,13 +306,31 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized upload attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":    user_id,
+		"max_memory": maxMemory,
+	}).Debug("parsing multipart form")
+
 	err := r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)})
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Warn("failed to parse multipart form")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)},
+		)
 		return
 	}
 
@@ -179,9 +338,21 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	files := form.File["images"]
 
 	if len(files) == 0 {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No files in 'images' field"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+		}).Warn("no files in 'images' field")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "No files in 'images' field"},
+		)
 		return
 	}
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":       user_id,
+		"files_count":   len(files),
+		"allowed_types": allowedTypes,
+	}).Info("starting files processing")
 
 	var (
 		failedUploads  []string
@@ -189,43 +360,110 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	)
 
 	for _, fileHeader := range files {
+		fileName := fileHeader.Filename
+		fileSize := fileHeader.Size
+		contentType := fileHeader.Header.Get("Content-Type")
+
+		sh.Logger.WithFields(&logrus.Fields{
+			"file_name":    fileName,
+			"file_size":    fileSize,
+			"content_type": contentType,
+		}).Debug("processing file")
+
 		file, err := fileHeader.Open()
 		if err != nil {
-			failedUploads = append(failedUploads, fileHeader.Filename)
+			sh.Logger.WithFields(&logrus.Fields{
+				"file_name": fileName,
+				"error":     err.Error(),
+			}).Warn("failed to open file")
+
+			failedUploads = append(failedUploads, fileName)
 			continue
 		}
 		defer file.Close()
 
-		contentType := sanitizer.Sanitize(fileHeader.Header.Get("Content-Type"))
-		if !allowedTypes[contentType] {
-			failedUploads = append(failedUploads, fileHeader.Filename+" (unsupported type)")
+		sanitizedType := sanitizer.Sanitize(contentType)
+		if !allowedTypes[sanitizedType] {
+			sh.Logger.WithFields(&logrus.Fields{
+				"file_name":    fileName,
+				"content_type": sanitizedType,
+			}).Warn("unsupported file type")
+
+			failedUploads = append(failedUploads, fileName+" (unsupported type)")
 			continue
 		}
 
 		buf, err := io.ReadAll(file)
 		if err != nil {
-			failedUploads = append(failedUploads, fileHeader.Filename+" (read error)")
+			sh.Logger.WithFields(&logrus.Fields{
+				"file_name": fileName,
+				"error":     err.Error(),
+			}).Warn("failed to read file content")
+
+			failedUploads = append(failedUploads, fileName+" (read error)")
 			continue
 		}
 
-		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileHeader.Filename)
+		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileName)
 
-		err = sh.UploadUC.UploadUserPhoto(int(user_id), buf, filename, contentType)
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id":   user_id,
+			"file_name": filename,
+			"data_size": len(buf),
+		}).Debug("uploading file to storage")
+
+		err = sh.UploadUC.UploadUserPhoto(int(user_id), buf, filename, sanitizedType)
 		if err != nil {
-			failedUploads = append(failedUploads, fileHeader.Filename+" (upload error)")
+			sh.Logger.WithFields(&logrus.Fields{
+				"user_id":   user_id,
+				"file_name": filename,
+				"error":     err.Error(),
+			}).Error("failed to upload file")
+
+			failedUploads = append(failedUploads, fileName+" (upload error)")
 			continue
 		}
 
 		successUploads = append(successUploads, filename)
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id":   user_id,
+			"file_name": filename,
+		}).Info("file uploaded successfully")
 	}
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":        user_id,
+		"total_files":    len(files),
+		"success_count":  len(successUploads),
+		"failed_count":   len(failedUploads),
+		"failed_uploads": failedUploads,
+	}).Info("files processing completed")
+
 	if len(failedUploads) != 0 {
+		if len(successUploads) > 0 {
+			sh.Logger.WithFields(&logrus.Fields{
+				"user_id":       user_id,
+				"success_count": len(successUploads),
+				"failed_count":  len(failedUploads),
+			}).Warn("partial upload failure")
+		} else {
+			sh.Logger.WithFields(&logrus.Fields{
+				"user_id":      user_id,
+				"failed_count": len(failedUploads),
+			}).Error("all files failed to upload")
+		}
+
 		MakeResponse(w, http.StatusInternalServerError, map[string]interface{}{
 			"message":        "Some uploads failed",
 			"failed_uploads": failedUploads,
 		})
 		return
 	}
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":        user_id,
+		"uploaded_files": successUploads,
+	}).Info("all files uploaded successfully")
 
 	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message":        "All files uploaded",
@@ -234,6 +472,13 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("Login request started")
+
 	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
@@ -241,7 +486,13 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Warn("failed to decode login request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
 		return
 	}
 
@@ -249,36 +500,81 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	input.Password = sanitizer.Sanitize(input.Password)
 
 	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+			"error": "invalid login or password format",
+		}).Warn("validation failed")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid login or password"},
+		)
 		return
 	}
 
 	ip := r.RemoteAddr
 	err := sh.LoginUC.CheckAttempts(r.Context(), ip)
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"ip":    ip,
+			"error": "too many login attempts",
+		}).Warn("login attempts limit exceeded")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"},
+		)
 		return
 	}
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"login": input.Login,
+	}).Debug("attempting to create session")
 
 	session, err := sh.LoginUC.CreateSession(r.Context(), usecase.LogInInput{
 		Login:    input.Login,
 		Password: input.Password,
 	})
 	if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+			"ip":    ip,
+			"error": err.Error(),
+		}).Warn("failed to create session")
+
 		sh.LoginUC.IncreaseAttempts(r.Context(), ip)
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("%v", err)})
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("%v", err)},
+		)
 		return
 	}
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":    session.UserId,
+		"session_id": session.SessionId,
+	}).Info("user authenticated successfully")
+
 	cookie, err := CreateCookies(session)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to create cookie"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id": session.UserId,
+			"error":   err.Error(),
+		}).Error("failed to create session cookie")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "Failed to create cookie"},
+		)
 		return
 	}
 
 	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
-		fmt.Println(fmt.Errorf("error storing session: %v", err))
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to store session"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"session_id": session.SessionId,
+			"user_id":    session.UserId,
+			"error":      err.Error(),
+		}).Error("failed to store session")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "Failed to store session"},
+		)
 		return
 	}
 
@@ -297,6 +593,10 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		UserID: uint32(session.UserId),
 	}, time.Now().Add(12*time.Hour).Unix())
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id": session.UserId,
+	}).Debug("JWT token created")
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
@@ -309,6 +609,12 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	_ = sh.LoginUC.DeleteAttempts(r.Context(), ip)
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":    session.UserId,
+		"session_id": session.SessionId,
+		"ip":         ip,
+	}).Info("login completed successfully")
+
 	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message": "Logged in",
 		"user_id": session.UserId,
@@ -316,6 +622,13 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	uh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("CreateUser request started")
+
 	sanitizer := bluemonday.UGCPolicy()
 	var input struct {
 		Login    string `json:"login"`
@@ -323,41 +636,109 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON data"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Warn("failed to decode user creation request")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
 		return
 	}
 
 	input.Login = sanitizer.Sanitize(input.Login)
 	input.Password = sanitizer.Sanitize(input.Password)
 
-	if uh.SignupUC.ValidateLogin(input.Login) != nil || uh.SignupUC.ValidatePassword(input.Password) != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+	if err := uh.SignupUC.ValidateLogin(input.Login); err != nil {
+		uh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+			"error": err.Error(),
+		}).Warn("login validation failed")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid login or password"},
+		)
+		return
+	}
+
+	if err := uh.SignupUC.ValidatePassword(input.Password); err != nil {
+		uh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+			"error": err.Error(),
+		}).Warn("password validation failed")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid login or password"},
+		)
 		return
 	}
 
 	if uh.SignupUC.UserExists(r.Context(), input.Login) {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+		}).Warn("user already exists")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "User already exists"},
+		)
 		return
 	}
 
 	profileId, err := uh.SignupUC.SaveUserProfile(input.Login)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"login": input.Login,
+			"error": err.Error(),
+		}).Error("failed to save user profile")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "Failed to save user profile"},
+		)
 		return
 	}
+
+	uh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+		"login":      input.Login,
+	}).Debug("user profile created")
 
 	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"login":      input.Login,
+			"error":      err.Error(),
+		}).Error("failed to save user data")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "Failed to save user data"},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
+	uh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+		"login":      input.Login,
+	}).Info("user created successfully")
+
+	MakeResponse(w, http.StatusCreated,
+		map[string]string{"message": "User created"},
+	)
 }
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("CheckSession request started")
+
 	session, err := r.Cookie("session_id")
-	// fmt.Println(fmt.Errorf("cookies^ %+v", session))
 	if err == http.ErrNoCookie {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "no session cookie found",
+		}).Debug("session check failed - no cookies")
+
 		response := struct {
 			Message   string `json:"message"`
 			InSession bool   `json:"inSession"`
@@ -367,23 +748,67 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		}
 		MakeResponse(w, http.StatusOK, response)
 		return
+	} else if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Warn("failed to get session cookie")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid cookie"},
+		)
+		return
 	}
 
 	userId, err := sh.CheckSessionUC.CheckSession(session.Value)
 	if err != nil {
 		if err == model.ErrSessionNotFound {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Warn("session not found")
+
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "session not found"},
+			)
 			return
 		}
 		if err == model.ErrGetSession {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Error("failed to get session")
+
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "error getting session"},
+			)
 			return
 		}
 		if err == model.ErrInvalidSessionId {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error invalid session id"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Warn("invalid session id")
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "error invalid session id"},
+			)
 			return
 		}
+
+		sh.Logger.WithFields(&logrus.Fields{
+			"session_id": session.Value,
+			"error":      err.Error(),
+		}).Error("unknown session check error")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "unknown session error"},
+		)
+		return
 	}
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":    userId,
+		"session_id": session.Value,
+	}).Info("session check successful")
 
 	response := struct {
 		Message   string `json:"message"`
@@ -399,25 +824,82 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("Logout request started")
+
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "No cookies got"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "session cookie not found",
+		}).Warn("logout attempt without session cookie")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "No cookies got"},
+		)
+		return
+	} else if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Error("failed to get session cookie")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid cookie"},
+		)
 		return
 	}
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"session_id": session.Value,
+	}).Debug("attempting to logout session")
+
 	if err := sh.LogoutUC.Logout(session.Value); err != nil {
 		if err == model.ErrSessionNotFound {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "session not found"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Warn("session not found during logout")
+
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "session not found"},
+			)
 			return
 		}
 		if err == model.ErrGetSession {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error getting session"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Error("failed to get session during logout")
+
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "error getting session"},
+			)
 			return
 		}
 		if err == model.ErrDeleteSession {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "error deleting session"})
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Error("failed to delete session")
+
+			MakeResponse(w, http.StatusInternalServerError,
+				map[string]string{"message": "error deleting session"},
+			)
 			return
 		}
+
+		sh.Logger.WithFields(&logrus.Fields{
+			"session_id": session.Value,
+			"error":      err.Error(),
+		}).Error("unknown logout error")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "unknown logout error"},
+		)
+		return
 	}
 
 	expiredCookie := &http.Cookie{
@@ -439,81 +921,213 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 	})
 
+	sh.Logger.WithFields(&logrus.Fields{
+		"session_id": session.Value,
+	}).Info("user logged out successfully")
+
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
 
 func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	uh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("DeleteUser request started")
+
 	sanitizer := bluemonday.UGCPolicy()
 	vars := mux.Vars(r)
 	id := vars["id"]
 
+	uh.Logger.WithFields(&logrus.Fields{
+		"raw_user_id": id,
+	}).Debug("received user ID for deletion")
+
 	userId, err := strconv.Atoi(sanitizer.Sanitize(id))
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid user id"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"raw_user_id": id,
+			"error":       err.Error(),
+		}).Warn("invalid user ID format")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid user id"},
+		)
 		return
 	}
+
+	uh.Logger.WithFields(&logrus.Fields{
+		"user_id": userId,
+	}).Info("attempting to delete user")
 
 	if err := uh.DeleteUserUC.DeleteUser(userId); err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error deleting user"})
+		uh.Logger.WithFields(&logrus.Fields{
+			"user_id": userId,
+			"error":   err.Error(),
+		}).Error("failed to delete user")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": "Error deleting user"},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)})
+	uh.Logger.WithFields(&logrus.Fields{
+		"user_id": userId,
+	}).Info("user deleted successfully")
+
+	MakeResponse(w, http.StatusOK,
+		map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)},
+	)
 }
 
 func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	gh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetProfile request started")
+
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		gh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized profile access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
+	gh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Debug("attempting to get profile")
+
 	profile, err := gh.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)})
+		gh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get profile")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)},
+		)
 		return
 	}
+
+	gh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Info("profile retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, profile)
 }
 
 func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
+	gh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetProfiles request started")
+
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		gh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized profiles access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
 
+	gh.Logger.WithFields(&logrus.Fields{
+		"requester_id": profileId,
+	}).Debug("attempting to get profiles list")
+
 	profiles, err := gh.GetProfilesUC.GetProfiles(int(profileId))
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)})
+		gh.Logger.WithFields(&logrus.Fields{
+			"requester_id": profileId,
+			"error":        err.Error(),
+		}).Error("failed to get profiles list")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		)
 		return
 	}
+
+	gh.Logger.WithFields(&logrus.Fields{
+		"requester_id":   profileId,
+		"profiles_count": len(profiles),
+	}).Info("profiles list retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, profiles)
 }
 
 func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":       r.Method,
+		"path":         r.URL.Path,
+		"request_id":   r.Header.Get("request_id"),
+		"ip":           r.RemoteAddr,
+		"query_params": r.URL.Query(),
+	}).Info("DeletePhoto request started")
+
 	sanitizer := bluemonday.UGCPolicy()
 	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"raw_file_url":  r.URL.Query().Get("file_url"),
+		"sanitized_url": fileURL,
+	}).Debug("processing file URL")
 
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
 	if !ok {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized photo deletion attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
 		return
 	}
+
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":  user_id,
+		"file_url": fileURL,
+	}).Info("attempting to delete photo")
 
 	err := sh.DeleteUC.DeleteImage(int(user_id), fileURL)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)})
+		sh.Logger.WithFields(&logrus.Fields{
+			"user_id":  user_id,
+			"file_url": fileURL,
+			"error":    err.Error(),
+		}).Error("failed to delete photo")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)})
+	sh.Logger.WithFields(&logrus.Fields{
+		"user_id":  user_id,
+		"file_url": fileURL,
+	}).Info("photo deleted successfully")
 
+	MakeResponse(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id),
+	})
 }

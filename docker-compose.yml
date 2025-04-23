@@ -50,6 +50,7 @@ services:
     restart: always
     volumes:
       - ./backend:/app
+      - ./logs:/backend/logs
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL

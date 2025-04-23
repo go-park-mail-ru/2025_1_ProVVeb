@@ -12,7 +12,7 @@ type UserLogIn struct {
 	userRepo    repository.UserRepository
 	sessionRepo repository.SessionRepository
 	hasher      repository.PasswordHasher
-	token       repository.JwtToken
+	token       repository.JwtTokenizer
 	validator   repository.UserParamsValidator
 }
 
@@ -20,7 +20,7 @@ func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
-	token repository.JwtToken,
+	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 ) (*UserLogIn, error) {
 	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {

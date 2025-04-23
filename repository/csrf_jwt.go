@@ -7,6 +7,13 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
+type JwtTokenizer interface {
+	CreateJwtToken(s *Session, tokenExpTime int64) (string, error)
+	CheckJwtToken(s *Session, inputToken string) (bool, error)
+	ParseSecretGetter(token *jwt.Token) (interface{}, error)
+	ExtractSessionFromToken(token string) (*Session, error)
+}
+
 type JwtToken struct {
 	Secret []byte
 }
@@ -39,7 +46,7 @@ func (tk *JwtToken) CreateJwtToken(s *Session, tokenExpTime int64) (string, erro
 	return token.SignedString(tk.Secret)
 }
 
-func (tk *JwtToken) parseSecretGetter(token *jwt.Token) (interface{}, error) {
+func (tk *JwtToken) ParseSecretGetter(token *jwt.Token) (interface{}, error) {
 	method, ok := token.Method.(*jwt.SigningMethodHMAC)
 	if !ok || method.Alg() != "HS256" {
 		return nil, fmt.Errorf("bad sign method")
@@ -49,7 +56,7 @@ func (tk *JwtToken) parseSecretGetter(token *jwt.Token) (interface{}, error) {
 
 func (tk *JwtToken) CheckJwtToken(s *Session, inputToken string) (bool, error) {
 	payload := &JwtCsrfClaims{}
-	_, err := jwt.ParseWithClaims(inputToken, payload, tk.parseSecretGetter)
+	_, err := jwt.ParseWithClaims(inputToken, payload, tk.ParseSecretGetter)
 	if err != nil {
 		return false, fmt.Errorf("cant parse jwt token: %v", err)
 	}
@@ -61,7 +68,7 @@ func (tk *JwtToken) CheckJwtToken(s *Session, inputToken string) (bool, error) {
 
 func (tk *JwtToken) ExtractSessionFromToken(token string) (*Session, error) {
 	payload := &JwtCsrfClaims{}
-	_, err := jwt.ParseWithClaims(token, payload, tk.parseSecretGetter)
+	_, err := jwt.ParseWithClaims(token, payload, tk.ParseSecretGetter)
 	if err != nil {
 		return nil, fmt.Errorf("can't parse jwt token: %v", err)
 	}
