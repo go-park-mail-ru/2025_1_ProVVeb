@@ -12,6 +12,7 @@ type UserLogIn struct {
 	userRepo    repository.UserRepository
 	sessionRepo repository.SessionRepository
 	hasher      repository.PasswordHasher
+	token       repository.JwtTokenizer
 	validator   repository.UserParamsValidator
 }
 
@@ -19,6 +20,7 @@ func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
+	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 ) (*UserLogIn, error) {
 	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
@@ -28,6 +30,7 @@ func NewUserLogInUseCase(
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
 		hasher:      hasher,
+		token:       token,
 		validator:   validator,
 	}, nil
 }
@@ -52,6 +55,18 @@ func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model
 	return session, nil
 }
 
+func (uc *UserLogIn) CheckAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.CheckAttempts(userIP)
+}
+
+func (uc *UserLogIn) IncreaseAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.IncreaseAttempts(userIP)
+}
+
+func (uc *UserLogIn) DeleteAttempts(ctx context.Context, userIP string) error {
+	return uc.sessionRepo.DeleteAttempts(userIP)
+}
+
 func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) error {
 	err := uc.sessionRepo.StoreSession(session.SessionId, strconv.Itoa(session.UserId), session.Expires)
 	if err != nil {
@@ -60,6 +75,10 @@ func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) er
 
 	err = uc.userRepo.StoreSession(session.UserId, session.SessionId)
 	return err
+}
+
+func (uc *UserLogIn) CreateJwtToken(s *repository.Session, tokenExpTime int64) (string, error) {
+	return uc.token.CreateJwtToken(s, tokenExpTime)
 }
 
 func (uc *UserLogIn) GetSession(sessionId string) (string, error) {

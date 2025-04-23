@@ -16,6 +16,19 @@ var SessionIdLength = 32
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
+const Megabyte int = 8 * 1024 * 1024
+const MaxQuerySizeStr int = 5
+const MaxQuerySizePhoto int = 15 * 6
+
+var Key string = "Hello"
+
+const (
+	AttemptsKeyPrefix     = "login_attempts:"
+	TimeAttemptsKeyPrefix = "time:"
+	MaxAttempts           = 5
+	AttemptTTL            = 10 * time.Minute
+)
+
 // regexps
 var (
 	ReStartsWithLetter             = `^[a-zA-Z]`

@@ -2,7 +2,10 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
@@ -15,6 +18,10 @@ type SessionRepository interface {
 	StoreSession(sessionId string, data string, ttl time.Duration) error
 	DeleteSession(sessionId string) error
 	CloseRepo() error
+
+	CheckAttempts(userIP string) error
+	IncreaseAttempts(userIP string) error
+	DeleteAttempts(userIP string) error
 }
 
 type SessionRepo struct {
@@ -91,4 +98,69 @@ func (sr *SessionRepo) DeleteAllSessions() error {
 
 func (sr *SessionRepo) CloseRepo() error {
 	return sr.client.Close()
+}
+
+func (sr *SessionRepo) CheckAttempts(userIP string) error {
+	tsKey := model.AttemptsKeyPrefix + userIP
+	timeKey := model.TimeAttemptsKeyPrefix + userIP
+
+	countStr, err := sr.client.Get(sr.ctx, tsKey).Result()
+	if err == redis.Nil {
+		if err := sr.client.Set(sr.ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		return err
+	}
+
+	if count >= model.MaxAttempts {
+		return errors.New("too many login attempts, try later")
+	}
+
+	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
+	if err != nil && err != redis.Nil {
+		return err
+	}
+	if blockUntilStr != "" {
+		blockUntil, err := strconv.ParseInt(blockUntilStr, 10, 64)
+		if err != nil {
+			return err
+		}
+		if time.Now().Unix() < blockUntil {
+			return errors.New("too many login attempts, try later")
+		}
+	}
+
+	fmt.Println(count, blockUntilStr)
+
+	return nil
+}
+func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
+	tsKey := model.AttemptsKeyPrefix + userIP
+	timeKey := model.TimeAttemptsKeyPrefix + userIP
+
+	count, err := sr.client.Incr(sr.ctx, tsKey).Result()
+	if err != nil {
+		return err
+	}
+
+	if count > model.MaxAttempts {
+		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
+		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
+		return sr.client.Set(sr.ctx, timeKey, blockUntil, additionalDelay).Err()
+	}
+
+	return nil
+}
+
+func (sr *SessionRepo) DeleteAttempts(userIP string) error {
+	tsKey := model.AttemptsKeyPrefix + userIP
+	timeKey := model.TimeAttemptsKeyPrefix + userIP
+	return sr.client.Del(sr.ctx, tsKey, timeKey).Err()
 }
