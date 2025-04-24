@@ -289,6 +289,8 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println(cookie)
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookie.Name,
 		Value:    cookie.Value,

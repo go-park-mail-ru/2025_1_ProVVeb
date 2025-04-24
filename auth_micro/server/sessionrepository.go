@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
@@ -92,8 +91,6 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
 
-	fmt.Println(tsKey, timeKey, userIP)
-
 	countStr, err := sr.client.Get(sr.ctx, tsKey).Result()
 	if err == redis.Nil {
 		if err := sr.client.Set(sr.ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
@@ -103,7 +100,6 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	} else if err != nil {
 		return "", err
 	}
-	fmt.Println(tsKey, timeKey, userIP, countStr)
 
 	count, err := strconv.Atoi(countStr)
 	if err != nil {
@@ -114,7 +110,6 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	if err != nil && err != redis.Nil {
 		return "", err
 	}
-	fmt.Println(tsKey, timeKey, userIP, blockUntilStr)
 	if blockUntilStr != "" {
 		blockUntil, err := strconv.ParseInt(blockUntilStr, 10, 64)
 		if err != nil {
