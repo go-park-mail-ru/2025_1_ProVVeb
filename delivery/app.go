@@ -31,6 +31,12 @@ func Run() {
 	//
 	//
 
+	conn, err := grpc.NewClient("127.0.0.1:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
 	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
@@ -70,7 +76,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, *tokenValidator, validator)
+	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, *tokenValidator, validator, conn)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -180,12 +186,8 @@ func NewSessionHandler(
 	hasher repository.PasswordHasher,
 	token repository.JwtToken,
 	validator repository.UserParamsValidator,
+	conn *grpc.ClientConn,
 ) (*SessionHandler, error) {
-	conn, err := grpc.NewClient("127.0.0.1:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
-	}
-	defer conn.Close()
 
 	client := sessionpb.NewSessionServiceClient(conn)
 
