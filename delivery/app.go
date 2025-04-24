@@ -18,18 +18,6 @@ import (
 )
 
 func Run() {
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
 
 	conn, err := grpc.NewClient("213.219.214.83:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

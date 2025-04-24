@@ -6,6 +6,8 @@ import (
 	"time"
 
 	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -75,6 +77,17 @@ func (s *SessionServiceServerImpl) IncreaseAttempts(ctx context.Context, req *se
 func (s *SessionServiceServerImpl) DeleteAttempts(ctx context.Context, req *sessionpb.IPRequest) (*emptypb.Empty, error) {
 	if err := s.Repo.DeleteAttempts(req.GetIp()); err != nil {
 		return nil, fmt.Errorf("error deleting attempts: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (s *SessionServiceServerImpl) StoreSession(ctx context.Context, req *sessionpb.StoreSessionRequest) (*emptypb.Empty, error) {
+	ttl := req.Ttl.AsDuration()
+
+	err := s.Repo.StoreSession(req.SessionId, req.Data, ttl)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to store session: %v", err)
 	}
 
 	return &emptypb.Empty{}, nil
