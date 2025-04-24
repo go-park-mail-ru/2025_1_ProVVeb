@@ -24,7 +24,7 @@ func (s *SessionServiceServerImpl) CreateSession(ctx context.Context, req *sessi
 	if err := s.Repo.StoreSession(session.SessionId, "session_data", time.Duration(session.Expires)*time.Second); err != nil {
 		return nil, fmt.Errorf("error storing session: %v", err)
 	}
-	expiresDuration := durationpb.New(3600 * time.Second) // 1 час
+	expiresDuration := durationpb.New(3600 * time.Second)
 
 	sessionResponse := &sessionpb.SessionResponse{
 		SessionId: "some_session_id",

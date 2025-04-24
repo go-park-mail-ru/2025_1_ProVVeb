@@ -80,6 +80,7 @@ func (uc *UserLogIn) CheckAttempts(ctx context.Context, userIP string) (string, 
 	}
 
 	sessionResp, err := uc.SessionService.CheckAttempts(ctx, ipRequest)
+	fmt.Println(sessionResp, err)
 	if err != nil {
 		return "", err
 	}
