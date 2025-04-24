@@ -1,39 +1,53 @@
 package usecase
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+
+	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
 )
 
 type UserLogOut struct {
-	userRepo    repository.UserRepository
-	sessionRepo repository.SessionRepository
+	userRepo       repository.UserRepository
+	sessionRepo    repository.SessionRepository
+	SessionService sessionpb.SessionServiceClient
 }
 
 func NewUserLogOutUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
+	SessionService sessionpb.SessionServiceClient,
 ) (*UserLogOut, error) {
 	if userRepo == nil || sessionRepo == nil {
 		return nil, model.ErrUserLogOutUC
 	}
 	return &UserLogOut{
-		userRepo:    userRepo,
-		sessionRepo: sessionRepo,
+		userRepo:       userRepo,
+		sessionRepo:    sessionRepo,
+		SessionService: SessionService,
 	}, nil
 }
 
 func (ul *UserLogOut) Logout(sessionId string) error {
-	userIdStr, err := ul.sessionRepo.GetSession(sessionId)
+	req := &sessionpb.SessionIdRequest{
+		SessionId: sessionId,
+	}
+
+	sessionResp, err := ul.SessionService.GetSession(context.Background(), req)
 	if err != nil {
 		return err
 	}
 
-	err = ul.sessionRepo.DeleteSession(sessionId)
+	userIdStr := sessionResp.Data
+	req = &sessionpb.SessionIdRequest{
+		SessionId: userIdStr,
+	}
+	_, err = ul.SessionService.DeleteSession(context.Background(), req)
 	if err != nil {
-		return model.ErrDeleteSession
+		return err
 	}
 
 	userId, err := strconv.Atoi(userIdStr)
@@ -48,3 +62,5 @@ func (ul *UserLogOut) Logout(sessionId string) error {
 
 	return nil
 }
+
+//

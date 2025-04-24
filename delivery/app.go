@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -10,9 +11,26 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
 )
 
 func Run() {
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+	//
+
 	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
@@ -163,12 +181,21 @@ func NewSessionHandler(
 	token repository.JwtToken,
 	validator repository.UserParamsValidator,
 ) (*SessionHandler, error) {
+	conn, err := grpc.NewClient("127.0.0.1:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	client := sessionpb.NewSessionServiceClient(conn)
+
 	loginUC, err := usecase.NewUserLogInUseCase(
 		userRepo,
 		sessionRepo,
 		hasher,
 		token,
 		validator,
+		client,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -176,6 +203,7 @@ func NewSessionHandler(
 
 	checkSessionUC, err := usecase.NewUserCheckSessionUseCase(
 		sessionRepo,
+		client,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -184,6 +212,7 @@ func NewSessionHandler(
 	logoutUC, err := usecase.NewUserLogOutUseCase(
 		userRepo,
 		sessionRepo,
+		client,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
