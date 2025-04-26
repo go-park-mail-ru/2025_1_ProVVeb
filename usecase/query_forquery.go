@@ -19,7 +19,7 @@ func NewGetAnswersForQueryUseCase(queryService querypb.QueryServiceClient) (*Get
 	return &GetAnswersForQuery{QueryService: queryService}, nil
 }
 
-func (g *GetActiveQueries) GetAnswersForQuery() ([]model.UsersForQuery, error) {
+func (g *GetAnswersForQuery) GetAnswersForQuery() ([]model.UsersForQuery, error) {
 	req := &emptypb.Empty{}
 
 	queryResp, err := g.QueryService.GetForQuery(context.Background(), req)

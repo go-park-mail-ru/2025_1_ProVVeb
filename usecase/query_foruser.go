@@ -18,7 +18,7 @@ func NewGetAnswersForUserUseCase(queryService querypb.QueryServiceClient) (*GetA
 	return &GetAnswersForUser{QueryService: queryService}, nil
 }
 
-func (g *GetActiveQueries) GetAnswersForUser(userID int32) ([]model.QueryForUser, error) {
+func (g *GetAnswersForUser) GetAnswersForUser(userID int32) ([]model.QueryForUser, error) {
 	req := &querypb.GetUserRequest{
 		UserId: userID,
 	}
