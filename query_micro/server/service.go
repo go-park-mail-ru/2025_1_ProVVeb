@@ -75,7 +75,7 @@ func (s *QueryServiceServerImpl) GetForUser(ctx context.Context, req *querypb.Ge
 	return &querypb.QueryResponseList{Items: queryResponses}, nil
 }
 
-func (s *QueryServiceServerImpl) GetUsersForQueries(ctx context.Context, req *querypb.GetUserRequest) (*querypb.ForQueryResponseList, error) {
+func (s *QueryServiceServerImpl) GetForQuery(ctx context.Context, req *emptypb.Empty) (*querypb.ForQueryResponseList, error) {
 	usersForQueries, err := s.Repo.GetUsersForQueries()
 	if err != nil {
 		return nil, fmt.Errorf("error getting users for queries: %v", err)
