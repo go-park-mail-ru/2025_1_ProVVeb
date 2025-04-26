@@ -142,7 +142,7 @@ func Run() {
 	querySubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	querySubrouter.HandleFunc("/getActive", queryHandler.GetActiveQueries).Methods("GET")
-	querySubrouter.HandleFunc("/sendResp", queryHandler.GetActStoreUserAnswerive).Methods("POST")
+	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
 	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
 	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
 
