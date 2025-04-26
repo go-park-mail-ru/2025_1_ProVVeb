@@ -18,7 +18,7 @@ func main() {
 		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
 		return
 	}
-	defer postgresClient.CloseRepo()
+	defer query.ClosePostgresConnection(postgresClient.DB)
 
 	lis, err := net.Listen("tcp", ":8081")
 	if err != nil {
@@ -27,11 +27,11 @@ func main() {
 
 	server := grpc.NewServer()
 
-	queryService := &QueryServiceServerImpl{
+	queryService := &query.QueryServiceServerImpl{
 		Repo: postgresClient,
 	}
 
-	querypb.RegisterSessionServiceServer(server, queryService)
+	querypb.RegisterQueryServiceServer(server, queryService)
 
 	fmt.Println("starting server at :8081")
 	server.Serve(lis)
