@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/config"
 )
 

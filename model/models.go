@@ -70,6 +70,7 @@ var (
 	ErrUserSignUpUC          = errors.New("failed to sign up user")
 	ErrProfileUpdateUC       = errors.New("failed to update profile")
 	ErrStaticUploadUC        = errors.New("failed to upload static")
+	ErrGetActiveQueriesUC    = errors.New("failed to get active queries")
 )
 
 type User struct {
@@ -114,4 +115,11 @@ type Cookie struct {
 	HttpOnly bool      `yaml:"httpOnly" json:"httpOnly"`
 	Secure   bool      `yaml:"secure" json:"secure"`
 	Path     string    `yaml:"path" json:"path"`
+}
+
+type Query struct {
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	MinScore    int    `yaml:"minScore" json:"minScore"`
+	MaxScore    int    `yaml:"maxScore" json:"maxScore"`
 }
