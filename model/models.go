@@ -123,3 +123,22 @@ type Query struct {
 	MinScore    int    `yaml:"minScore" json:"minScore"`
 	MaxScore    int    `yaml:"maxScore" json:"maxScore"`
 }
+
+type QueryForUser struct {
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	MinScore    int    `yaml:"minScore" json:"minScore"`
+	MaxScore    int    `yaml:"maxScore" json:"maxScore"`
+	Score       int    `yaml:"score" json:"score"`
+	Answer      string `yaml:"answer" json:"answer"`
+}
+
+type UsersForQuery struct {
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description"`
+	MinScore    int    `yaml:"minScore" json:"minScore"`
+	MaxScore    int    `yaml:"maxScore" json:"maxScore"`
+	Login       string `yaml:"login" json:"login"`
+	Answer      string `yaml:"answer" json:"answer"`
+	Score       int    `yaml:"score" json:"score"`
+}
