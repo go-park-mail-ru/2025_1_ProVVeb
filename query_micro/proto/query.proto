@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package session;
+option go_package = "your_project_path/gen/sessionpb";
+
+import "google/protobuf/empty.proto";
+
+service QueryService {
+    rpc GetActive(GetUserRequest) returns (ActiveQueryList);
+    rpc SendResp(SendRespRequest) returns (google.protobuf.Empty);
+    rpc GetForUser(GetUserRequest) returns (QueryResponseList);
+    rpc GetForQuery(GetQueryRequest) returns (ForQueryResponseList);
+}
+
+message GetUserRequest {
+    int32 user_id = 1;
+}
+
+message GetQueryRequest {
+    string name = 1;
+}
+
+message SendRespRequest {
+    int32 user_id = 1;
+    string name = 2;
+    string answer = 3;
+    int32 score = 4;
+}
+
+message ActiveQuery {
+    string name = 1;
+    string description = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+}
+
+message QueryResponse {
+    string name = 1;
+    string description = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+    int32 answer = 5;
+}
+
+message ForQueryResponse {
+    string name = 1;
+    string description = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+    string answer = 5;
+    int32 score = 6;
+    string login = 7;
+}
+
+message ActiveQueryList {
+    repeated ActiveQuery items = 1;
+}
+
+message QueryResponseList {
+    repeated QueryResponse items = 1;
+}
+
+message ForQueryResponseList {
+    repeated ForQueryResponse items = 1;
+}
