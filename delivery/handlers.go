@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/sirupsen/logrus"
@@ -50,6 +51,14 @@ type ProfileHandler struct {
 	GetProfileUC      usecase.GetProfile
 	GetProfileImageUC usecase.GetUserPhoto
 	Logger            *logger.LogrusLogger
+}
+
+type QueryHandler struct {
+	GetActiveQueriesUC   usecase.GetActiveQueries
+	StoreUserAnswerUC    usecase.StoreUserAnswer
+	GetAnswersForUserUC  usecase.GetAnswersForUser
+	GetAnswersForQueryUC usecase.GetAnswersForQuery
+	Logger               *logger.LogrusLogger
 }
 
 func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -1130,4 +1139,208 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 	MakeResponse(w, http.StatusOK, map[string]string{
 		"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id),
 	})
+}
+
+func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetActiveQueries request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get active queries")
+
+	queries, err := qh.GetActiveQueriesUC.GetActiveQueries(user_id)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get active queries")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting active queries: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("active queries retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, queries)
+}
+
+func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("SendUserAnswer request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var answer []struct {
+		Name   string `json:"name"`
+		Score  int    `json:"score"`
+		Answer string `json:"answer"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&answer)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+		"answer":  answer,
+	}).Info("attempting to store user answer")
+
+	err = qh.StoreUserAnswerUC.StoreUserAnswer(user_id, answer)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"answer":  answer,
+			"error":   err.Error(),
+		}).Error("failed to store user answer")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error storing user answer: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+		"answer":  answer,
+	}).Info("user answer stored successfully")
+
+	MakeResponse(w, http.StatusOK,
+		map[string]string{"message": "User answer stored successfully"},
+	)
+}
+
+func (qh *QueryHandler) GetAnswersForUser(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForUser request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for user")
+
+	answers, err := qh.GetAnswersForUserUC.GetAnswersForUser(user_id)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for user")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for user: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("answers for user retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, answers)
+}
+
+func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	answers, err := qh.GetAnswersForQueryUC.GetAnswersForQuery()
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("answers for query retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, answers)
 }
