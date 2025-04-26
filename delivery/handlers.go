@@ -1150,7 +1150,7 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 	}).Info("GetActiveQueries request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(int32)
+	user_id, ok := userIDRaw.(uint32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
@@ -1166,7 +1166,7 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 		"user_id": user_id,
 	}).Info("attempting to get active queries")
 
-	queries, err := qh.GetActiveQueriesUC.GetActiveQueries(user_id)
+	queries, err := qh.GetActiveQueriesUC.GetActiveQueries(int32(user_id))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
@@ -1195,7 +1195,7 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 	}).Info("SendUserAnswer request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(int32)
+	user_id, ok := userIDRaw.(uint32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
@@ -1231,7 +1231,7 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 		"answer":  answer,
 	}).Info("attempting to store user answer")
 
-	err = qh.StoreUserAnswerUC.StoreUserAnswer(user_id, answer.Name, answer.Score, answer.Answer)
+	err = qh.StoreUserAnswerUC.StoreUserAnswer(int32(user_id), answer.Name, answer.Score, answer.Answer)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
@@ -1264,7 +1264,7 @@ func (qh *QueryHandler) GetAnswersForUser(w http.ResponseWriter, r *http.Request
 	}).Info("GetAnswersForUser request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(int32)
+	user_id, ok := userIDRaw.(uint32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
@@ -1280,7 +1280,7 @@ func (qh *QueryHandler) GetAnswersForUser(w http.ResponseWriter, r *http.Request
 		"user_id": user_id,
 	}).Info("attempting to get answers for user")
 
-	answers, err := qh.GetAnswersForUserUC.GetAnswersForUser(user_id)
+	answers, err := qh.GetAnswersForUserUC.GetAnswersForUser(int32(user_id))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
