@@ -1150,7 +1150,7 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 	}).Info("GetActiveQueries request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	user_id, ok := userIDRaw.(int32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
