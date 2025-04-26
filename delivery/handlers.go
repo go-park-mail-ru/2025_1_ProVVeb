@@ -1195,7 +1195,7 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 	}).Info("SendUserAnswer request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	user_id, ok := userIDRaw.(int32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
@@ -1207,9 +1207,9 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var answer []struct {
+	var answer struct {
 		Name   string `json:"name"`
-		Score  int    `json:"score"`
+		Score  int32  `json:"score"`
 		Answer string `json:"answer"`
 	}
 
@@ -1231,7 +1231,7 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 		"answer":  answer,
 	}).Info("attempting to store user answer")
 
-	err = qh.StoreUserAnswerUC.StoreUserAnswer(user_id, answer)
+	err = qh.StoreUserAnswerUC.StoreUserAnswer(user_id, answer.Name, answer.Score, answer.Answer)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,

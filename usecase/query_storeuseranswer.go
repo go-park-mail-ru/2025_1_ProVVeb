@@ -14,18 +14,12 @@ func NewStoreUserAnswer(queryService querypb.QueryServiceClient) *StoreUserAnswe
 	return &StoreUserAnswer{QueryService: queryService}
 }
 
-type userAnswer struct {
-	Name   string `json:"name"`
-	Score  int32  `json:"score"`
-	Answer string `json:"answer"`
-}
-
-func (s *StoreUserAnswer) StoreUserAnswer(userID int32, answer userAnswer) error {
+func (s *StoreUserAnswer) StoreUserAnswer(userID int32, name string, score int32, answer string) error {
 	req := &querypb.SendRespRequest{
 		UserId: userID,
-		Name:   answer.Name,
-		Score:  answer.Score,
-		Answer: answer.Answer,
+		Name:   name,
+		Score:  score,
+		Answer: answer,
 	}
 
 	_, err := s.QueryService.SendResp(context.Background(), req)
