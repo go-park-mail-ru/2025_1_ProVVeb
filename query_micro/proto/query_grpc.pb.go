@@ -22,7 +22,7 @@ type QueryServiceClient interface {
 	GetActive(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*ActiveQueryList, error)
 	SendResp(ctx context.Context, in *SendRespRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetForUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*QueryResponseList, error)
-	GetForQuery(ctx context.Context, in *GetQueryRequest, opts ...grpc.CallOption) (*ForQueryResponseList, error)
+	GetForQuery(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ForQueryResponseList, error)
 }
 
 type queryServiceClient struct {
@@ -60,7 +60,7 @@ func (c *queryServiceClient) GetForUser(ctx context.Context, in *GetUserRequest,
 	return out, nil
 }
 
-func (c *queryServiceClient) GetForQuery(ctx context.Context, in *GetQueryRequest, opts ...grpc.CallOption) (*ForQueryResponseList, error) {
+func (c *queryServiceClient) GetForQuery(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ForQueryResponseList, error) {
 	out := new(ForQueryResponseList)
 	err := c.cc.Invoke(ctx, "/session.QueryService/GetForQuery", in, out, opts...)
 	if err != nil {
@@ -76,7 +76,7 @@ type QueryServiceServer interface {
 	GetActive(context.Context, *GetUserRequest) (*ActiveQueryList, error)
 	SendResp(context.Context, *SendRespRequest) (*emptypb.Empty, error)
 	GetForUser(context.Context, *GetUserRequest) (*QueryResponseList, error)
-	GetForQuery(context.Context, *GetQueryRequest) (*ForQueryResponseList, error)
+	GetForQuery(context.Context, *emptypb.Empty) (*ForQueryResponseList, error)
 	mustEmbedUnimplementedQueryServiceServer()
 }
 
@@ -93,7 +93,7 @@ func (UnimplementedQueryServiceServer) SendResp(context.Context, *SendRespReques
 func (UnimplementedQueryServiceServer) GetForUser(context.Context, *GetUserRequest) (*QueryResponseList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetForUser not implemented")
 }
-func (UnimplementedQueryServiceServer) GetForQuery(context.Context, *GetQueryRequest) (*ForQueryResponseList, error) {
+func (UnimplementedQueryServiceServer) GetForQuery(context.Context, *emptypb.Empty) (*ForQueryResponseList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetForQuery not implemented")
 }
 func (UnimplementedQueryServiceServer) mustEmbedUnimplementedQueryServiceServer() {}
@@ -164,7 +164,7 @@ func _QueryService_GetForUser_Handler(srv interface{}, ctx context.Context, dec 
 }
 
 func _QueryService_GetForQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetQueryRequest)
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func _QueryService_GetForQuery_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/session.QueryService/GetForQuery",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServiceServer).GetForQuery(ctx, req.(*GetQueryRequest))
+		return srv.(QueryServiceServer).GetForQuery(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -9,16 +9,13 @@ service QueryService {
     rpc GetActive(GetUserRequest) returns (ActiveQueryList);
     rpc SendResp(SendRespRequest) returns (google.protobuf.Empty);
     rpc GetForUser(GetUserRequest) returns (QueryResponseList);
-    rpc GetForQuery(GetQueryRequest) returns (ForQueryResponseList);
+    rpc GetForQuery(google.protobuf.Empty) returns (ForQueryResponseList);
 }
 
 message GetUserRequest {
     int32 user_id = 1;
 }
 
-message GetQueryRequest {
-    string name = 1;
-}
 
 message SendRespRequest {
     int32 user_id = 1;
@@ -39,7 +36,8 @@ message QueryResponse {
     string description = 2;
     int32 min_score = 3;
     int32 max_score = 4;
-    int32 answer = 5;
+    string answer = 5;
+    int32 score = 6;
 }
 
 message ForQueryResponse {
