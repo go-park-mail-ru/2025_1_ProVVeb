@@ -5,24 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/config"
 )
-
-type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-}
 
 type QueryRepo struct {
 	DB  *sql.DB
 	ctx context.Context
 }
 
-func CheckPostgresConfig(cfg DatabaseConfig) error {
+func CheckPostgresConfig(cfg config.DatabaseConfig) error {
 	errors := map[string]struct {
 		check func() bool
 		msg   string
@@ -58,8 +49,8 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-func InitPostgresConfig() DatabaseConfig {
-	return DatabaseConfig{
+func InitPostgresConfig() config.DatabaseConfig {
+	return config.DatabaseConfig{
 		Host:     "postgres",
 		Port:     5432,
 		User:     "postgres",
@@ -79,10 +70,10 @@ func NewQueryRepo() (*QueryRepo, error) {
 	return &QueryRepo{DB: db, ctx: context.Background()}, nil
 }
 
-func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
+func InitPostgresConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
-		return nil, model.ErrInvalidUserRepoConfig
+		return nil, fmt.Errorf("invalid config: %v", err)
 	}
 
 	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
