@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,9 +12,19 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
 )
 
 func Run() {
+	conn, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
@@ -83,6 +94,12 @@ func Run() {
 		return
 	}
 
+	queryHandler, err := NewQueryHandler(conn, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
+		return
+	}
+
 	r := mux.NewRouter()
 
 	r.Use(RequestIDMiddleware)
@@ -120,6 +137,15 @@ func Run() {
 	photoSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
 	photoSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
 
+	querySubrouter := r.PathPrefix("/queries").Subrouter()
+	querySubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	querySubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	querySubrouter.HandleFunc("/getActive", queryHandler.GetActiveQueries).Methods("GET")
+	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
+	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
+	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
+
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
@@ -138,6 +164,40 @@ func Run() {
 
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
+}
+
+func NewQueryHandler(
+	conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
+) (*QueryHandler, error) {
+	client := querypb.NewQueryServiceClient(conn)
+
+	GetActive, err := usecase.NewGetActiveQueriesUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+
+	StoreAnswers, err := usecase.NewStoreUserAnswer(client)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+	return &QueryHandler{
+		GetActiveQueriesUC:   *GetActive,
+		StoreUserAnswerUC:    *StoreAnswers,
+		GetAnswersForUserUC:  *GetAnswersForUser,
+		GetAnswersForQueryUC: *GetAnswersForQuery,
+		Logger:               logger,
+	}, nil
 }
 
 func NewGetHandler(

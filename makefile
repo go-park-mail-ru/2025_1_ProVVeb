@@ -7,7 +7,7 @@ MOCKS="mocks"
 test:
 	clear
 	@echo "Делаем моки..."
-	mockgen -source=repository/repository.go -destination=mocks/mock_repository.go -package=mocks
+	mockgen -source=repository/userrepository.go -destination=mocks/mock_repository.go -package=mocks
 	@echo "Запуск тестов..."
 	go test -v -race -coverpkg=./... -coverprofile=$(COVERAGE_TMP) $(TEST_DIR)/...
 	@echo "Обработка покрытия..."
@@ -26,7 +26,7 @@ clean:
 
 mocks:
 	@echo "Делаем моки..."
-	mockgen -source=repository/repository.go -destination=mocks/mock_repository.go -package=mocks
+	mockgen -source=repository/userrepository.go -destination=mocks/mock_repository.go -package=mocks
 	@echo "Лови моки"
 
 

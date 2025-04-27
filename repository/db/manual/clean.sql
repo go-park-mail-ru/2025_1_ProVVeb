@@ -18,5 +18,7 @@ TRUNCATE TABLE
     complaints,
     blacklist,
     notifications,
-    profile_ratings
+    profile_ratings,
+    queries,
+    user_answer
 RESTART IDENTITY CASCADE;

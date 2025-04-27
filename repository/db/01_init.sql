@@ -189,3 +189,24 @@ CREATE TABLE profile_ratings (
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (rated_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+
+CREATE TABLE queries (
+    query_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT NOT NULL CHECK (LENGTH(name) <= 255),
+    description TEXT NOT NULL,
+    min_score INT NOT NULL,
+    max_score INT NOT NULL,
+    is_active BOOLEAN NOT NULL
+);
+
+CREATE TABLE user_answer (
+    answer_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    query_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    score INT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (query_id) REFERENCES queries(query_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
