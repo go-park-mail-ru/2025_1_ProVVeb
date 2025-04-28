@@ -3,22 +3,29 @@ package usecase
 import (
 	"context"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
+	"github.com/sirupsen/logrus"
 )
 
 type GetAnswersForUser struct {
 	QueryService querypb.QueryServiceClient
+	logger       *logger.LogrusLogger
 }
 
-func NewGetAnswersForUserUseCase(queryService querypb.QueryServiceClient) (*GetAnswersForUser, error) {
-	if queryService == nil {
+func NewGetAnswersForUserUseCase(
+	queryService querypb.QueryServiceClient,
+	logger *logger.LogrusLogger,
+) (*GetAnswersForUser, error) {
+	if queryService == nil || logger == nil {
 		return nil, model.ErrGetActiveQueriesUC
 	}
-	return &GetAnswersForUser{QueryService: queryService}, nil
+	return &GetAnswersForUser{QueryService: queryService, logger: logger}, nil
 }
 
 func (g *GetAnswersForUser) GetAnswersForUser(userID int32) ([]model.QueryForUser, error) {
+	g.logger.Info("GetAnswersForUser", "userID", userID)
 	req := &querypb.GetUserRequest{
 		UserId: userID,
 	}
@@ -39,6 +46,7 @@ func (g *GetAnswersForUser) GetAnswersForUser(userID int32) ([]model.QueryForUse
 			Answer:      q.Answer,
 		})
 	}
+	g.logger.WithFields(&logrus.Fields{"queriesCount": len(queries)}).Info("GetAnswersForUser")
 
 	return queries, nil
 }
