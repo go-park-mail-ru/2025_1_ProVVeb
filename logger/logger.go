@@ -21,6 +21,8 @@ type LogrusLogger struct {
 	log *logrus.Logger
 }
 
+type Fields *logrus.Fields
+
 func NewLogrusLogger(accessLogPath string) (*LogrusLogger, error) {
 	var Log LogrusLogger
 	Log.log = logrus.New()

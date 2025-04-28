@@ -1,22 +1,29 @@
 package usecase
 
 import (
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	"github.com/sirupsen/logrus"
 )
 
 type ProfileUpdate struct {
 	userRepo repository.UserRepository
+	logger   *logger.LogrusLogger
 }
 
-func NewProfileUpdateUseCase(userRepo repository.UserRepository) (*ProfileUpdate, error) {
-	if userRepo == nil {
+func NewProfileUpdateUseCase(
+	userRepo repository.UserRepository,
+	logger *logger.LogrusLogger,
+) (*ProfileUpdate, error) {
+	if userRepo == nil || logger == nil {
 		return nil, model.ErrProfileUpdateUC
 	}
-	return &ProfileUpdate{userRepo: userRepo}, nil
+	return &ProfileUpdate{userRepo: userRepo, logger: logger}, nil
 }
 
 func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, profileId int) error {
+	pu.logger.WithFields(&logrus.Fields{"profileId": profileId, "value profile": value}).Info("UpdateProfile")
 	if value.FirstName != "" {
 		targ.FirstName = value.FirstName
 	}
@@ -44,5 +51,7 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		targ.Preferences = value.Preferences
 	}
 
-	return pu.userRepo.UpdateProfile(profileId, targ)
+	err := pu.userRepo.UpdateProfile(profileId, targ)
+	pu.logger.WithFields(&logrus.Fields{"error": err}).Error("UpdateProfile")
+	return err
 }

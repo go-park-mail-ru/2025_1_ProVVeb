@@ -172,22 +172,22 @@ func NewQueryHandler(
 ) (*QueryHandler, error) {
 	client := querypb.NewQueryServiceClient(conn)
 
-	GetActive, err := usecase.NewGetActiveQueriesUseCase(client)
+	GetActive, err := usecase.NewGetActiveQueriesUseCase(client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	StoreAnswers, err := usecase.NewStoreUserAnswer(client)
+	StoreAnswers, err := usecase.NewStoreUserAnswer(client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client)
+	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client)
+	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -206,17 +206,17 @@ func NewGetHandler(
 	logger *logger.LogrusLogger,
 ) (*GetHandler, error) {
 
-	getProfileUC, err := usecase.NewGetProfileUseCase(userRepo, staticRepo)
+	getProfileUC, err := usecase.NewGetProfileUseCase(userRepo, staticRepo, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	getProfilesForUserUC, err := usecase.NewGetProfilesForUserUseCase(userRepo, staticRepo)
+	getProfilesForUserUC, err := usecase.NewGetProfilesForUserUseCase(userRepo, staticRepo, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	getUserPhotoUC, err := usecase.NewGetUserPhotoUseCase(userRepo, staticRepo)
+	getUserPhotoUC, err := usecase.NewGetUserPhotoUseCase(userRepo, staticRepo, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +243,7 @@ func NewSessionHandler(
 		hasher,
 		token,
 		validator,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -250,6 +251,7 @@ func NewSessionHandler(
 
 	checkSessionUC, err := usecase.NewUserCheckSessionUseCase(
 		sessionRepo,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -258,6 +260,7 @@ func NewSessionHandler(
 	logoutUC, err := usecase.NewUserLogOutUseCase(
 		userRepo,
 		sessionRepo,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -278,18 +281,21 @@ func NewProfileHandler(
 ) (*ProfileHandler, error) {
 	likeUC, err := usecase.NewProfileSetLikeUseCase(
 		userRepo,
+		logger,
 	)
 	if err != nil {
 		return &ProfileHandler{}, err
 	}
 	matchUC, err := usecase.NewGetProfileMatchesUseCase(
 		userRepo,
+		logger,
 	)
 	if err != nil {
 		return &ProfileHandler{}, err
 	}
 	updateUC, err := usecase.NewProfileUpdateUseCase(
 		userRepo,
+		logger,
 	)
 	if err != nil {
 		return &ProfileHandler{}, err
@@ -297,6 +303,7 @@ func NewProfileHandler(
 	getProfileUC, err := usecase.NewGetProfileUseCase(
 		userRepo,
 		staticRepo,
+		logger,
 	)
 	if err != nil {
 		return &ProfileHandler{}, err
@@ -304,6 +311,7 @@ func NewProfileHandler(
 	getUserPhotoUC, err := usecase.NewGetUserPhotoUseCase(
 		userRepo,
 		staticRepo,
+		logger,
 	)
 	if err != nil {
 		return &ProfileHandler{}, err
@@ -326,6 +334,7 @@ func NewStaticHandler(
 	uploadUC, err := usecase.NewStaticUploadUseCase(
 		userRepo,
 		staticRepo,
+		logger,
 	)
 	if err != nil {
 		return &StaticHandler{}, err
@@ -334,6 +343,7 @@ func NewStaticHandler(
 	deleteUC, err := usecase.NewDeleteStaticUseCase(
 		userRepo,
 		staticRepo,
+		logger,
 	)
 	if err != nil {
 		return &StaticHandler{}, err
@@ -358,12 +368,14 @@ func NewUserHandler(
 		staticRepo,
 		hasher,
 		validator,
+		logger,
 	)
 	if err != nil {
 		return &UserHandler{}, err
 	}
 	deleteUserUC, err := usecase.NewUserDeleteUseCase(
 		userRepo,
+		logger,
 	)
 	if err != nil {
 		return &UserHandler{}, err
