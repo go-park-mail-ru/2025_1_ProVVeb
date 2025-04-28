@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/icrowley/fake"
+	"github.com/sirupsen/logrus"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 )
@@ -16,6 +18,7 @@ type UserSignUp struct {
 	statRepo  repository.StaticRepository
 	hasher    repository.PasswordHasher
 	validator repository.UserParamsValidator
+	logger    *logger.LogrusLogger
 }
 
 func NewUserSignUpUseCase(
@@ -23,8 +26,9 @@ func NewUserSignUpUseCase(
 	statRepo repository.StaticRepository,
 	hasher repository.PasswordHasher,
 	validator repository.UserParamsValidator,
+	logger *logger.LogrusLogger,
 ) (*UserSignUp, error) {
-	if userRepo == nil || statRepo == nil || hasher == nil || validator == nil {
+	if userRepo == nil || statRepo == nil || hasher == nil || validator == nil || logger == nil {
 		return nil, model.ErrUserSignUpUC
 	}
 	return &UserSignUp{
@@ -32,6 +36,7 @@ func NewUserSignUpUseCase(
 		statRepo:  statRepo,
 		hasher:    hasher,
 		validator: validator,
+		logger:    logger,
 	}, nil
 }
 
@@ -49,10 +54,13 @@ func (uc *UserSignUp) ValidatePassword(password string) error {
 }
 
 func (uc *UserSignUp) UserExists(ctx context.Context, login string) bool {
-	return uc.userRepo.UserExists(ctx, login)
+	is := uc.userRepo.UserExists(ctx, login)
+	uc.logger.WithFields(&logrus.Fields{"login": login, "is": is}).Info("UserExists")
+	return is
 }
 
 func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, error) {
+	uc.logger.WithFields(&logrus.Fields{"login": login, "password": password}).Info("SaveUserData")
 	email := fake.EmailAddress()
 	phone := fake.Phone()
 	status := 0
@@ -65,10 +73,13 @@ func (uc *UserSignUp) SaveUserData(userId int, login, password string) (int, err
 		UserId:   userId,
 	}
 
-	return uc.userRepo.StoreUser(user)
+	result, err := uc.userRepo.StoreUser(user)
+	uc.logger.WithFields(&logrus.Fields{"result": result, "error": err, "user": user}).Info("SaveUserData")
+	return result, err
 }
 
 func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
+	uc.logger.WithFields(&logrus.Fields{"login": login}).Info("SaveUserProfile")
 	var fname string
 	var lname string
 
@@ -107,32 +118,38 @@ func (uc *UserSignUp) SaveUserProfile(login string) (int, error) {
 		Photos:      photos,
 	}
 
-	// fmt.Println(fmt.Errorf("profile: %+v", profile))
+	uc.logger.Info("Profile data generated")
 
 	imgBytes, err := uc.statRepo.GenerateImage("image/png", ismale)
 	if err != nil {
+		uc.logger.Error("cannot generate image", err)
 		return -1, err
 	}
 
 	err = uc.statRepo.UploadImage(imgBytes, defaultFileName, "image/png")
 	if err != nil {
+		uc.logger.Error("cannot upload image", err)
 		return -1, err
 	}
 
 	profileId, err := uc.userRepo.StoreProfile(profile)
 	if err != nil {
+		uc.logger.Error("cannot store profile", err)
 		return -1, err
 	}
 
 	err = uc.userRepo.StorePhotos(profileId, photos)
 	if err != nil {
+		uc.logger.Error("cannot store photos", err)
 		return -1, err
 	}
 
 	err = uc.userRepo.StoreInterests(profileId, interests)
 	if err != nil {
+		uc.logger.Error("cannot store interests", err)
 		return -1, err
 	}
+	uc.logger.WithFields(&logrus.Fields{"profileId": profileId}).Info("Profile saved")
 
 	return profileId, nil
 }
