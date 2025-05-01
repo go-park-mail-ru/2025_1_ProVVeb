@@ -243,16 +243,16 @@ func NewSessionHandler(
 		hasher,
 		token,
 		validator,
-		logger,
 		client,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
 	}
 
 	checkSessionUC, err := usecase.NewUserCheckSessionUseCase(
-		logger,
 		client,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
@@ -260,8 +260,8 @@ func NewSessionHandler(
 
 	logoutUC, err := usecase.NewUserLogOutUseCase(
 		userRepo,
-		logger,
 		client,
+		logger,
 	)
 	if err != nil {
 		return &SessionHandler{}, err
