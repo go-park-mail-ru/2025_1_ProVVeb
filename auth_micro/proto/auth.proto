@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package session;
+option go_package = "your_project_path/gen/sessionpb";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+service SessionService {
+  rpc CreateSession(CreateSessionRequest) returns (SessionResponse);
+  rpc GetSession(SessionIdRequest) returns (SessionDataResponse);
+  rpc StoreSession(StoreSessionRequest) returns (google.protobuf.Empty);
+  rpc DeleteSession(SessionIdRequest) returns (google.protobuf.Empty);
+
+  rpc CheckAttempts(IPRequest) returns (CheckAttemptsResponse);
+  rpc IncreaseAttempts(IPRequest) returns (google.protobuf.Empty);
+  rpc DeleteAttempts(IPRequest) returns (google.protobuf.Empty);
+}
+
+message CreateSessionRequest {
+  int32 user_id = 1;
+}
+
+message SessionResponse {
+  string session_id = 1;
+  int32 user_id = 2;
+  google.protobuf.Duration expires = 3;
+}
+
+message SessionIdRequest {
+  string session_id = 1;
+}
+
+message SessionDataResponse {
+  string data = 1;
+}
+
+message StoreSessionRequest {
+  string session_id = 1;
+  string data = 2;
+  google.protobuf.Duration ttl = 3;
+}
+
+message IPRequest {
+  string ip = 1;
+}
+
+message CheckAttemptsResponse {
+  string block_until = 1;
+  string error_message = 2;
+}
+
