@@ -25,7 +25,7 @@ func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
-	token repository.JwtToken,
+	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 	SessionService sessionpb.SessionServiceClient,
 ) (*UserLogIn, error) {

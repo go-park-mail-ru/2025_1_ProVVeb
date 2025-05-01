@@ -4,25 +4,40 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strconv"
+	"time"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+
+	"github.com/sirupsen/logrus"
 )
 
 type contextKey string
 
 const userIDKey contextKey = "userID"
 
-func PanicMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				http.Error(w, "Internal server error", 500)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
+func PanicMiddleware(logger logger.Logger) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.WithFields(&logrus.Fields{
+						"method": r.Method,
+						"path":   r.URL.Path,
+						"error":  err,
+						"stack":  string(debug.Stack()),
+					}).Error("recovered from panic")
+
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func BodySizeLimitMiddleware(limit int64) mux.MiddlewareFunc {
@@ -84,4 +99,66 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandl
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func RequestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Header.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+
+		ctx := context.WithValue(r.Context(), "request_id", requestID)
+		w.Header().Set("X-Request-ID", requestID)
+
+		if logger, ok := r.Context().Value("logger").(*logger.LogrusLogger); ok {
+			logger.WithFields(&logrus.Fields{
+				"request_id": requestID,
+				"method":     r.Method,
+				"path":       r.URL.Path,
+			}).Debug("request started")
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func AccessLogMiddleware(logger logger.Logger) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			lrw := newLoggingResponseWriter(w)
+
+			requestID := ""
+			if ctxVal := r.Context().Value("request_id"); ctxVal != nil {
+				requestID = ctxVal.(string)
+			}
+
+			next.ServeHTTP(lrw, r)
+
+			logger.WithFields(&logrus.Fields{
+				"method":      r.Method,
+				"path":        r.URL.Path,
+				"remote_addr": r.RemoteAddr,
+				"user_agent":  r.UserAgent(),
+				"request_id":  requestID,
+				"status":      lrw.statusCode,
+				"duration":    time.Since(start).String(),
+			}).Info("request completed")
+		})
+	}
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+	return &loggingResponseWriter{w, http.StatusOK}
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
 }

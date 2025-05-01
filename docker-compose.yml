@@ -50,6 +50,7 @@ services:
     restart: always
     volumes:
       - ./backend:/app
+      - ./logs:/backend/logs
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
@@ -78,6 +79,28 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
+  
+  query_micro:
+    build:
+      context: ./backend         # !!! Контекст весь backend
+      dockerfile: query_micro/Dockerfile   # Указываем правильный докерфайл
+    ports:
+      - "8081:8081"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/query_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # command: ["go", "run", "query_micro/main.go"]
 
 volumes:
   postgres_data:

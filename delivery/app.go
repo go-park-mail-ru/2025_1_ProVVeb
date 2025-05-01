@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
@@ -15,15 +16,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
+	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
 )
 
 func Run() {
-
-	conn, err := grpc.NewClient("213.219.214.83:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
+
+	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
+	if err != nil {
+		fmt.Printf("Failed to initialize logger: %v\n", err)
+		return
+	}
 
 	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 	postgresClient, err := repository.NewUserRepo()
@@ -58,39 +65,47 @@ func Run() {
 		return
 	}
 
-	getHandler, err := NewGetHandler(postgresClient, staticClient)
+	getHandler, err := NewGetHandler(postgresClient, staticClient, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with getHandler: %v", err))
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, *tokenValidator, validator, conn)
+	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
 	}
 
-	profileHandler, err := NewProfileHandler(postgresClient, staticClient)
+	profileHandler, err := NewProfileHandler(postgresClient, staticClient, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profileHandler: %v", err))
 		return
 	}
 
-	userHandler, err := NewUserHandler(postgresClient, staticClient, hasher, validator)
+	userHandler, err := NewUserHandler(postgresClient, staticClient, hasher, validator, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with userHandler: %v", err))
 		return
 	}
 
-	staticHandler, err := NewStaticHandler(postgresClient, staticClient)
+	staticHandler, err := NewStaticHandler(postgresClient, staticClient, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with staticHandler: %v", err))
 		return
 	}
 
+	queryHandler, err := NewQueryHandler(conn, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
+		return
+	}
+
 	r := mux.NewRouter()
 
-	r.Use(PanicMiddleware)
+	r.Use(RequestIDMiddleware)
+	r.Use(PanicMiddleware(logger))
+	r.Use(AccessLogMiddleware(logger))
 
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
@@ -121,6 +136,15 @@ func Run() {
 	photoSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
 	photoSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
 
+	querySubrouter := r.PathPrefix("/queries").Subrouter()
+	querySubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	querySubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	querySubrouter.HandleFunc("/getActive", queryHandler.GetActiveQueries).Methods("GET")
+	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
+	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
+	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
+
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
@@ -141,9 +165,44 @@ func Run() {
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
 }
 
+func NewQueryHandler(
+	conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
+) (*QueryHandler, error) {
+	client := querypb.NewQueryServiceClient(conn)
+
+	GetActive, err := usecase.NewGetActiveQueriesUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+
+	StoreAnswers, err := usecase.NewStoreUserAnswer(client)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client)
+	if err != nil {
+		return nil, err
+	}
+	return &QueryHandler{
+		GetActiveQueriesUC:   *GetActive,
+		StoreUserAnswerUC:    *StoreAnswers,
+		GetAnswersForUserUC:  *GetAnswersForUser,
+		GetAnswersForQueryUC: *GetAnswersForQuery,
+		Logger:               logger,
+	}, nil
+}
+
 func NewGetHandler(
 	userRepo repository.UserRepository,
 	staticRepo repository.StaticRepository,
+	logger *logger.LogrusLogger,
 ) (*GetHandler, error) {
 
 	getProfileUC, err := usecase.NewGetProfileUseCase(userRepo, staticRepo)
@@ -165,6 +224,7 @@ func NewGetHandler(
 		GetProfileUC:    *getProfileUC,
 		GetProfilesUC:   *getProfilesForUserUC,
 		GetProfileImage: *getUserPhotoUC,
+		Logger:          logger,
 	}, nil
 }
 
@@ -172,9 +232,9 @@ func NewSessionHandler(
 	userRepo repository.UserRepository,
 	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
-	token repository.JwtToken,
+	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
-	conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
 ) (*SessionHandler, error) {
 
 	client := sessionpb.NewSessionServiceClient(conn)
@@ -212,12 +272,14 @@ func NewSessionHandler(
 		LoginUC:        *loginUC,
 		CheckSessionUC: *checkSessionUC,
 		LogoutUC:       *logoutUC,
+		Logger:         logger,
 	}, nil
 }
 
 func NewProfileHandler(
 	userRepo repository.UserRepository,
 	staticRepo repository.StaticRepository,
+	logger *logger.LogrusLogger,
 ) (*ProfileHandler, error) {
 	likeUC, err := usecase.NewProfileSetLikeUseCase(
 		userRepo,
@@ -257,12 +319,14 @@ func NewProfileHandler(
 		UpdateUC:          *updateUC,
 		GetProfileUC:      *getProfileUC,
 		GetProfileImageUC: *getUserPhotoUC,
+		Logger:            logger,
 	}, nil
 }
 
 func NewStaticHandler(
 	userRepo repository.UserRepository,
 	staticRepo repository.StaticRepository,
+	logger *logger.LogrusLogger,
 ) (*StaticHandler, error) {
 	uploadUC, err := usecase.NewStaticUploadUseCase(
 		userRepo,
@@ -283,6 +347,7 @@ func NewStaticHandler(
 	return &StaticHandler{
 		UploadUC: *uploadUC,
 		DeleteUC: *deleteUC,
+		Logger:   logger,
 	}, nil
 }
 
@@ -291,6 +356,7 @@ func NewUserHandler(
 	staticRepo repository.StaticRepository,
 	hasher repository.PasswordHasher,
 	validator repository.UserParamsValidator,
+	logger *logger.LogrusLogger,
 ) (*UserHandler, error) {
 	signupUC, err := usecase.NewUserSignUpUseCase(
 		userRepo,
@@ -318,6 +384,6 @@ func NewUserHandler(
 	return &UserHandler{
 		SignupUC:     *signupUC,
 		DeleteUserUC: *deleteUserUC,
-		GetParamsUC:  *getParam,
+		Logger:       logger,
 	}, nil
 }
