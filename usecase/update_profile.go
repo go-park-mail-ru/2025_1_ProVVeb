@@ -23,6 +23,9 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 	if value.LastName != "" {
 		targ.LastName = value.LastName
 	}
+	if value.IsMale {
+		targ.IsMale = !targ.IsMale
+	}
 	if value.Height != 0 {
 		targ.Height = value.Height
 	}
