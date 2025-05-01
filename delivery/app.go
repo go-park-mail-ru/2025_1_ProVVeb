@@ -20,11 +20,17 @@ import (
 )
 
 func Run() {
-	conn, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	query_conn, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer conn.Close()
+	defer query_conn.Close()
+
+	auth_conn, err := grpc.NewClient("auth_micro:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer auth_conn.Close()
 
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
@@ -71,7 +77,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger, conn)
+	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger, auth_conn)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -95,7 +101,7 @@ func Run() {
 		return
 	}
 
-	queryHandler, err := NewQueryHandler(conn, logger)
+	queryHandler, err := NewQueryHandler(query_conn, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return

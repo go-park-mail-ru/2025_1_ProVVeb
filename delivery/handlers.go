@@ -292,7 +292,7 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 		Value:    session.SessionId,
 		HttpOnly: true,
 		Secure:   false,
-		Expires:  time.Now().Add(session.Expires),
+		Expires:  time.Now().Add(12 * time.Hour),
 		Path:     "/",
 	}
 	return cookie, nil

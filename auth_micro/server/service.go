@@ -23,10 +23,10 @@ func NewSessionService(repo *SessionRepo) *SessionServiceServerImpl {
 
 func (s *SessionServiceServerImpl) CreateSession(ctx context.Context, req *sessionpb.CreateSessionRequest) (*sessionpb.SessionResponse, error) {
 	session := s.Repo.CreateSession(int(req.GetUserId()))
-	if err := s.Repo.StoreSession(session.SessionId, "session_data", time.Duration(session.Expires)*time.Second); err != nil {
+	if err := s.Repo.StoreSession(session.SessionId, "session_data", time.Duration(session.Expires)); err != nil {
 		return nil, fmt.Errorf("error storing session: %v", err)
 	}
-	expiresDuration := durationpb.New(3600 * time.Second)
+	expiresDuration := durationpb.New(12 * time.Hour)
 
 	sessionResponse := &sessionpb.SessionResponse{
 		SessionId: "some_session_id",
