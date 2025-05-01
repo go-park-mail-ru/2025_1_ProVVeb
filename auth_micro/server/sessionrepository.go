@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
@@ -18,7 +19,7 @@ type SessionRepo struct {
 
 func NewSessionRepo() (*SessionRepo, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     os.Getenv("REDIS_ADDR"),
 		Password: "",
 		DB:       0,
 	})

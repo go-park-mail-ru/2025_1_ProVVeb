@@ -641,30 +641,10 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	uh.Logger.WithFields(&logrus.Fields{
-		"method":     r.Method,
-		"path":       r.URL.Path,
-		"request_id": r.Header.Get("request_id"),
-		"ip":         r.RemoteAddr,
-	}).Info("CreateUser request started")
-
-	sanitizer := bluemonday.UGCPolicy()
-	var input struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
 	type SignUpRequest struct {
 		User    model.User    `json:"user"`
 		Profile model.Profile `json:"profile"`
 	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		uh.Logger.WithFields(&logrus.Fields{
-			"error": err.Error(),
-		}).Warn("failed to decode user creation request")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
-		)
 	var req SignUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
@@ -674,40 +654,11 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	user := req.User
 	profile := req.Profile
 
-	if err := uh.SignupUC.ValidateLogin(input.Login); err != nil {
-		uh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-			"error": err.Error(),
-		}).Warn("login validation failed")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid login or password"},
-		)
-		return
-	}
-
-	if err := uh.SignupUC.ValidatePassword(input.Password); err != nil {
-		uh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-			"error": err.Error(),
-		}).Warn("password validation failed")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid login or password"},
-		)
 	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
 		return
 	}
 
-	if uh.SignupUC.UserExists(r.Context(), input.Login) {
-		uh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-		}).Warn("user already exists")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "User already exists"},
-		)
 	if uh.SignupUC.UserExists(r.Context(), user.Login) {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
@@ -715,45 +666,16 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	profileId, err := uh.SignupUC.SaveUserProfile(profile)
 	if err != nil {
-		uh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-			"error": err.Error(),
-		}).Error("failed to save user profile")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Failed to save user profile"},
-		)
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
 		return
 	}
 
-	uh.Logger.WithFields(&logrus.Fields{
-		"profile_id": profileId,
-		"login":      input.Login,
-	}).Debug("user profile created")
-
-	if _, err := uh.SignupUC.SaveUserData(profileId, input.Login, input.Password); err != nil {
-		uh.Logger.WithFields(&logrus.Fields{
-			"profile_id": profileId,
-			"login":      input.Login,
-			"error":      err.Error(),
-		}).Error("failed to save user data")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Failed to save user data"},
-		)
 	if _, err := uh.SignupUC.SaveUserData(profileId, user); err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}
 
-	uh.Logger.WithFields(&logrus.Fields{
-		"profile_id": profileId,
-		"login":      input.Login,
-	}).Info("user created successfully")
-
-	MakeResponse(w, http.StatusCreated,
-		map[string]string{"message": "User created"},
-	)
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
 }
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
@@ -1042,7 +964,7 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}).Info("GetProfile request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	userID, ok := userIDRaw.(uint32)
+	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		gh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",

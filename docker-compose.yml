@@ -82,8 +82,8 @@ services:
   
   query_micro:
     build:
-      context: ./backend         # !!! Контекст весь backend
-      dockerfile: query_micro/Dockerfile   # Указываем правильный докерфайл
+      context: ./backend         
+      dockerfile: query_micro/Dockerfile   
     ports:
       - "8081:8081"
     restart: always
@@ -100,7 +100,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # command: ["go", "run", "query_micro/main.go"]
+
+
+  auth_micro:
+    build:
+      context: ./backend         
+      dockerfile: auth_micro/Dockerfile   
+    ports:
+      - "8082:8082"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/auth_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: redis:6379     
+      REDIS_DB: 0                
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:                     
+        condition: service_healthy
+
 
 volumes:
   postgres_data:

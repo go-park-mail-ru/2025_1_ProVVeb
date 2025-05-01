@@ -71,7 +71,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger)
+	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger, conn)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -235,6 +235,7 @@ func NewSessionHandler(
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 	logger *logger.LogrusLogger,
+	conn *grpc.ClientConn,
 ) (*SessionHandler, error) {
 
 	client := sessionpb.NewSessionServiceClient(conn)
@@ -384,6 +385,7 @@ func NewUserHandler(
 	return &UserHandler{
 		SignupUC:     *signupUC,
 		DeleteUserUC: *deleteUserUC,
+		GetParamsUC:  *getParam,
 		Logger:       logger,
 	}, nil
 }

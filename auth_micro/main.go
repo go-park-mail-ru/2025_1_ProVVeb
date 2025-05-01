@@ -19,7 +19,7 @@ func main() {
 	}
 	defer redisClient.CloseRepo()
 
-	lis, err := net.Listen("tcp", ":8081")
+	lis, err := net.Listen("tcp", ":8082")
 	if err != nil {
 		log.Fatalln("cant listet port", err)
 	}
@@ -32,6 +32,6 @@ func main() {
 
 	sessionpb.RegisterSessionServiceServer(server, sessionService)
 
-	fmt.Println("starting server at :8081")
+	fmt.Println("starting server at :8082")
 	server.Serve(lis)
 }
