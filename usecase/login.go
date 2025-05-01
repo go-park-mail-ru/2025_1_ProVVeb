@@ -14,7 +14,6 @@ import (
 
 type UserLogIn struct {
 	userRepo       repository.UserRepository
-	sessionRepo    repository.SessionRepository
 	hasher         repository.PasswordHasher
 	token          repository.JwtTokenizer
 	validator      repository.UserParamsValidator
@@ -23,18 +22,16 @@ type UserLogIn struct {
 
 func NewUserLogInUseCase(
 	userRepo repository.UserRepository,
-	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 	SessionService sessionpb.SessionServiceClient,
 ) (*UserLogIn, error) {
-	if userRepo == nil || sessionRepo == nil || hasher == nil || validator == nil {
+	if userRepo == nil || hasher == nil || validator == nil {
 		return nil, model.ErrUserLogInUC
 	}
 	return &UserLogIn{
 		userRepo:       userRepo,
-		sessionRepo:    sessionRepo,
 		hasher:         hasher,
 		token:          token,
 		validator:      validator,

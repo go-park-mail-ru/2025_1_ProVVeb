@@ -654,10 +654,10 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	user := req.User
 	profile := req.Profile
 
-	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
-		return
-	}
+	// if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
+	// 	MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+	// 	return
+	// }
 
 	if uh.SignupUC.UserExists(r.Context(), user.Login) {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})

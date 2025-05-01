@@ -12,21 +12,18 @@ import (
 
 type UserLogOut struct {
 	userRepo       repository.UserRepository
-	sessionRepo    repository.SessionRepository
 	SessionService sessionpb.SessionServiceClient
 }
 
 func NewUserLogOutUseCase(
 	userRepo repository.UserRepository,
-	sessionRepo repository.SessionRepository,
 	SessionService sessionpb.SessionServiceClient,
 ) (*UserLogOut, error) {
-	if userRepo == nil || sessionRepo == nil {
+	if userRepo == nil {
 		return nil, model.ErrUserLogOutUC
 	}
 	return &UserLogOut{
 		userRepo:       userRepo,
-		sessionRepo:    sessionRepo,
 		SessionService: SessionService,
 	}, nil
 }

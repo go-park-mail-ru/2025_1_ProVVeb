@@ -46,13 +46,6 @@ func Run() {
 	}
 	defer postgresClient.CloseRepo()
 
-	redisClient, err := repository.NewSessionRepo()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
-		return
-	}
-	defer redisClient.CloseRepo()
-
 	staticClient, err := repository.NewStaticRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with minio: %v", err))
@@ -77,7 +70,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger, auth_conn)
+	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, auth_conn)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -236,7 +229,6 @@ func NewGetHandler(
 
 func NewSessionHandler(
 	userRepo repository.UserRepository,
-	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
@@ -248,7 +240,6 @@ func NewSessionHandler(
 
 	loginUC, err := usecase.NewUserLogInUseCase(
 		userRepo,
-		sessionRepo,
 		hasher,
 		token,
 		validator,
@@ -259,7 +250,6 @@ func NewSessionHandler(
 	}
 
 	checkSessionUC, err := usecase.NewUserCheckSessionUseCase(
-		sessionRepo,
 		client,
 	)
 	if err != nil {
@@ -268,7 +258,6 @@ func NewSessionHandler(
 
 	logoutUC, err := usecase.NewUserLogOutUseCase(
 		userRepo,
-		sessionRepo,
 		client,
 	)
 	if err != nil {
