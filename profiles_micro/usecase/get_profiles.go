@@ -9,12 +9,12 @@ import (
 )
 
 func (pss *ProfileServiceServer) GetProfiles(ctx context.Context, req *profiles.GetProfilesRequest) (*profiles.GetProfilesResponse, error) {
-	pss.Logger.Info("GetProfiles", "forUserId", req.ForUserId)
-	result, err := pss.UserRepo.GetProfilesByUserId(int(req.ForUserId))
+	pss.Logger.Info("GetProfiles", "forUserId", req.GetForUserId())
+	result, err := pss.UserRepo.GetProfilesByUserId(int(req.GetForUserId()))
 	if err != nil {
-		pss.Logger.Error("GetProfiles", "forUserId", req.ForUserId, "error", err)
+		pss.Logger.Error("GetProfiles", "forUserId", req.GetForUserId(), "error", err)
 	} else {
-		pss.Logger.WithFields(&logrus.Fields{"forUserId": req.ForUserId, "profilesCount": len(result)}).Info("GetProfiles")
+		pss.Logger.WithFields(&logrus.Fields{"forUserId": req.GetForUserId(), "profilesCount": len(result)}).Info("GetProfiles")
 	}
 
 	var profs []*profiles.Profile

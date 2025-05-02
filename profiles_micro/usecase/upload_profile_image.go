@@ -10,15 +10,15 @@ import (
 
 func (pss *ProfileServiceServer) UploadProfileImage(ctx context.Context, req *profiles.UploadProfileImageRequest) (*emptypb.Empty, error) {
 	pss.Logger.Info("UploadProfileImage")
-	filenameWithPath := "/" + req.Filename
-	err := pss.StaticRepo.UploadImage(req.File, filenameWithPath, req.ContentType)
-	pss.Logger.WithFields(&logrus.Fields{"user_id": req.UserId, "filename": req.Filename, "content_type": req.ContentType})
+	filenameWithPath := "/" + req.GetFilename()
+	err := pss.StaticRepo.UploadImage(req.GetFile(), filenameWithPath, req.GetContentType())
+	pss.Logger.WithFields(&logrus.Fields{"user_id": req.GetUserId(), "filename": req.GetFilename(), "content_type": req.GetContentType()})
 	if err != nil {
 		pss.Logger.Error("UploadProfileImage", err)
 		return nil, err
 	}
 	pss.Logger.Info("UploadProfileImage: image uploaded")
-	err = pss.UserRepo.StorePhoto(int(req.UserId), req.Filename)
+	err = pss.UserRepo.StorePhoto(int(req.GetUserId()), req.GetFilename())
 	pss.Logger.Info("error", err)
 	return &emptypb.Empty{}, err
 }

@@ -9,14 +9,15 @@ import (
 )
 
 func (pss *ProfileServiceServer) DeleteImage(ctx context.Context, req *profiles.DeleteImageRequest) (*emptypb.Empty, error) {
-	pss.Logger.Info("DeleteImage", &logrus.Fields{"user_id": req.UserId, "filename": req.Filename})
-	err := pss.StaticRepo.DeleteImage(int(req.UserId), req.Filename)
+	pss.Logger.Info("DeleteImage", &logrus.Fields{"user_id": req.GetUserId(), "filename": req.GetFilename()})
+	// pss.Logger.Info("DeleteImage", &logrus.Fields{"user_id": req.UserId, "filename": req.Filename})
+	err := pss.StaticRepo.DeleteImage(int(req.GetUserId()), req.GetFilename())
 	if err != nil {
 		pss.Logger.Error("DeleteImage", &logrus.Fields{"error": err})
 		return nil, err
 	}
 	pss.Logger.Info("DeleteImage: static image deleted")
-	err = pss.UserRepo.DeletePhoto(int(req.UserId), req.Filename)
+	err = pss.UserRepo.DeletePhoto(int(req.GetUserId()), req.GetFilename())
 	if err != nil {
 		pss.Logger.Error("DeleteImage", &logrus.Fields{"error": err})
 		return nil, err

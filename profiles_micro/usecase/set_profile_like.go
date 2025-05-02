@@ -12,11 +12,11 @@ func (pss *ProfileServiceServer) SetProfileLike(
 	req *profiles.SetProfileLikeRequest,
 ) (*profiles.SetProfileLikeResponse, error) {
 	pss.Logger.WithFields(&logrus.Fields{
-		"from":   req.From,
-		"to":     req.To,
-		"status": req.Status,
+		"from":   req.GetFrom(),
+		"to":     req.GetTo(),
+		"status": req.GetStatus(),
 	}).Info("SetProfileLike")
-	result, err := pss.UserRepo.SetLike(int(req.From), int(req.To), int(req.Status))
+	result, err := pss.UserRepo.SetLike(int(req.GetFrom()), int(req.GetTo()), int(req.GetStatus()))
 	if err != nil {
 		pss.Logger.Error("SetProfileLike", "error", err)
 	} else {
