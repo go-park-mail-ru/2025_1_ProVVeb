@@ -15,9 +15,9 @@ func NewUpdateMessageStatusUseCase(chatRepo repository.ChatRepository, logger *l
 	return &UpdateMessageStatus{chatRepo: chatRepo, logger: logger}, nil
 }
 
-func (gp *UpdateMessageStatus) UpdateMessageStatus(chatID int) error {
+func (gp *UpdateMessageStatus) UpdateMessageStatus(chatID int, userID int) error {
 	gp.logger.Info("GetMessages", "chatID", chatID)
-	err := gp.chatRepo.UpdateMessageStatus(chatID)
+	err := gp.chatRepo.UpdateMessageStatus(chatID, userID)
 	if err != nil {
 		gp.logger.Error("GetMessages", "chatID", chatID, "error", err)
 	} else {

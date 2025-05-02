@@ -16,9 +16,9 @@ func NewGetMessagesFromCacheUseCase(chatRepo repository.ChatRepository, logger *
 	return &GetMessagesFromCache{chatRepo: chatRepo, logger: logger}, nil
 }
 
-func (gp *GetMessagesFromCache) GetMessages(chatID int) ([]model.Message, error) {
+func (gp *GetMessagesFromCache) GetMessages(chatID int, userID int) ([]model.Message, error) {
 	gp.logger.Info("GetMessages", "chatID", chatID)
-	messages, err := gp.chatRepo.GetMessagesFromCache(chatID)
+	messages, err := gp.chatRepo.GetMessagesFromCache(chatID, userID)
 	if err != nil {
 		gp.logger.Error("GetMessages", "chatID", chatID, "error", err)
 	} else {

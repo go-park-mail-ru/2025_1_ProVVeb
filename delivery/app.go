@@ -159,7 +159,7 @@ func Run() {
 	messageSubrouter.HandleFunc("/delete", messageHandler.DeleteChat).Methods("DELETE")
 
 	wsRouter := r.PathPrefix("/chats").Subrouter()
-	wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	// wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	wsRouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")

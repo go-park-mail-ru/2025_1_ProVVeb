@@ -204,8 +204,10 @@ CREATE TABLE chats (
     first_profile_id BIGINT NOT NULL,
     second_profile_id BIGINT NOT NULL,
     last_message TEXT NOT NULL CHECK (LENGTH(last_message) <= 400),
+    last_sender BIGINT NOT NULL,
     FOREIGN KEY (first_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (second_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (last_sender) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
     UNIQUE (first_profile_id, second_profile_id)
 );
 

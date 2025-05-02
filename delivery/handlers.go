@@ -188,7 +188,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}(payload)
 
 		case "get":
-			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID)
+			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 			if err != nil {
 				mh.Logger.Error("Failed to get messages from cache: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
@@ -209,7 +209,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}
 
 			go func(payload model.ReadPayload) {
-				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID)
+				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
@@ -851,10 +851,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 			"error": "too many login attempts",
 		}).Warn("login attempts limit exceeded")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Дядь, хватит дудосить, ты забыл пароль"},
-		)
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("you have been temporary blocked, please try again at %s ", blockTime)})
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("you have been temporary blocked, please try again at %s %v", blockTime, err)})
 		return
 	}
 

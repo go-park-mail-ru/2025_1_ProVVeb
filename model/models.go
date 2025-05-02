@@ -152,6 +152,7 @@ type Chat struct {
 	ProfileDescription string `yaml:"profileDescription" json:"profileDescription"`
 	LastMessage        string `yaml:"lastMessage" json:"lastMessage"`
 	IsRead             bool   `yaml:"isRead" json:"isRead"`
+	IsSelf             bool   `yaml:"isSelf" json:"isSelf"`
 }
 
 type Message struct {
