@@ -38,6 +38,12 @@ func Run() {
 		return
 	}
 
+	chatClient, err := repository.NewChatRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize redis: %v\n", err)
+		return
+	}
+
 	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 	postgresClient, err := repository.NewUserRepo()
 	if err != nil {
@@ -100,6 +106,12 @@ func Run() {
 		return
 	}
 
+	messageHandler, err := NewMessageHandler(chatClient, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
+		return
+	}
+
 	r := mux.NewRouter()
 
 	r.Use(RequestIDMiddleware)
@@ -143,6 +155,20 @@ func Run() {
 	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
 	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
 	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
+
+	messageSubrouter := r.PathPrefix("/chats").Subrouter()
+	messageSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	messageSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	messageSubrouter.HandleFunc("", messageHandler.GetChats).Methods("GET")
+	messageSubrouter.HandleFunc("/create", messageHandler.CreateChat).Methods("POST")
+	messageSubrouter.HandleFunc("/delete", messageHandler.DeleteChat).Methods("DELETE")
+
+	wsRouter := r.PathPrefix("/chats").Subrouter()
+	wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	wsRouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
@@ -195,6 +221,66 @@ func NewQueryHandler(
 		GetAnswersForUserUC:  *GetAnswersForUser,
 		GetAnswersForQueryUC: *GetAnswersForQuery,
 		Logger:               logger,
+	}, nil
+}
+
+func NewMessageHandler(
+	messageRepo repository.ChatRepository,
+	logger *logger.LogrusLogger,
+) (*MessageHandler, error) {
+
+	getChatsUC, err := usecase.NewGetChatsUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	createChatsUC, err := usecase.NewCreateChatUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	deleteChatsUC, err := usecase.NewDeleteChatUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	getMessages, err := usecase.NewGetMessagesUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	deleteMessage, err := usecase.NewDeleteMessageUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	createMessageUC, err := usecase.NewCreateMessagesUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	getMessagesFromCacheUC, err := usecase.NewGetMessagesFromCacheUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	updateMessageStatusUC, err := usecase.NewUpdateMessageStatusUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	getParticipantsUC, err := usecase.NewGetChatParticipantsUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MessageHandler{
+		GetParticipants:        *getParticipantsUC,
+		GetChatsUC:             *getChatsUC,
+		CreateChatUC:           *createChatsUC,
+		DeleteChatUC:           *deleteChatsUC,
+		GetMessagesUC:          *getMessages,
+		DeleteMessageUC:        *deleteMessage,
+		CreateMessageUC:        *createMessageUC,
+		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
+		UpdateMessageStatusUC:  *updateMessageStatusUC,
+		Logger:                 logger,
 	}, nil
 }
 

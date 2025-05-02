@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/sirupsen/logrus"
 )
@@ -61,6 +62,331 @@ type QueryHandler struct {
 	GetAnswersForUserUC  usecase.GetAnswersForUser
 	GetAnswersForQueryUC usecase.GetAnswersForQuery
 	Logger               *logger.LogrusLogger
+}
+
+type MessageHandler struct {
+	GetParticipants usecase.GetChatParticipants
+	GetChatsUC      usecase.GetChats
+	CreateChatUC    usecase.CreateChat
+	DeleteChatUC    usecase.DeleteChat
+
+	GetMessagesUC          usecase.GetMessages
+	DeleteMessageUC        usecase.DeleteMessage
+	CreateMessageUC        usecase.CreateMessages
+	GetMessagesFromCacheUC usecase.GetMessagesFromCache
+	UpdateMessageStatusUC  usecase.UpdateMessageStatus
+	Logger                 *logger.LogrusLogger
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chatIDStr, ok := vars["chat_id"]
+	if !ok {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Missing chat_id in URL"})
+		return
+	}
+
+	chatID, err := strconv.Atoi(chatIDStr)
+	if err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid chat_id format"})
+		return
+	}
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		mh.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
+		return
+	}
+	defer conn.Close()
+
+	first, second, err := mh.GetParticipants.GetChatParticipants(chatID)
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to get chat participants"})
+		return
+	}
+
+	if (profileId != uint32(first)) && (profileId != uint32(second)) {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access "})
+		return
+	}
+
+	messages, err := mh.GetMessagesUC.GetMessages(chatID)
+	if err != nil {
+		mh.Logger.Error("Failed to load initial messages: ", err)
+		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial messages"})
+		return
+	}
+	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
+
+	for {
+		_, msgData, err := conn.ReadMessage()
+		if err != nil {
+			mh.Logger.Error("Error reading message from WebSocket: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
+			break
+		}
+
+		var wsMessage model.WSMessage
+		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
+			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
+			break
+		}
+
+		switch wsMessage.Type {
+		case "create":
+			var payload model.CreatePayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal CreatePayload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid create payload"})
+				break
+			}
+			if ((payload.UserID != first) && (payload.UserID != second)) || (payload.ChatID != chatID) {
+				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				break
+			}
+
+			go func(payload model.CreatePayload) {
+				messageID, err := mh.CreateMessageUC.CreateMessages(payload.ChatID, payload.UserID, payload.Content)
+				if err != nil {
+					mh.Logger.Error("Failed to create message: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to create message"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "created", "message_id": messageID})
+			}(payload)
+
+		case "delete":
+			var payload model.DeletePayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal DeletePayload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid delete payload"})
+				break
+			}
+			if payload.ChatID != chatID {
+				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				break
+			}
+
+			go func(payload model.DeletePayload) {
+				err := mh.DeleteMessageUC.DeleteMessage(payload.MessageID, payload.ChatID)
+				if err != nil {
+					mh.Logger.Error("Failed to delete message: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to delete message"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "deleted", "message_id": payload.MessageID})
+			}(payload)
+
+		case "get":
+			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID)
+			if err != nil {
+				mh.Logger.Error("Failed to get messages from cache: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
+				break
+			}
+			conn.WriteJSON(map[string]interface{}{"type": "new_messages", "messages": newMessages})
+
+		case "read":
+			var payload model.ReadPayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"})
+				break
+			}
+			if payload.ChatID != chatID {
+				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				break
+			}
+
+			go func(payload model.ReadPayload) {
+				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID)
+				if err != nil {
+					mh.Logger.Error("Failed to update message status: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "chat": payload.ChatID})
+			}(payload)
+
+		default:
+			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
+			conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"})
+		}
+	}
+}
+
+func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
+	mh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("start processing CreateChat request")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		mh.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	type CreateChatRequest struct {
+		FristID  int `json:"firstID"`
+		SecondID int `json:"secondID"`
+	}
+	var req CreateChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+		return
+	}
+	if (req.FristID != int(profileId)) && (req.SecondID != int(profileId)) {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		return
+	}
+
+	chatID, err := mh.CreateChatUC.CreateChat(req.FristID, req.SecondID)
+	if err != nil {
+		mh.Logger.WithFields(&logrus.Fields{
+			"FirstID":  req.FristID,
+			"SecondID": req.SecondID,
+			"error":    err.Error(),
+		}).Error("failed to create chat")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error creating chat: %v", err)},
+		)
+		return
+	}
+
+	mh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+		"chatID":     chatID,
+	}).Info("successfully created chat")
+
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Chat created"})
+
+}
+
+func (mh *MessageHandler) GetChats(w http.ResponseWriter, r *http.Request) {
+	mh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("start processing GetChats request")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		mh.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	chats, err := mh.GetChatsUC.GetChats(int(profileId))
+	if err != nil {
+		mh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get chats")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting chats: %v", err)},
+		)
+		return
+	}
+
+	mh.Logger.WithFields(&logrus.Fields{
+		"profile_id":  profileId,
+		"chats_count": len(chats),
+	}).Info("successfully retrieved chats")
+
+	MakeResponse(w, http.StatusOK, chats)
+
+}
+
+func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
+	mh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("start processing DeleteChat request")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		mh.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	type CreateChatRequest struct {
+		FristID  int `json:"firstID"`
+		SecondID int `json:"secondID"`
+	}
+	var req CreateChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+		return
+	}
+	if (req.FristID != int(profileId)) && (req.SecondID != int(profileId)) {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		return
+	}
+
+	err := mh.DeleteChatUC.DeleteChat(req.FristID, req.SecondID)
+	if err != nil {
+		mh.Logger.WithFields(&logrus.Fields{
+			"FirstID":  req.FristID,
+			"SecondID": req.SecondID,
+			"error":    err.Error(),
+		}).Error("failed to delete chat")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error creating chat: %v", err)},
+		)
+		return
+	}
+
+	mh.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Info("successfully deleted chat")
+
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Chat deleted"})
 }
 
 func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
