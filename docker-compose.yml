@@ -1,0 +1,137 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+    ports:
+      - "8020:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/repository/db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "8010:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "8030:9000"    # S3 API
+      - "8040:9001"    # Admin UI
+    volumes:
+      - ./minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: miniopassword
+    command: server /data --console-address ":9001"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    restart: always
+    volumes:
+      - ./backend:/app
+      - ./logs:/backend/logs
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
+      REDIS_DB: 0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8000:8000"
+    restart: always
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+  
+  query_micro:
+    build:
+      context: ./backend         
+      dockerfile: query_micro/Dockerfile   
+    ports:
+      - "8081:8081"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/query_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  auth_micro:
+    build:
+      context: ./backend         
+      dockerfile: auth_micro/Dockerfile   
+    ports:
+      - "8082:8082"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/auth_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: redis:6379     
+      REDIS_DB: 0                
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:                     
+        condition: service_healthy
+
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  midio_data:
+    driver: local

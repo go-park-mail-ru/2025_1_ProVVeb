@@ -1,0 +1,432 @@
+openapi: 3.0.3
+info:
+  title: Swagger BeamEye - OpenAPI 3.0
+  version: 1.0.11
+
+tags:
+  - name: user
+    description: Operations about user
+  - name: profile
+    description: Operations about profiles
+  - name: session
+    description: Operations for user sessions
+
+paths:
+  /users:
+    post:
+      tags:
+        - user
+      summary: Create user
+      description: Creating, signing up a new user
+      operationId: createUser
+      requestBody:
+        description: User data for registration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  description: The login to sign up
+                password:
+                  type: string
+                  description: The password for sign up
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User created"
+        '400':
+          description: Invalid input (login or password)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid login or password"
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User already exists"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/login:
+    post:
+      tags:
+        - session
+      summary: Logs user into the system
+      description: Logs in with provided login and password
+      operationId: loginUser
+      requestBody:
+        description: User data for login
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  description: The login for log in
+                password:
+                  type: string
+                  description: The password for login in clear text
+      responses:
+        '200':
+          description: Successfully logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged in"
+                  id:
+                    type: integer
+                    example: 10
+        '400':
+          description: Invalid email/password supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid login or password"
+        '404':
+          description: User not registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "No such user"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/logout:
+    post:
+      tags:
+        - session
+      summary: Logs out current logged-in user session
+      operationId: logoutUser
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out"
+        '400':
+          description: Invalid session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "No cookies got"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Session not found"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/{id}:
+    delete:
+      tags:
+        - user
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully deleted user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User with ID 1 deleted"
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid user ID"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User not found"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /users/checkSession:
+    get:
+      tags:
+        - session
+      summary: Check if the user is logged in
+      operationId: checkSession
+      responses:
+        '200':
+          description: Session status check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged in"
+                  inSession:
+                    type: boolean
+                    example: true
+                  userId:
+                    type: integer
+                    example: 1
+
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /profiles/{id}:
+    get:
+      tags:
+        - profile
+      summary: Get profile by user ID
+      operationId: getProfile
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the user to retrieve the profile for
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully retrieved profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profile'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid user ID"
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Profile not found"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+  /profiles:
+    get:
+      tags:
+        - profile
+      summary: Get profiles of users (for a given user)
+      operationId: getProfiles
+      parameters:
+        - name: forUser
+          in: query
+          description: The ID of the user to get profiles for
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully retrieved list of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/profile'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invalid user ID"
+        '500':
+          description: Internal server error
+        '503':
+          description: Service unavailable
+        '504':
+           description: Service timeout
+
+components:
+  schemas:
+    user:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        login:
+          type: string
+          example: johnyAnime
+        password:
+          type: string
+          example: StrongPass4
+
+    profile:
+      type: object
+      properties:
+        profileid:
+          type: integer
+          example: 15
+        firstname:
+          type: string
+          example: Anton
+        lastname:
+          type: string
+          example: Antonov
+        height:
+          type: integer
+          example: 175
+        birthday:
+          type: object
+          properties:
+            year:
+              type: integer
+              example: 2005
+            month:
+              type: integer
+              example: 3
+            day:
+              type: integer
+              example: 28
+        avatar:
+          type: string
+          example: avatars/eva.png
+        card:
+          type: string
+          example: cards/eva.png
+        description:
+          type: string
+          example: "Description of the user"
+        location:
+          type: string
+          example: "Moscow"
+        interests:
+          type: array
+          items:
+            type: string
+            example: "playing football"
+        likedby:
+          type: array
+          items:
+            type: integer
+            example: 12356
+        preferences:
+          type: object
+          properties:
+            preferencesid:
+              type: integer
+              example: 123
+            interests:
+              type: array
+              items:
+                type: string
+                example: "singing"
+            location:
+              type: string
+              example: "Moscow"
+            age:
+              type: object
+              properties:
+                from:
+                  type: integer
+                  example: 18
+                to:
+                  type: integer
+                  example: 20

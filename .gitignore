@@ -1,2 +1,5 @@
 .DS_store
 coverage.out
+.vscode
+start.sh
+structure
