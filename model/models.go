@@ -16,7 +16,7 @@ var SessionIdLength = 32
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
-const Megabyte int = 8 * 1024 * 1024
+const Megabyte int = 1 << 23
 const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
 

@@ -19,13 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type GetHandler struct {
-	GetProfileUC    usecase.GetProfile
-	GetProfilesUC   usecase.GetProfilesForUser
-	GetProfileImage usecase.GetUserPhoto
-	Logger          *logger.LogrusLogger
-}
-
 type SessionHandler struct {
 	LoginUC        usecase.UserLogIn
 	CheckSessionUC usecase.UserCheckSession
@@ -40,19 +33,16 @@ type UserHandler struct {
 	GetParamsUC  usecase.UserGetParams
 }
 
-type StaticHandler struct {
-	UploadUC usecase.StaticUpload
-	DeleteUC usecase.DeleteStatic
-	Logger   *logger.LogrusLogger
-}
-
-type ProfileHandler struct {
-	LikeUC            usecase.ProfileSetLike
-	MatchUC           usecase.GetProfileMatches
-	UpdateUC          usecase.ProfileUpdate
-	GetProfileUC      usecase.GetProfile
-	GetProfileImageUC usecase.GetUserPhoto
-	Logger            *logger.LogrusLogger
+type ProfilesHandler struct {
+	DeleteImageUC         usecase.DeleteStatic
+	GetProfileImagesUC    usecase.GetUserPhoto
+	GetProfileMatchesUC   usecase.GetProfileMatches
+	GetProfileUC          usecase.GetProfile
+	GetProfilesUC         usecase.GetProfilesForUser
+	SetProfilesLikeUC     usecase.ProfileSetLike
+	UpdateProfileUC       usecase.ProfileUpdate
+	UpdateProfileImagesUC usecase.StaticUpload
+	Logger                *logger.LogrusLogger
 }
 
 type QueryHandler struct {
@@ -63,7 +53,7 @@ type QueryHandler struct {
 	Logger               *logger.LogrusLogger
 }
 
-func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	ph.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
@@ -121,7 +111,7 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = ph.UpdateUC.UpdateProfile(profile, table_profile, int(profileId))
+	err = ph.UpdateProfileUC.UpdateProfile(profile, table_profile, int(profileId))
 	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id":   profileId,
@@ -142,7 +132,7 @@ func (ph *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
 }
 
-func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
+func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	ph.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
@@ -166,7 +156,7 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		"profile_id": profileId,
 	}).Debug("attempting to get matches")
 
-	profiles, err := ph.MatchUC.GetMatches(int(profileId))
+	profiles, err := ph.GetProfileMatchesUC.GetMatches(int(profileId))
 	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
@@ -187,7 +177,7 @@ func (ph *ProfileHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	MakeResponse(w, http.StatusOK, profiles)
 }
 
-func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
+func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	ph.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
@@ -255,7 +245,7 @@ func (ph *ProfileHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	like_id, err := ph.LikeUC.SetLike(likeFrom, likeTo, status)
+	like_id, err := ph.SetProfilesLikeUC.SetLike(likeFrom, likeTo, status)
 	if (like_id == 0) && (err == nil) {
 		ph.Logger.WithFields(&logrus.Fields{
 			"like_from": likeFrom,
@@ -298,8 +288,8 @@ func CreateCookies(session model.Session) (*model.Cookie, error) {
 	return cookie, nil
 }
 
-func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
-	sh.Logger.WithFields(&logrus.Fields{
+func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
 		"method":       r.Method,
 		"path":         r.URL.Path,
 		"request_id":   r.Header.Get("request_id"),
@@ -317,7 +307,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
 	if !ok {
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized upload attempt")
 
@@ -327,14 +317,14 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":    user_id,
 		"max_memory": maxMemory,
 	}).Debug("parsing multipart form")
 
 	err := r.ParseMultipartForm(maxMemory)
 	if err != nil {
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
 		}).Warn("failed to parse multipart form")
@@ -349,7 +339,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	files := form.File["images"]
 
 	if len(files) == 0 {
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 		}).Warn("no files in 'images' field")
 
@@ -359,7 +349,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":       user_id,
 		"files_count":   len(files),
 		"allowed_types": allowedTypes,
@@ -375,7 +365,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		fileSize := fileHeader.Size
 		contentType := fileHeader.Header.Get("Content-Type")
 
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"file_name":    fileName,
 			"file_size":    fileSize,
 			"content_type": contentType,
@@ -383,7 +373,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		file, err := fileHeader.Open()
 		if err != nil {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"file_name": fileName,
 				"error":     err.Error(),
 			}).Warn("failed to open file")
@@ -395,7 +385,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		sanitizedType := sanitizer.Sanitize(contentType)
 		if !allowedTypes[sanitizedType] {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"file_name":    fileName,
 				"content_type": sanitizedType,
 			}).Warn("unsupported file type")
@@ -406,7 +396,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		buf, err := io.ReadAll(file)
 		if err != nil {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"file_name": fileName,
 				"error":     err.Error(),
 			}).Warn("failed to read file content")
@@ -417,15 +407,15 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 		filename := fmt.Sprintf("/%d_%d_%s", user_id, time.Now().UnixNano(), fileName)
 
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"user_id":   user_id,
 			"file_name": filename,
 			"data_size": len(buf),
 		}).Debug("uploading file to storage")
 
-		err = sh.UploadUC.UploadUserPhoto(int(user_id), buf, filename, sanitizedType)
+		err = ph.UpdateProfileImagesUC.UploadUserPhoto(int(user_id), buf, filename, sanitizedType)
 		if err != nil {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"user_id":   user_id,
 				"file_name": filename,
 				"error":     err.Error(),
@@ -436,13 +426,13 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 
 		successUploads = append(successUploads, filename)
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"user_id":   user_id,
 			"file_name": filename,
 		}).Info("file uploaded successfully")
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":        user_id,
 		"total_files":    len(files),
 		"success_count":  len(successUploads),
@@ -452,13 +442,13 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 	if len(failedUploads) != 0 {
 		if len(successUploads) > 0 {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"user_id":       user_id,
 				"success_count": len(successUploads),
 				"failed_count":  len(failedUploads),
 			}).Warn("partial upload failure")
 		} else {
-			sh.Logger.WithFields(&logrus.Fields{
+			ph.Logger.WithFields(&logrus.Fields{
 				"user_id":      user_id,
 				"failed_count": len(failedUploads),
 			}).Error("all files failed to upload")
@@ -471,7 +461,7 @@ func (sh *StaticHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":        user_id,
 		"uploaded_files": successUploads,
 	}).Info("all files uploaded successfully")
@@ -955,8 +945,8 @@ func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
 	MakeResponse(w, http.StatusOK, user)
 }
 
-func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	gh.Logger.WithFields(&logrus.Fields{
+func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
@@ -966,7 +956,7 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		gh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized profile access attempt")
 
@@ -976,13 +966,13 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"profile_id": profileId,
 	}).Debug("attempting to get profile")
 
-	profile, err := gh.GetProfileUC.GetProfile(int(profileId))
+	profile, err := ph.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
-		gh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
 			"error":      err.Error(),
 		}).Error("failed to get profile")
@@ -993,15 +983,15 @@ func (gh *GetHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"profile_id": profileId,
 	}).Info("profile retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, profile)
 }
 
-func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
-	gh.Logger.WithFields(&logrus.Fields{
+func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
@@ -1011,7 +1001,7 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
-		gh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized profiles access attempt")
 
@@ -1021,13 +1011,13 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"requester_id": profileId,
 	}).Debug("attempting to get profiles list")
 
-	profiles, err := gh.GetProfilesUC.GetProfiles(int(profileId))
+	profiles, err := ph.GetProfilesUC.GetProfiles(int(profileId))
 	if err != nil {
-		gh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"requester_id": profileId,
 			"error":        err.Error(),
 		}).Error("failed to get profiles list")
@@ -1038,7 +1028,7 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"requester_id":   profileId,
 		"profiles_count": len(profiles),
 	}).Info("profiles list retrieved successfully")
@@ -1046,8 +1036,8 @@ func (gh *GetHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	MakeResponse(w, http.StatusOK, profiles)
 }
 
-func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
-	sh.Logger.WithFields(&logrus.Fields{
+func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
 		"method":       r.Method,
 		"path":         r.URL.Path,
 		"request_id":   r.Header.Get("request_id"),
@@ -1058,7 +1048,7 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 	sanitizer := bluemonday.UGCPolicy()
 	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"raw_file_url":  r.URL.Query().Get("file_url"),
 		"sanitized_url": fileURL,
 	}).Debug("processing file URL")
@@ -1066,7 +1056,7 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
 	if !ok {
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized photo deletion attempt")
 
@@ -1076,14 +1066,14 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":  user_id,
 		"file_url": fileURL,
 	}).Info("attempting to delete photo")
 
-	err := sh.DeleteUC.DeleteImage(int(user_id), fileURL)
+	err := ph.DeleteImageUC.DeleteImage(int(user_id), fileURL)
 	if err != nil {
-		sh.Logger.WithFields(&logrus.Fields{
+		ph.Logger.WithFields(&logrus.Fields{
 			"user_id":  user_id,
 			"file_url": fileURL,
 			"error":    err.Error(),
@@ -1095,7 +1085,7 @@ func (sh *StaticHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sh.Logger.WithFields(&logrus.Fields{
+	ph.Logger.WithFields(&logrus.Fields{
 		"user_id":  user_id,
 		"file_url": fileURL,
 	}).Info("photo deleted successfully")
