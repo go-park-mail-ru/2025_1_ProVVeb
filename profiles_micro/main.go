@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	listener, err := net.Listen("tcp", ":8082")
+	listener, err := net.Listen("tcp", ":8083")
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to listen port: %v", err))
 		return
@@ -47,6 +47,6 @@ func main() {
 
 	profilespb.RegisterProfilesServiceServer(server, profilesService)
 
-	fmt.Println("starting server at :8082")
+	fmt.Println("starting server at :8083")
 	server.Serve(listener)
 }
