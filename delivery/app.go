@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
 	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
 	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
 )
@@ -25,7 +26,13 @@ func Run() {
 	}
 	defer query_con.Close()
 
-	profiles_con, err := grpc.NewClient("profiles_micro:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	auth_con, err := grpc.NewClient("auth_micro:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to auth_micro: %v", err))
+	}
+	defer auth_con.Close()
+
+	profiles_con, err := grpc.NewClient("profiles_micro:8083", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to profiles_micro: %v", err))
 	}
@@ -45,13 +52,6 @@ func Run() {
 	}
 	defer postgresClient.CloseRepo()
 
-	redisClient, err := repository.NewSessionRepo()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
-		return
-	}
-	defer redisClient.CloseRepo()
-
 	staticClient, err := repository.NewStaticRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with minio: %v", err))
@@ -70,7 +70,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, redisClient, hasher, tokenValidator, validator, logger)
+	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, auth_con)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -103,17 +103,16 @@ func Run() {
 	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
-	r.HandleFunc("/users/{id}", userHandler.DeleteUser).Methods("DELETE")
-	r.HandleFunc("/users/checkSession", sessionHandler.CheckSession).Methods("GET")
 
 	usersSubrouter := r.PathPrefix("/users").Subrouter()
+	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	usersSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	usersSubrouter.HandleFunc("/{id}", userHandler.DeleteUser).Methods("DELETE")
 	usersSubrouter.HandleFunc("/checkSession", sessionHandler.CheckSession).Methods("GET")
-	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	usersSubrouter.HandleFunc("/getParams", userHandler.GetUserParams).Methods("GET")
 
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
-
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
@@ -124,7 +123,6 @@ func Run() {
 	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
-
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	photoSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizePhoto)))
 
@@ -255,18 +253,21 @@ func NewProfilesHandler(
 
 func NewSessionHandler(
 	userRepo repository.UserRepository,
-	sessionRepo repository.SessionRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 	logger *logger.LogrusLogger,
+	conn *grpc.ClientConn,
 ) (*SessionHandler, error) {
+
+	client := sessionpb.NewSessionServiceClient(conn)
+
 	loginUC, err := usecase.NewUserLogInUseCase(
 		userRepo,
-		sessionRepo,
 		hasher,
 		token,
 		validator,
+		client,
 		logger,
 	)
 	if err != nil {
@@ -274,7 +275,7 @@ func NewSessionHandler(
 	}
 
 	checkSessionUC, err := usecase.NewUserCheckSessionUseCase(
-		sessionRepo,
+		client,
 		logger,
 	)
 	if err != nil {
@@ -283,7 +284,7 @@ func NewSessionHandler(
 
 	logoutUC, err := usecase.NewUserLogOutUseCase(
 		userRepo,
-		sessionRepo,
+		client,
 		logger,
 	)
 	if err != nil {
@@ -323,9 +324,17 @@ func NewUserHandler(
 		return &UserHandler{}, err
 	}
 
+	getParam, err := usecase.NewUserGetParamsUseCase(
+		userRepo,
+	)
+	if err != nil {
+		return &UserHandler{}, err
+	}
+
 	return &UserHandler{
 		SignupUC:     *signupUC,
 		DeleteUserUC: *deleteUserUC,
+		GetParamsUC:  *getParam,
 		Logger:       logger,
 	}, nil
 }

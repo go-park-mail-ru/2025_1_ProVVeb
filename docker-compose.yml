@@ -53,12 +53,12 @@ services:
       - ./logs:/backend/logs
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432  # Внутренний порт контейнера PostgreSQL
+      POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Grey31415
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
-      REDIS_ADDR: redis:6379  # Внутренний порт контейнера Redis
+      REDIS_ADDR: redis:6379
       REDIS_DB: 0
     depends_on:
       postgres:
@@ -101,12 +101,37 @@ services:
       postgres:
         condition: service_healthy
 
+  auth_micro:
+    build:
+      context: ./backend
+      dockerfile: auth_micro/Dockerfile
+    ports:
+      - "8082:8082"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/auth_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_DB: 0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   profiles_micro:
     build:
       context: ./backend
       dockerfile: profiles_micro/Dockerfile
     ports:
-      - "8082:8082"
+      - "8083:8083"
     restart: always
     volumes:
       - ./backend:/backend

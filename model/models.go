@@ -10,13 +10,13 @@ var MaxPasswordLength = 64
 var MinLoginLength = 7
 var MaxLoginLength = 15
 
-var SessionDuration = 3 * 24 * time.Hour
+var SessionDuration = 12 * time.Hour
 var SessionIdLength = 32
 
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
-const Megabyte int = 8 * 1024 * 1024
+const Megabyte int = 1 << 23
 const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
 

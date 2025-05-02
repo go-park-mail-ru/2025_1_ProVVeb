@@ -1,28 +1,16 @@
-package repository
+package auth
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-redis/redis/v8"
 )
-
-type SessionRepository interface {
-	CreateSession(userId int) model.Session
-	GetSession(sessionId string) (string, error)
-	StoreSession(sessionId string, data string, ttl time.Duration) error
-	DeleteSession(sessionId string) error
-	CloseRepo() error
-
-	CheckAttempts(userIP string) error
-	IncreaseAttempts(userIP string) error
-	DeleteAttempts(userIP string) error
-}
 
 type SessionRepo struct {
 	client *redis.Client
@@ -31,7 +19,7 @@ type SessionRepo struct {
 
 func NewSessionRepo() (*SessionRepo, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
+		Addr:     os.Getenv("REDIS_ADDR"),
 		Password: "",
 		DB:       0,
 	})
@@ -100,46 +88,44 @@ func (sr *SessionRepo) CloseRepo() error {
 	return sr.client.Close()
 }
 
-func (sr *SessionRepo) CheckAttempts(userIP string) error {
+func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
 
 	countStr, err := sr.client.Get(sr.ctx, tsKey).Result()
 	if err == redis.Nil {
 		if err := sr.client.Set(sr.ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
-			return err
+			return "", err
 		}
-		return nil
+		return "", nil
 	} else if err != nil {
-		return err
+		return "", err
 	}
 
 	count, err := strconv.Atoi(countStr)
 	if err != nil {
-		return err
-	}
-
-	if count >= model.MaxAttempts {
-		return errors.New("too many login attempts, try later")
+		return "", err
 	}
 
 	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
 	if err != nil && err != redis.Nil {
-		return err
+		return "", err
 	}
 	if blockUntilStr != "" {
 		blockUntil, err := strconv.ParseInt(blockUntilStr, 10, 64)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if time.Now().Unix() < blockUntil {
-			return errors.New("too many login attempts, try later")
+			return blockUntilStr, errors.New("too many login attempts, try later")
 		}
 	}
 
-	fmt.Println(count, blockUntilStr)
+	if count >= model.MaxAttempts {
+		return "", errors.New("too many login attempts, try later")
+	}
 
-	return nil
+	return "", nil
 }
 func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 	tsKey := model.AttemptsKeyPrefix + userIP
@@ -150,7 +136,7 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 		return err
 	}
 
-	if count > model.MaxAttempts {
+	if count >= model.MaxAttempts {
 		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
 		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
 		return sr.client.Set(sr.ctx, timeKey, blockUntil, additionalDelay).Err()

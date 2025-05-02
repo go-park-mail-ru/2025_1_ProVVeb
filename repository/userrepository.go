@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/jackc/pgx/v5"
@@ -33,6 +34,8 @@ type UserRepository interface {
 
 	SetLike(from int, to int, status int) (likeId int, err error)
 	StoreInterests(profileId int, interests []string) error
+
+	GetUserParams(userID int) (model.User, error)
 
 	CloseRepo() error
 }
@@ -123,6 +126,26 @@ func ClosePostgresConnection(conn *sql.DB) error {
 		}
 	}
 	return err
+}
+
+const GetUserByIdQuery = `
+	SELECT login, email, phone, status FROM users WHERE user_id = $1;
+`
+
+func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
+	var user model.User
+
+	err := ur.DB.QueryRowContext(context.Background(), GetUserByIdQuery, userID).Scan(
+		&user.Login,
+		&user.Email,
+		&user.Phone,
+		&user.Status,
+	)
+	if err != nil {
+		return user, err
+	}
+
+	return user, nil
 }
 
 const GetMatches = `
@@ -335,6 +358,8 @@ SELECT
     p.birthday, 
     p.description, 
     l.country, 
+    l.city,
+    l.district,
     liked.profile_id AS liked_by_profile_id,
     s.path AS avatar,
     i.description AS interest,
@@ -356,6 +381,7 @@ LEFT JOIN preferences pr
 LEFT JOIN likes liked
     ON liked.liked_profile_id = p.profile_id
 WHERE p.profile_id = $1;
+
 `
 
 func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -366,7 +392,7 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var preferenceValue sql.NullString
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
-	var location sql.NullString
+	var country, city, district sql.NullString
 
 	rows, err := ur.DB.QueryContext(context.Background(), GetProfileByIdQuery, profileId)
 	if err != nil {
@@ -383,7 +409,9 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&profile.Height,
 			&birth,
 			&profile.Description,
-			&location,
+			&country,
+			&city,
+			&district,
 			&likedByProfileId,
 			&photo,
 			&interest,
@@ -397,9 +425,10 @@ func (ur *UserRepo) GetProfileById(profileId int) (model.Profile, error) {
 			profile.Birthday = birth.Time
 		}
 
-		if location.Valid {
-			profile.Location = location.String
+		if country.Valid && city.Valid && district.Valid {
+			profile.Location = fmt.Sprintf("%s@%s@%s", country.String, city.String, district.String)
 		}
+
 		if likedByProfileId.Valid && !slices.Contains(profile.LikedBy, int(likedByProfileId.Int64)) {
 			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
 		}
@@ -593,6 +622,10 @@ func (ur *UserRepo) StorePhotos(profileID int, paths []string) error {
 
 func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
 	profiles := make([]model.Profile, 0, model.PageSize)
+	my_profile, err := ur.GetProfileById(forUserId)
+	if err != nil {
+		return profiles, err
+	}
 	amount := 0
 	for i := 1; ; i++ {
 		if i != forUserId {
@@ -603,7 +636,9 @@ func (ur *UserRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) 
 			if profile.ProfileId == 0 && profile.FirstName == "" {
 				return profiles, nil
 			}
-			profiles = append(profiles, profile)
+			if profile.IsMale != my_profile.IsMale {
+				profiles = append(profiles, profile)
+			}
 			amount++
 		}
 	}
@@ -641,8 +676,11 @@ SET
 	is_male = $3,
 	height = $4,
 	description = $5,
+	location_id = $6,
+	birthday = $7,             
 	updated_at = CURRENT_TIMESTAMP
-WHERE profile_id = $6;
+WHERE profile_id = $8;
+
 `
 	DeleteProfileInterests = `
 DELETE FROM profile_interests WHERE profile_id = $1
@@ -657,6 +695,11 @@ SELECT preference_id FROM preferences
 WHERE preference_type = $1 AND preference_description = $2 AND preference_value = $3
 `
 
+	GetLocationID = `
+SELECT location_id FROM locations
+WHERE country = $1 AND city = $2 AND district = $3
+`
+
 	InsertPreferenceIfNotExists = `
 INSERT INTO preferences (preference_type, preference_description, preference_value)
 VALUES ($1, $2, $3)
@@ -668,6 +711,12 @@ INSERT INTO profile_preferences (profile_id, preference_id)
 VALUES ($1, $2)
 ON CONFLICT DO NOTHING
 `
+
+	InsertLocation = `
+INSERT INTO locations (country, city, district)
+VALUES ($1, $2, $3)
+RETURNING location_id
+			`
 )
 
 func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
@@ -679,6 +728,24 @@ func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) err
 	}
 	defer tx.Rollback()
 
+	var locationID int
+	if new_profile.Location != "" {
+		parts := strings.Split(new_profile.Location, "@")
+		if len(parts) != 3 {
+			return fmt.Errorf("invalid location format: expected 'Country@City@District'")
+		}
+		country, city, district := parts[0], parts[1], parts[2]
+
+		err := tx.QueryRowContext(ctx, GetLocationID, country, city, district).Scan(&locationID)
+
+		if err != nil {
+			err = tx.QueryRowContext(ctx, InsertLocation, country, city, district).Scan(&locationID)
+			if err != nil {
+				return fmt.Errorf("failed to insert or get location: %w", err)
+			}
+		}
+	}
+
 	_, err = tx.ExecContext(
 		ctx,
 		UpdateProfileQuery,
@@ -687,6 +754,8 @@ func (ur *UserRepo) UpdateProfile(profile_id int, new_profile model.Profile) err
 		new_profile.IsMale,
 		new_profile.Height,
 		new_profile.Description,
+		locationID,
+		new_profile.Birthday,
 		profile_id,
 	)
 	if err != nil {
