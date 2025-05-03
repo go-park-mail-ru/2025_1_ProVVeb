@@ -29,9 +29,9 @@ type SessionHandler struct {
 
 type UserHandler struct {
 	SignupUC     usecase.UserSignUp
-	DeleteUserUC usecase.UserDelete
-	Logger       *logger.LogrusLogger
+	DeleteUserUC usecase.DeleteUser
 	GetParamsUC  usecase.UserGetParams
+	Logger       *logger.LogrusLogger
 }
 
 type ProfilesHandler struct {
@@ -1044,6 +1044,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		User    model.User    `json:"user"`
 		Profile model.Profile `json:"profile"`
 	}
+
 	var req SignUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
@@ -1053,12 +1054,12 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	user := req.User
 	profile := req.Profile
 
-	// if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
-	// 	MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
-	// 	return
-	// }
+	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		return
+	}
 
-	if uh.SignupUC.UserExists(r.Context(), user.Login) {
+	if uh.SignupUC.UserExists(user.Login) {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
 		return
 	}
@@ -1335,22 +1336,33 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
+	uh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetUserParams request started")
 	userIDRaw := r.Context().Value(userIDKey)
 	userID, ok := userIDRaw.(uint32)
 	if !ok {
+		uh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Info("unauthorized profile access attempt")
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	uh.Logger.Info("attempting to get user params")
+
 	user, err := uh.GetParamsUC.GetUserParams(int(userID))
-	fmt.Printf("Error getting user: %v", err)
+	uh.Logger.Info("Error getting user: ", err)
 
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
 		return
 	}
 
+	uh.Logger.Info("user params received successfully")
 	MakeResponse(w, http.StatusOK, user)
 }
 

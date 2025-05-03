@@ -40,9 +40,9 @@ func main() {
 	server := grpc.NewServer()
 
 	profilesService := &impl.ProfileServiceServer{
-		UserRepo:   postgresClient,
-		StaticRepo: staticClient,
-		Logger:     logger,
+		ProfilesRepo: postgresClient,
+		StaticRepo:   staticClient,
+		Logger:       logger,
 	}
 
 	profilespb.RegisterProfilesServiceServer(server, profilesService)

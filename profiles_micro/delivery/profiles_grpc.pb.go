@@ -18,8 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProfilesServiceClient interface {
+	StoreProfile(ctx context.Context, in *StoreProfileRequest, opts ...grpc.CallOption) (*StoreProfileResponse, error)
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 	UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetProfiles(ctx context.Context, in *GetProfilesRequest, opts ...grpc.CallOption) (*GetProfilesResponse, error)
 	GetProfileImages(ctx context.Context, in *GetProfileImagesRequest, opts ...grpc.CallOption) (*GetProfileImagesResponse, error)
 	UploadProfileImage(ctx context.Context, in *UploadProfileImageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -36,6 +38,15 @@ func NewProfilesServiceClient(cc grpc.ClientConnInterface) ProfilesServiceClient
 	return &profilesServiceClient{cc}
 }
 
+func (c *profilesServiceClient) StoreProfile(ctx context.Context, in *StoreProfileRequest, opts ...grpc.CallOption) (*StoreProfileResponse, error) {
+	out := new(StoreProfileResponse)
+	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/StoreProfile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *profilesServiceClient) GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
 	out := new(GetProfileResponse)
 	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/GetProfile", in, out, opts...)
@@ -48,6 +59,15 @@ func (c *profilesServiceClient) GetProfile(ctx context.Context, in *GetProfileRe
 func (c *profilesServiceClient) UpdateProfile(ctx context.Context, in *UpdateProfileRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/UpdateProfile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *profilesServiceClient) DeleteProfile(ctx context.Context, in *DeleteProfileRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/DeleteProfile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +132,10 @@ func (c *profilesServiceClient) SetProfileLike(ctx context.Context, in *SetProfi
 // All implementations must embed UnimplementedProfilesServiceServer
 // for forward compatibility
 type ProfilesServiceServer interface {
+	StoreProfile(context.Context, *StoreProfileRequest) (*StoreProfileResponse, error)
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	UpdateProfile(context.Context, *UpdateProfileRequest) (*emptypb.Empty, error)
+	DeleteProfile(context.Context, *DeleteProfileRequest) (*emptypb.Empty, error)
 	GetProfiles(context.Context, *GetProfilesRequest) (*GetProfilesResponse, error)
 	GetProfileImages(context.Context, *GetProfileImagesRequest) (*GetProfileImagesResponse, error)
 	UploadProfileImage(context.Context, *UploadProfileImageRequest) (*emptypb.Empty, error)
@@ -127,11 +149,17 @@ type ProfilesServiceServer interface {
 type UnimplementedProfilesServiceServer struct {
 }
 
+func (UnimplementedProfilesServiceServer) StoreProfile(context.Context, *StoreProfileRequest) (*StoreProfileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreProfile not implemented")
+}
 func (UnimplementedProfilesServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProfile not implemented")
 }
 func (UnimplementedProfilesServiceServer) UpdateProfile(context.Context, *UpdateProfileRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateProfile not implemented")
+}
+func (UnimplementedProfilesServiceServer) DeleteProfile(context.Context, *DeleteProfileRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteProfile not implemented")
 }
 func (UnimplementedProfilesServiceServer) GetProfiles(context.Context, *GetProfilesRequest) (*GetProfilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProfiles not implemented")
@@ -162,6 +190,24 @@ type UnsafeProfilesServiceServer interface {
 
 func RegisterProfilesServiceServer(s *grpc.Server, srv ProfilesServiceServer) {
 	s.RegisterService(&_ProfilesService_serviceDesc, srv)
+}
+
+func _ProfilesService_StoreProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoreProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilesServiceServer).StoreProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/profiles.ProfilesService/StoreProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilesServiceServer).StoreProfile(ctx, req.(*StoreProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ProfilesService_GetProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -196,6 +242,24 @@ func _ProfilesService_UpdateProfile_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ProfilesServiceServer).UpdateProfile(ctx, req.(*UpdateProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProfilesService_DeleteProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilesServiceServer).DeleteProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/profiles.ProfilesService/DeleteProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilesServiceServer).DeleteProfile(ctx, req.(*DeleteProfileRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -313,12 +377,20 @@ var _ProfilesService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProfilesServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "StoreProfile",
+			Handler:    _ProfilesService_StoreProfile_Handler,
+		},
+		{
 			MethodName: "GetProfile",
 			Handler:    _ProfilesService_GetProfile_Handler,
 		},
 		{
 			MethodName: "UpdateProfile",
 			Handler:    _ProfilesService_UpdateProfile_Handler,
+		},
+		{
+			MethodName: "DeleteProfile",
+			Handler:    _ProfilesService_DeleteProfile_Handler,
 		},
 		{
 			MethodName: "GetProfiles",

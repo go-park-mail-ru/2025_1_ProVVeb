@@ -11,7 +11,7 @@ var MaxPasswordLength = 64
 var MinLoginLength = 7
 var MaxLoginLength = 15
 
-var SessionDuration = 12 * time.Hour
+var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
 var PageSize = 10

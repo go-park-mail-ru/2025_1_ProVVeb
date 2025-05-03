@@ -2,41 +2,34 @@ package usecase
 
 import (
 	"context"
-	"math/rand"
-	"time"
 
-	"github.com/icrowley/fake"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
+	userspb "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery"
 )
 
 type UserSignUp struct {
-	userRepo  repository.UserRepository
-	statRepo  repository.StaticRepository
-	hasher    repository.PasswordHasher
-	validator repository.UserParamsValidator
-	logger    *logger.LogrusLogger
+	UsersService    userspb.UsersServiceClient
+	ProfilesService profilespb.ProfilesServiceClient
+	logger          *logger.LogrusLogger
 }
 
 func NewUserSignUpUseCase(
-	userRepo repository.UserRepository,
-	statRepo repository.StaticRepository,
-	hasher repository.PasswordHasher,
-	validator repository.UserParamsValidator,
+	UsersService userspb.UsersServiceClient,
+	ProfilesService profilespb.ProfilesServiceClient,
 	logger *logger.LogrusLogger,
 ) (*UserSignUp, error) {
-	if userRepo == nil || statRepo == nil || hasher == nil || validator == nil || logger == nil {
+	if UsersService == nil || ProfilesService == nil || logger == nil {
 		return nil, model.ErrUserSignUpUC
 	}
 	return &UserSignUp{
-		userRepo:  userRepo,
-		statRepo:  statRepo,
-		hasher:    hasher,
-		validator: validator,
-		logger:    logger,
+		UsersService:    UsersService,
+		ProfilesService: ProfilesService,
+		logger:          logger,
 	}, nil
 }
 
@@ -46,151 +39,104 @@ type UserSignUpInput struct {
 }
 
 func (uc *UserSignUp) ValidateLogin(login string) error {
-	return uc.validator.ValidateLogin(login)
+	uc.logger.Info("ValidateLogin", "login", login)
+	req := &userspb.ValidateLoginRequest{
+		Login: login,
+	}
+	_, err := uc.UsersService.ValidateLogin(context.Background(), req)
+	uc.logger.Info("error", err)
+	return err
 }
 
 func (uc *UserSignUp) ValidatePassword(password string) error {
-	return uc.validator.ValidatePassword(password)
+	uc.logger.Info("ValidatePassword")
+	req := &userspb.ValidatePasswordRequest{
+		Password: password,
+	}
+	_, err := uc.UsersService.ValidatePassword(context.Background(), req)
+	uc.logger.Info("error", err)
+	return err
 }
 
-func (uc *UserSignUp) UserExists(ctx context.Context, login string) bool {
-	is := uc.userRepo.UserExists(ctx, login)
+func (uc *UserSignUp) UserExists(login string) bool {
+	uc.logger.Info("UserExists", "login", login)
+
+	req := &userspb.UserExistsRequest{
+		Login: login,
+	}
+	res, err := uc.UsersService.UserExists(context.Background(), req)
+	if err != nil {
+		uc.logger.Error("UserExists", "error", err)
+		return false
+	}
+
+	is := res.Exists
 	uc.logger.WithFields(&logrus.Fields{"login": login, "is": is}).Info("UserExists")
 	return is
 }
 
-func (uc *UserSignUp) SaveUserData(userId int, sent_user model.User) (int, error) {
-	uc.logger.WithFields(&logrus.Fields{"login": sent_user.Login, "password": sent_user.Password}).Info("SaveUserData")
-	var email string
-	if sent_user.Email == "" {
-		email = fake.EmailAddress()
-	} else {
-		email = sent_user.Email
+func (uc *UserSignUp) SaveUserData(userId int, sentUser model.User) (int, error) {
+	uc.logger.WithFields(&logrus.Fields{
+		"login":  sentUser.Login,
+		"userId": sentUser.UserId,
+	}).Info("SaveUserData")
+	req := &userspb.SaveUserDataRequest{
+		UserId: int32(userId),
+		User: &userspb.User{
+			UserId:   int32(sentUser.UserId),
+			Login:    sentUser.Login,
+			Password: sentUser.Password,
+			Email:    sentUser.Email,
+			Phone:    sentUser.Phone,
+			Status:   int32(sentUser.Status),
+		},
 	}
 
-	var phone string
-	if sent_user.Phone == "" {
-		phone = fake.Phone()
-	} else {
-		phone = sent_user.Phone
+	res, err := uc.UsersService.SaveUserData(context.Background(), req)
+	if err != nil {
+		uc.logger.WithFields(&logrus.Fields{"err": err}).Error("SaveUserData")
+		return -1, err
 	}
-	status := 0
-	user := model.User{
-		Login:    sent_user.Login,
-		Password: uc.hasher.Hash(sent_user.Login + "_" + sent_user.Password),
-		Email:    email,
-		Phone:    phone,
-		Status:   status,
-		UserId:   userId,
-	}
-
-	result, err := uc.userRepo.StoreUser(user)
-	uc.logger.WithFields(&logrus.Fields{"result": result, "error": err, "user": user}).Info("SaveUserData")
+	result := int(res.UserId)
 	return result, err
 }
 
-func (uc *UserSignUp) SaveUserProfile(sent_profile model.Profile) (int, error) {
-	uc.logger.WithFields(&logrus.Fields{"login": sent_profile.FirstName}).Info("SaveUserProfile")
-	var fname, lname string
-	if sent_profile.FirstName != "" {
-		fname = sent_profile.FirstName
-	} else {
-		if sent_profile.IsMale {
-			fname = fake.MaleFirstName()
-		} else {
-			fname = fake.FemaleFirstName()
-		}
+func (uc *UserSignUp) SaveUserProfile(sentProfile model.Profile) (int, error) {
+	uc.logger.WithFields(&logrus.Fields{"login": sentProfile.FirstName}).Info("SaveUserProfile")
+
+	likedBy := []int32{}
+	for _, like := range sentProfile.LikedBy {
+		likedBy = append(likedBy, int32(like))
 	}
 
-	if sent_profile.LastName != "" {
-		lname = sent_profile.LastName
-	} else {
-		if sent_profile.IsMale {
-			lname = fake.MaleLastName()
-		} else {
-			lname = fake.FemaleLastName()
-		}
+	prefs := []*profilespb.Preference{}
+	for _, pref := range sentProfile.Preferences {
+		prefs = append(prefs, &profilespb.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
 	}
 
-	var birthdate time.Time
-	if sent_profile.Birthday.IsZero() {
-		birthdate = time.Now().AddDate(-(rand.Intn(27) + 18), -rand.Intn(12), -rand.Intn(30))
-	} else {
-		birthdate = sent_profile.Birthday
+	req := &profilespb.StoreProfileRequest{
+		Profile: &profilespb.Profile{
+			ProfileId:   int32(sentProfile.ProfileId),
+			FirstName:   sentProfile.FirstName,
+			LastName:    sentProfile.LastName,
+			IsMale:      sentProfile.IsMale,
+			Height:      int32(sentProfile.Height),
+			Birthday:    timestamppb.New(sentProfile.Birthday),
+			Description: sentProfile.Description,
+			Location:    sentProfile.Location,
+			Interests:   sentProfile.Interests,
+			Photos:      sentProfile.Photos,
+			LikedBy:     likedBy,
+			Preferences: prefs,
+		},
 	}
 
-	height := sent_profile.Height
-	if height == 0 {
-		height = rand.Intn(100) + 100
-	}
-
-	description := sent_profile.Description
-	if description == "" {
-		description = fake.SentencesN(2)
-	}
-
-	location := sent_profile.Location
-	if location == "" {
-		location = fake.City()
-	}
-
-	interests := sent_profile.Interests
-	if len(interests) == 0 {
-		for i := 0; i < 5; i++ {
-			interests = append(interests, fake.Word())
-		}
-	}
-
-	photos := make([]string, 0, 6)
-	defaultFileName := "/" + fake.CharactersN(15) + ".png"
-	photos = append(photos, defaultFileName)
-
-	profile := model.Profile{
-		FirstName:   fname,
-		LastName:    lname,
-		IsMale:      sent_profile.IsMale,
-		Birthday:    birthdate,
-		Height:      height,
-		Description: description,
-		Location:    location,
-		Interests:   interests,
-		Photos:      photos,
-		Preferences: sent_profile.Preferences,
-		LikedBy:     sent_profile.LikedBy,
-	}
-
-	uc.logger.Info("Profile data generated")
-
-	imgBytes, err := uc.statRepo.GenerateImage("image/png", sent_profile.IsMale)
-	if err != nil {
-		uc.logger.Error("cannot generate image", err)
-		return -1, err
-	}
-
-	err = uc.statRepo.UploadImage(imgBytes, defaultFileName, "image/png")
-	if err != nil {
-		uc.logger.Error("cannot upload image", err)
-		return -1, err
-	}
-
-	profileId, err := uc.userRepo.StoreProfile(profile)
-	if err != nil {
-		uc.logger.Error("cannot store profile", err)
-		return -1, err
-	}
-
-	err = uc.userRepo.StorePhotos(profileId, photos)
-	if err != nil {
-		uc.logger.Error("cannot store photos", err)
-		return -1, err
-	}
-
-	err = uc.userRepo.StoreInterests(profileId, interests)
-	if err != nil {
-		uc.logger.Error("cannot store interests", err)
-		return -1, err
-	}
-	uc.logger.WithFields(&logrus.Fields{"profileId": profileId}).Info("Profile saved")
+	res, err := uc.ProfilesService.StoreProfile(context.Background(), req)
+	uc.logger.WithFields(&logrus.Fields{"err": err, "profileId": int(res.ProfileId)})
+	profileId := int(res.ProfileId)
 
 	return profileId, nil
 }

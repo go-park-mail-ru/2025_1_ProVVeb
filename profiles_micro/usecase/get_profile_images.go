@@ -9,7 +9,7 @@ import (
 
 func (pss *ProfileServiceServer) GetProfileImages(ctx context.Context, req *profiles.GetProfileImagesRequest) (*profiles.GetProfileImagesResponse, error) {
 	pss.Logger.Info("GetProfileImages", "user_id", req.GetUserId())
-	urls, err := pss.UserRepo.GetPhotos(int(req.GetUserId()))
+	urls, err := pss.ProfilesRepo.GetPhotos(int(req.GetUserId()))
 	if err != nil {
 		pss.Logger.Error("GetProfileImages", "user_id", req.GetUserId(), "urls error", err)
 		return nil, err
