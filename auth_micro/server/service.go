@@ -29,7 +29,7 @@ func (s *SessionServiceServerImpl) CreateSession(ctx context.Context, req *sessi
 	expiresDuration := durationpb.New(12 * time.Hour)
 
 	sessionResponse := &sessionpb.SessionResponse{
-		SessionId: "some_session_id",
+		SessionId: session.SessionId,
 		UserId:    req.GetUserId(),
 		Expires:   expiresDuration,
 	}
