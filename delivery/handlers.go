@@ -96,47 +96,47 @@ func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.Close()
 
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				mh.Logger.Info("WebSocket closed by client")
+				close(done)
+				return
+			}
+		}
+	}()
+
 	for {
-		_, msgData, err := conn.ReadMessage()
-		if err != nil {
-			mh.Logger.Error("Error reading message from WebSocket: ", err)
-			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
-			break
-		}
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			chats, err := mh.GetChatsUC.GetChats(int(profileId))
+			if err != nil {
+				mh.Logger.Error("Failed to get chats: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Failed to load chat notifications"})
+				continue
+			}
 
-		var wsMessage model.WSMessage
-		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
-			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
-			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
-			break
-		}
-
-		switch wsMessage.Type {
-		case "chat":
-			go func(profileID int) {
-				chats, err := mh.GetChatsUC.GetChats(profileID)
-				if err != nil {
-					mh.Logger.Error("Failed to get chats: ", err)
-					conn.WriteJSON(map[string]interface{}{"error": "Failed to load chat notifications"})
-					return
+			var unreadChats []model.Chat
+			for _, chat := range chats {
+				if chat.IsRead {
+					unreadChats = append(unreadChats, chat)
 				}
+			}
 
-				var unreadChats []model.Chat
-				for _, chat := range chats {
-					if chat.IsRead {
-						unreadChats = append(unreadChats, chat)
-					}
-				}
-
+			if len(unreadChats) > 0 {
 				conn.WriteJSON(map[string]interface{}{
 					"type":  "chat_notifications",
 					"chats": unreadChats,
 				})
-			}(int(profileId))
-
-		default:
-			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
-			conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"})
+			}
 		}
 	}
 }
@@ -162,9 +162,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
-		)
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
 		return
 	}
 
@@ -181,8 +179,8 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if (profileId != uint32(first)) && (profileId != uint32(second)) {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access "})
+	if profileId != uint32(first) && profileId != uint32(second) {
+		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
 		return
 	}
 
@@ -194,11 +192,35 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
 
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
+				if err != nil {
+					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
+					continue
+				}
+				if len(newMessages) > 0 {
+					conn.WriteJSON(map[string]interface{}{"type": "new_messages", "messages": newMessages})
+				}
+			}
+		}
+	}()
+
 	for {
 		_, msgData, err := conn.ReadMessage()
 		if err != nil {
 			mh.Logger.Error("Error reading message from WebSocket: ", err)
 			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
+			close(done)
 			break
 		}
 
@@ -206,7 +228,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
 			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
 			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
-			break
+			continue
 		}
 
 		switch wsMessage.Type {
@@ -221,7 +243,6 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
 				break
 			}
-
 			go func(payload model.CreatePayload) {
 				messageID, err := mh.CreateMessageUC.CreateMessages(payload.ChatID, payload.UserID, payload.Content)
 				if err != nil {
@@ -243,7 +264,6 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
 				break
 			}
-
 			go func(payload model.DeletePayload) {
 				err := mh.DeleteMessageUC.DeleteMessage(payload.MessageID, payload.ChatID)
 				if err != nil {
@@ -255,7 +275,6 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}(payload)
 
 		case "get":
-			// newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, first)
 			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 			if err != nil {
 				mh.Logger.Error("Failed to get messages from cache: ", err)
@@ -275,9 +294,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
 				break
 			}
-
 			go func(payload model.ReadPayload) {
-				// err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, first)
 				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
