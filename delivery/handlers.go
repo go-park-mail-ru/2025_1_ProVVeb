@@ -113,21 +113,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer func() {
-		_ = conn.Close()
-
-		go func() {
-			if err := mh.UpdateMessageStatusUC.UpdateMessageStatus(chatID, first); err != nil {
-				mh.Logger.Error("Failed to update message status for first user on disconnect: ", err)
-			}
-		}()
-
-		go func() {
-			if err := mh.UpdateMessageStatusUC.UpdateMessageStatus(chatID, second); err != nil {
-				mh.Logger.Error("Failed to update message status for second user on disconnect: ", err)
-			}
-		}()
-	}()
+	defer conn.Close()
 
 	if (profileId != uint32(first)) && (profileId != uint32(second)) {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access "})
