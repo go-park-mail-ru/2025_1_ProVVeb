@@ -338,8 +338,8 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 
 const (
 	InsertMessageQuery = `
-		INSERT INTO messages (chat_id, user_id, content, status, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO messages (chat_id, user_id, content, status)
+		VALUES ($1, $2, $3, $4)
 		RETURNING message_id;`
 
 	UpdateChatLastMessageQuery = `
