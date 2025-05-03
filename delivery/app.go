@@ -163,7 +163,12 @@ func Run() {
 	wsRouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
-	wsRouter.HandleFunc("/notifications", messageHandler.GetNotifications).Methods("GET")
+
+	notificationsSubrouter := r.PathPrefix("/notifications").Subrouter()
+	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	notificationsSubrouter.HandleFunc("", messageHandler.GetNotifications).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
