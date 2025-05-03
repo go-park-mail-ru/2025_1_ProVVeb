@@ -89,7 +89,7 @@ func Run() {
 		return
 	}
 
-	queryHandler, err := NewQueryHandler(query_con, logger)
+	queryHandler, err := NewQueryHandler(query_con, users_con, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
@@ -192,35 +192,44 @@ func Run() {
 }
 
 func NewQueryHandler(
-	conn *grpc.ClientConn,
+	query_conn *grpc.ClientConn,
+	admin_conn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
 ) (*QueryHandler, error) {
-	client := querypb.NewQueryServiceClient(conn)
+	query_client := querypb.NewQueryServiceClient(query_conn)
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
-	GetActive, err := usecase.NewGetActiveQueriesUseCase(client, logger)
+	GetActive, err := usecase.NewGetActiveQueriesUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	StoreAnswers, err := usecase.NewStoreUserAnswer(client, logger)
+	StoreAnswers, err := usecase.NewStoreUserAnswer(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client, logger)
+	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client, logger)
+	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
+
+	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &QueryHandler{
 		GetActiveQueriesUC:   *GetActive,
 		StoreUserAnswerUC:    *StoreAnswers,
 		GetAnswersForUserUC:  *GetAnswersForUser,
 		GetAnswersForQueryUC: *GetAnswersForQuery,
+		GetAdminUC:           *GetAdminUC,
 		Logger:               logger,
 	}, nil
 }

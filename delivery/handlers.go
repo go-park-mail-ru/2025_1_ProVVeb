@@ -51,7 +51,9 @@ type QueryHandler struct {
 	StoreUserAnswerUC    usecase.StoreUserAnswer
 	GetAnswersForUserUC  usecase.GetAnswersForUser
 	GetAnswersForQueryUC usecase.GetAnswersForQuery
-	Logger               *logger.LogrusLogger
+
+	GetAdminUC usecase.GetAdmin
+	Logger     *logger.LogrusLogger
 }
 
 type MessageHandler struct {
@@ -1699,6 +1701,26 @@ func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Reques
 	qh.Logger.WithFields(&logrus.Fields{
 		"user_id": user_id,
 	}).Info("attempting to get answers for query")
+
+	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
 
 	answers, err := qh.GetAnswersForQueryUC.GetAnswersForQuery()
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // UsersServiceClient is the client API for UsersService service.
@@ -24,6 +25,7 @@ type UsersServiceClient interface {
 	UserExists(ctx context.Context, in *UserExistsRequest, opts ...grpc.CallOption) (*UserExistsResponse, error)
 	ValidateLogin(ctx context.Context, in *ValidateLoginRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ValidatePassword(ctx context.Context, in *ValidatePasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetAdmin(ctx context.Context, in *GetAdminRequest, opts ...grpc.CallOption) (*GetAdminResponse, error)
 }
 
 type usersServiceClient struct {
@@ -88,6 +90,15 @@ func (c *usersServiceClient) ValidatePassword(ctx context.Context, in *ValidateP
 	return out, nil
 }
 
+func (c *usersServiceClient) GetAdmin(ctx context.Context, in *GetAdminRequest, opts ...grpc.CallOption) (*GetAdminResponse, error) {
+	out := new(GetAdminResponse)
+	err := c.cc.Invoke(ctx, "/users.UsersService/GetAdmin", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UsersServiceServer is the server API for UsersService service.
 // All implementations must embed UnimplementedUsersServiceServer
 // for forward compatibility
@@ -98,6 +109,7 @@ type UsersServiceServer interface {
 	UserExists(context.Context, *UserExistsRequest) (*UserExistsResponse, error)
 	ValidateLogin(context.Context, *ValidateLoginRequest) (*emptypb.Empty, error)
 	ValidatePassword(context.Context, *ValidatePasswordRequest) (*emptypb.Empty, error)
+	GetAdmin(context.Context, *GetAdminRequest) (*GetAdminResponse, error)
 	mustEmbedUnimplementedUsersServiceServer()
 }
 
@@ -123,6 +135,9 @@ func (UnimplementedUsersServiceServer) ValidateLogin(context.Context, *ValidateL
 func (UnimplementedUsersServiceServer) ValidatePassword(context.Context, *ValidatePasswordRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidatePassword not implemented")
 }
+func (UnimplementedUsersServiceServer) GetAdmin(context.Context, *GetAdminRequest) (*GetAdminResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdmin not implemented")
+}
 func (UnimplementedUsersServiceServer) mustEmbedUnimplementedUsersServiceServer() {}
 
 // UnsafeUsersServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -132,8 +147,8 @@ type UnsafeUsersServiceServer interface {
 	mustEmbedUnimplementedUsersServiceServer()
 }
 
-func RegisterUsersServiceServer(s *grpc.Server, srv UsersServiceServer) {
-	s.RegisterService(&_UsersService_serviceDesc, srv)
+func RegisterUsersServiceServer(s grpc.ServiceRegistrar, srv UsersServiceServer) {
+	s.RegisterService(&UsersService_ServiceDesc, srv)
 }
 
 func _UsersService_SaveUserData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -244,7 +259,28 @@ func _UsersService_ValidatePassword_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-var _UsersService_serviceDesc = grpc.ServiceDesc{
+func _UsersService_GetAdmin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersServiceServer).GetAdmin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/users.UsersService/GetAdmin",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersServiceServer).GetAdmin(ctx, req.(*GetAdminRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// UsersService_ServiceDesc is the grpc.ServiceDesc for UsersService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var UsersService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "users.UsersService",
 	HandlerType: (*UsersServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
@@ -271,6 +307,10 @@ var _UsersService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidatePassword",
 			Handler:    _UsersService_ValidatePassword_Handler,
+		},
+		{
+			MethodName: "GetAdmin",
+			Handler:    _UsersService_GetAdmin_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

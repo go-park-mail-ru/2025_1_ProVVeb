@@ -24,6 +24,7 @@ type UserRepository interface {
 	ValidatePassword(password string) error
 	Hash(password string) string
 	Compare(hashedPassword, login, password string) bool
+	GetAdmin(userID int) (bool, error)
 
 	CloseRepo() error
 }
@@ -244,6 +245,16 @@ func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 	}
 
 	return user, nil
+}
+
+const GetAdminQuery = `
+	SELECT EXISTS ( SELECT 1 FROM admins WHERE user_id = $1)
+`
+
+func (ur *UserRepo) GetAdmin(userID int) (bool, error) {
+	var exists bool
+	err := ur.DB.QueryRowContext(context.Background(), GetAdminQuery, userID).Scan(&exists)
+	return exists, err
 }
 
 func (ur *UserRepo) CloseRepo() error {

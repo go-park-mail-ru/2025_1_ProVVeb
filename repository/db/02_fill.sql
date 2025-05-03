@@ -51,6 +51,11 @@ INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
 (10, 1, 'verasokolova', 'vera@example.com', '1111111120', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
 
 
+INSERT INTO admins (user_id, role) VALUES 
+    (6, 'admin');
+
+
+
 INSERT INTO static (profile_id, path) VALUES
 (1, '/anatolini.jpg'),
 (2, '/eva.png'),
