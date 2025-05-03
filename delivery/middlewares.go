@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strconv"
@@ -155,10 +157,20 @@ type loggingResponseWriter struct {
 }
 
 func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
-	return &loggingResponseWriter{w, http.StatusOK}
+	return &loggingResponseWriter{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+	}
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := lrw.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not support Hijacker")
 }
