@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-redis/redis/v8"
@@ -337,10 +338,9 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 
 const (
 	InsertMessageQuery = `
-		INSERT INTO messages (chat_id, user_id, content, status)
-		VALUES ($1, $2, $3, $4)
-		RETURNING message_id;
-	`
+		INSERT INTO messages (chat_id, user_id, content, status, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING message_id;`
 
 	UpdateChatLastMessageQuery = `
 		UPDATE chats
@@ -394,6 +394,7 @@ func (cr *ChatRepo) CreateMessage(chatID int, userID int, content string, status
 		SenderID:  userID,
 		Text:      content,
 		Status:    status,
+		CreatedAt: time.Now(),
 	}
 	existingMessages = append(existingMessages, message)
 
