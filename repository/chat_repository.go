@@ -124,7 +124,7 @@ func (cr *ChatRepo) GetChats(userID int) ([]model.Chat, error) {
 		}
 
 		chat.IsSelf = false
-		if sender != userID {
+		if sender == userID {
 			chat.IsSelf = true
 		}
 
