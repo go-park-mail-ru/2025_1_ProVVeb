@@ -182,3 +182,7 @@ type DeletePayload struct {
 type ReadPayload struct {
 	ChatID int `json:"chat_id"`
 }
+
+type ChatNotificationsPayload struct {
+	ChatID int `json:"chat_id"`
+}

@@ -65,13 +65,80 @@ type MessageHandler struct {
 	CreateMessageUC        usecase.CreateMessages
 	GetMessagesFromCacheUC usecase.GetMessagesFromCache
 	UpdateMessageStatusUC  usecase.UpdateMessageStatus
-	Logger                 *logger.LogrusLogger
+
+	Logger *logger.LogrusLogger
 }
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+}
+
+func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		mh.Logger.WithFields(&logrus.Fields{
+			"error": "failed to get userID from context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
+		return
+	}
+	defer conn.Close()
+
+	for {
+		_, msgData, err := conn.ReadMessage()
+		if err != nil {
+			mh.Logger.Error("Error reading message from WebSocket: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
+			break
+		}
+
+		var wsMessage model.WSMessage
+		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
+			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
+			break
+		}
+
+		switch wsMessage.Type {
+		case "chat":
+			go func(profileID int) {
+				chats, err := mh.GetChatsUC.GetChats(profileID)
+				if err != nil {
+					mh.Logger.Error("Failed to get chats: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to load chat notifications"})
+					return
+				}
+
+				var unreadChats []model.Chat
+				for _, chat := range chats {
+					if chat.IsRead {
+						unreadChats = append(unreadChats, chat)
+					}
+				}
+
+				conn.WriteJSON(map[string]interface{}{
+					"type":  "chat_notifications",
+					"chats": unreadChats,
+				})
+			}(int(profileId))
+
+		default:
+			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
+			conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"})
+		}
+	}
 }
 
 func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
@@ -106,14 +173,13 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
 		return
 	}
+	defer conn.Close()
 
 	first, second, err := mh.GetParticipants.GetChatParticipants(chatID)
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to get chat participants"})
 		return
 	}
-
-	defer conn.Close()
 
 	if (profileId != uint32(first)) && (profileId != uint32(second)) {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access "})
