@@ -19,6 +19,9 @@ type ProfileRepository interface {
 	GetPhotos(userId int) ([]string, error)
 	DeletePhoto(userId int, url string) error
 	StorePhoto(userId int, url string) error
+	DeleteProfile(userId int) error
+	StorePhotos(profileId int, paths []string) error
+	StoreInterests(profileId int, interests []string) error
 	SetLike(from int, to int, status int) (int, error)
 	CloseRepo() error
 }
@@ -560,4 +563,73 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 	}
 
 	return likeID, nil
+}
+
+func (pr *ProfileRepo) StoreInterests(profileID int, interests []string) error {
+	ctx := context.Background()
+
+	tx, err := pr.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, desc := range interests {
+		var interestID int
+
+		err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+		if err != nil {
+			err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+			if err != nil {
+				return err
+			}
+		}
+
+		_, err = tx.ExecContext(ctx, insertProfileInterest, profileID, interestID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (pr *ProfileRepo) StorePhotos(profileID int, paths []string) error {
+	ctx := context.Background()
+
+	for _, path := range paths {
+		_, err := pr.DB.ExecContext(ctx, insertStaticPhoto, profileID, path)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+const (
+	DeleteProfileQuery = `
+DELETE FROM profiles WHERE profile_id = $1;
+`
+	FindUserProfileQuery = `
+	SELECT profile_id FROM users WHERE user_id = $1;
+	`
+)
+
+func (pr *ProfileRepo) DeleteProfile(userId int) error {
+	var profileId int
+	fmt.Println("kjvnskkfn", userId)
+	err := pr.DB.QueryRowContext(context.Background(), FindUserProfileQuery, userId).Scan(&profileId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return model.ErrProfileNotFound
+		}
+		return model.ErrInvalidProfile
+	}
+
+	_, err = pr.DB.ExecContext(context.Background(), DeleteProfileQuery, profileId)
+	if err != nil {
+		return model.ErrDeleteProfile
+	}
+
+	return nil
 }

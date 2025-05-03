@@ -10,11 +10,16 @@ import (
 
 func (pss *ProfileServiceServer) GetProfile(ctx context.Context, req *profiles.GetProfileRequest) (*profiles.GetProfileResponse, error) {
 	pss.Logger.Info("GetProfile", "user_id", req.GetProfileId())
-	profile, err := pss.UserRepo.GetProfileById(int(req.GetProfileId()))
+	profile, err := pss.ProfilesRepo.GetProfileById(int(req.GetProfileId()))
 	if err != nil {
 		pss.Logger.Error("GetProfile", "user_id", req.GetProfileId(), "error", err)
 	} else {
 		pss.Logger.WithFields(&logrus.Fields{"user_id": req.GetProfileId(), "profile": profile})
+	}
+
+	likedBy := []int32{}
+	for _, like := range profile.LikedBy {
+		likedBy = append(likedBy, int32(like))
 	}
 
 	var prefs []*profiles.Preference
@@ -36,6 +41,7 @@ func (pss *ProfileServiceServer) GetProfile(ctx context.Context, req *profiles.G
 		Interests:   profile.Interests,
 		Preferences: prefs,
 		Photos:      profile.Photos,
+		LikedBy:     likedBy,
 	}
 
 	return &profiles.GetProfileResponse{Profile: prof}, err

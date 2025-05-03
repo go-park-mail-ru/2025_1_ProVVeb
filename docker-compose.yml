@@ -146,6 +146,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  
+  users_micro:
+    build:
+      context: ./backend
+      dockerfile: users_micro/Dockerfile
+    ports:
+      - "8085:8085"
+    restart: always
+    volumes:
+      - ./backend:/backend
+    working_dir: /backend/users_micro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_DB: dev
+      POSTGRES_SSLMODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

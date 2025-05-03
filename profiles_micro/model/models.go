@@ -29,4 +29,7 @@ type Profile struct {
 
 var (
 	ErrInvalidUserRepoConfig = errors.New("invalid user repository config")
+	ErrProfileNotFound       = errors.New("profile not found")
+	ErrInvalidProfile        = errors.New("invalid profile")
+	ErrDeleteProfile         = errors.New("failed to delete profile")
 )

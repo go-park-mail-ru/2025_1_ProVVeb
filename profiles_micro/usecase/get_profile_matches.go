@@ -10,7 +10,7 @@ import (
 
 func (pss *ProfileServiceServer) GetProfileMatches(ctx context.Context, req *profiles.GetProfileMatchesRequest) (*profiles.GetProfileMatchesResponse, error) {
 	pss.Logger.Info("GetProfileMatches", "user_id", req.GetForUserId())
-	result, err := pss.UserRepo.GetMatches(int(req.GetForUserId()))
+	result, err := pss.ProfilesRepo.GetMatches(int(req.GetForUserId()))
 	if err != nil {
 		pss.Logger.WithFields(&logrus.Fields{"forUserId": req.GetForUserId(), "error": err}).Error("GetProfileMatches", "error")
 	} else {
@@ -36,6 +36,7 @@ func (pss *ProfileServiceServer) GetProfileMatches(ctx context.Context, req *pro
 			Description: profile.Description,
 			Location:    profile.Location,
 			Interests:   profile.Interests,
+			// we dont give anybody information about whom profile liked by
 			Preferences: prefs,
 			Photos:      profile.Photos,
 		})

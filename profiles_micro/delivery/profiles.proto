@@ -7,8 +7,10 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service ProfilesService {
+    rpc StoreProfile(StoreProfileRequest) returns (StoreProfileResponse);
     rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
     rpc UpdateProfile(UpdateProfileRequest) returns (google.protobuf.Empty);
+    rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty);
     rpc GetProfiles(GetProfilesRequest) returns (GetProfilesResponse);
     rpc GetProfileImages(GetProfileImagesRequest) returns (GetProfileImagesResponse);
     rpc UploadProfileImage(UploadProfileImageRequest) returns (google.protobuf.Empty);
@@ -96,4 +98,16 @@ message SetProfileLikeRequest {
 
 message SetProfileLikeResponse {
     int32 like_id = 1;
+}
+
+message StoreProfileRequest {
+    Profile profile = 1;
+}
+
+message StoreProfileResponse {
+    int32 profile_id = 1;
+}
+
+message DeleteProfileRequest {
+    int32 profile_id = 1;
 }

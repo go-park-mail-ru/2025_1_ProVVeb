@@ -17,6 +17,7 @@ import (
 	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
 	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
 	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
+	userspb "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery"
 )
 
 func Run() {
@@ -38,6 +39,12 @@ func Run() {
 	}
 	defer profiles_con.Close()
 
+	users_con, err := grpc.NewClient("users_micro:8085", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to users_micro: %v", err))
+	}
+	defer users_con.Close()
+
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
@@ -51,12 +58,6 @@ func Run() {
 		return
 	}
 	defer postgresClient.CloseRepo()
-
-	staticClient, err := repository.NewStaticRepo()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with minio: %v", err))
-		return
-	}
 
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
@@ -76,7 +77,7 @@ func Run() {
 		return
 	}
 
-	userHandler, err := NewUserHandler(postgresClient, staticClient, hasher, validator, logger)
+	usersHandler, err := NewUsersHandler(users_con, profiles_con, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with userHandler: %v", err))
 		return
@@ -100,7 +101,7 @@ func Run() {
 	r.Use(PanicMiddleware(logger))
 	r.Use(AccessLogMiddleware(logger))
 
-	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
+	r.HandleFunc("/users", usersHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 
@@ -108,9 +109,9 @@ func Run() {
 	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	usersSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	usersSubrouter.HandleFunc("/{id}", userHandler.DeleteUser).Methods("DELETE")
+	usersSubrouter.HandleFunc("/{id}", usersHandler.DeleteUser).Methods("DELETE")
 	usersSubrouter.HandleFunc("/checkSession", sessionHandler.CheckSession).Methods("GET")
-	usersSubrouter.HandleFunc("/getParams", userHandler.GetUserParams).Methods("GET")
+	usersSubrouter.HandleFunc("/getParams", usersHandler.GetUserParams).Methods("GET")
 
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
@@ -299,42 +300,32 @@ func NewSessionHandler(
 	}, nil
 }
 
-func NewUserHandler(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
-	hasher repository.PasswordHasher,
-	validator repository.UserParamsValidator,
+func NewUsersHandler(
+	userConn *grpc.ClientConn,
+	profilesConn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
 ) (*UserHandler, error) {
-	signupUC, err := usecase.NewUserSignUpUseCase(
-		userRepo,
-		staticRepo,
-		hasher,
-		validator,
-		logger,
-	)
+	usersClient := userspb.NewUsersServiceClient(userConn)
+	profilesClient := profilespb.NewProfilesServiceClient(profilesConn)
+
+	SignupUC, err := usecase.NewUserSignUpUseCase(usersClient, profilesClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
-	deleteUserUC, err := usecase.NewUserDeleteUseCase(
-		userRepo,
-		logger,
-	)
+	DeleteUserUC, err := usecase.NewUserDeleteUseCase(usersClient, profilesClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
 
-	getParam, err := usecase.NewUserGetParamsUseCase(
-		userRepo,
-	)
+	GetUserParamsUC, err := usecase.NewUserGetParamsUseCase(usersClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
 
 	return &UserHandler{
-		SignupUC:     *signupUC,
-		DeleteUserUC: *deleteUserUC,
-		GetParamsUC:  *getParam,
+		SignupUC:     *SignupUC,
+		DeleteUserUC: *DeleteUserUC,
+		GetParamsUC:  *GetUserParamsUC,
 		Logger:       logger,
 	}, nil
 }

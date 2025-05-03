@@ -16,7 +16,11 @@ func (pss *ProfileServiceServer) SetProfileLike(
 		"to":     req.GetTo(),
 		"status": req.GetStatus(),
 	}).Info("SetProfileLike")
-	result, err := pss.UserRepo.SetLike(int(req.GetFrom()), int(req.GetTo()), int(req.GetStatus()))
+	result, err := pss.ProfilesRepo.SetLike(
+		int(req.GetFrom()),
+		int(req.GetTo()),
+		int(req.GetStatus()),
+	)
 	if err != nil {
 		pss.Logger.Error("SetProfileLike", "error", err)
 	} else {

@@ -43,6 +43,11 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		req.Targ.Preferences = req.Value.Preferences
 	}
 
+	likedBy := []int{}
+	for _, like := range req.Value.LikedBy {
+		likedBy = append(likedBy, int(like))
+	}
+
 	var prefs []model.Preference
 	for _, preference := range req.Value.Preferences {
 		prefs = append(prefs, model.Preference{
@@ -61,9 +66,10 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		Location:    req.Targ.Location,
 		Interests:   req.Targ.Interests,
 		Preferences: prefs,
+		LikedBy:     likedBy,
 	}
 
-	err := pss.UserRepo.UpdateProfile(int(req.ProfileId), prof)
+	err := pss.ProfilesRepo.UpdateProfile(int(req.ProfileId), prof)
 	pss.Logger.WithFields(&logrus.Fields{"error": err}).Error("UpdateProfile")
 	return &emptypb.Empty{}, err
 }
