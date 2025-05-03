@@ -96,7 +96,7 @@ func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.Close()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	done := make(chan struct{})
@@ -192,7 +192,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	done := make(chan struct{})
 

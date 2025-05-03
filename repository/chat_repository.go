@@ -212,7 +212,7 @@ const GetMessagesQuery = `
 		status,
 		created_at
 	FROM messages
-	WHERE chat_id = $1
+	WHERE chat_id = $1 AND status = 2
 	ORDER BY created_at ASC;
 `
 
