@@ -186,3 +186,15 @@ type ReadPayload struct {
 type ChatNotificationsPayload struct {
 	ChatID int `json:"chat_id"`
 }
+
+type ComplaintWithLogins struct {
+	ComplaintID   int64      `json:"complaint_id"`
+	ComplaintBy   string     `json:"complaint_by"`
+	ComplaintOn   string     `json:"complaint_on"`
+	ComplaintType int64      `json:"complaint_type"`
+	TypeDesc      string     `json:"type_description"`
+	Text          string     `json:"complaint_text"`
+	Status        int        `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ClosedAt      *time.Time `json:"closed_at"`
+}

@@ -53,7 +53,13 @@ func Run() {
 
 	chatClient, err := repository.NewChatRepo()
 	if err != nil {
-		fmt.Printf("Failed to initialize redis: %v\n", err)
+		fmt.Printf("Failed to initialize chat repo: %v\n", err)
+		return
+	}
+
+	complaintClient, err := repository.NewComplaintRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize complaint repo: %v\n", err)
 		return
 	}
 
@@ -104,6 +110,12 @@ func Run() {
 	profilesHandler, err := NewProfilesHandler(profiles_con, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
+		return
+	}
+
+	complaintHandler, err := NewComplaintHandler(complaintClient, users_con, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with complaintHandler: %v", err))
 		return
 	}
 
@@ -171,6 +183,13 @@ func Run() {
 
 	notificationsSubrouter.HandleFunc("", messageHandler.GetNotifications).Methods("GET")
 
+	ComplaintSubrouter := r.PathPrefix("/complaints").Subrouter()
+	ComplaintSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	ComplaintSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
+
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
@@ -189,6 +208,36 @@ func Run() {
 
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
+}
+
+func NewComplaintHandler(
+	complRepo repository.ComplaintRepository,
+	admin_conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
+) (*ComplaitHandler, error) {
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
+
+	GetComplaints, err := usecase.NewGetComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	CreateComplate, err := usecase.NewCreateComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ComplaitHandler{
+		GetComplaintsUC:  *GetComplaints,
+		CreateComplateUC: *CreateComplate,
+		GetAdminUC:       *GetAdminUC,
+		Logger:           logger,
+	}, nil
 }
 
 func NewQueryHandler(

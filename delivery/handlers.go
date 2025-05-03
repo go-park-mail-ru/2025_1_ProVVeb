@@ -34,6 +34,13 @@ type UserHandler struct {
 	Logger       *logger.LogrusLogger
 }
 
+type ComplaitHandler struct {
+	GetComplaintsUC  usecase.GetComplaint
+	CreateComplateUC usecase.CreateComplaint
+	GetAdminUC       usecase.GetAdmin
+	Logger           *logger.LogrusLogger
+}
+
 type ProfilesHandler struct {
 	DeleteImageUC         usecase.DeleteStatic
 	GetProfileImagesUC    usecase.GetUserPhoto
@@ -1740,4 +1747,123 @@ func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Reques
 	}).Info("answers for query retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, answers)
+}
+
+func (ch *ComplaitHandler) CreateComplaint(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("CreateComplaint request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	type CreateComplaintRequest struct {
+		Complaint_type string `json:"firstID"`
+		Complaint_text string `json:"complaint_text"`
+		Complaint_on   string `json:"complaint_on"`
+	}
+	var req CreateComplaintRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+		return
+	}
+
+	var complOn int
+	if req.Complaint_on == "" {
+		complOn = 0
+	} else {
+		var err error
+		complOn, err = strconv.Atoi(req.Complaint_on)
+		if err != nil {
+			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid complaint_on value"})
+			return
+		}
+	}
+
+	if err := ch.CreateComplateUC.CreateComplaint(int(user_id), complOn, req.Complaint_type, req.Complaint_text); err != nil {
+		fmt.Println(err)
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		return
+	}
+
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Complaint created"})
+
+}
+
+func (ch *ComplaitHandler) GetComplaints(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetComplaints request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get complaints")
+
+	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get complaints")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	complaints, err := ch.GetComplaintsUC.GetAllComplaints()
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get complaints")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting complaint: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("complaints retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, complaints)
 }
