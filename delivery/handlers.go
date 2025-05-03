@@ -126,7 +126,7 @@ func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Reques
 
 			var unreadChats []model.Chat
 			for _, chat := range chats {
-				if chat.IsRead {
+				if chat.IsRead && !chat.IsSelf {
 					unreadChats = append(unreadChats, chat)
 				}
 			}
