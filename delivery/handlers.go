@@ -106,13 +106,28 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
 		return
 	}
-	defer conn.Close()
 
 	first, second, err := mh.GetParticipants.GetChatParticipants(chatID)
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to get chat participants"})
 		return
 	}
+
+	defer func() {
+		_ = conn.Close()
+
+		go func() {
+			if err := mh.UpdateMessageStatusUC.UpdateMessageStatus(chatID, first); err != nil {
+				mh.Logger.Error("Failed to update message status for first user on disconnect: ", err)
+			}
+		}()
+
+		go func() {
+			if err := mh.UpdateMessageStatusUC.UpdateMessageStatus(chatID, second); err != nil {
+				mh.Logger.Error("Failed to update message status for second user on disconnect: ", err)
+			}
+		}()
+	}()
 
 	if (profileId != uint32(first)) && (profileId != uint32(second)) {
 		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access "})
@@ -188,6 +203,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}(payload)
 
 		case "get":
+			// newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, first)
 			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 			if err != nil {
 				mh.Logger.Error("Failed to get messages from cache: ", err)
@@ -209,6 +225,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}
 
 			go func(payload model.ReadPayload) {
+				// err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, first)
 				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)

@@ -256,6 +256,12 @@ const (
 		SET last_message = $1
 		WHERE chat_id = $2;
 	`
+
+	GetDeletedMessageQuery = `
+		SELECT message_id, user_id, content, created_at
+		FROM messages
+		WHERE chat_id = $1 AND message_id = $2;
+	`
 )
 
 func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
@@ -264,6 +270,17 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 		return err
 	}
 	defer tx.Rollback()
+
+	var deletedMsg model.Message
+	err = tx.QueryRowContext(cr.ctx, GetDeletedMessageQuery, chatID, messageID).Scan(
+		&deletedMsg.MessageID,
+		&deletedMsg.SenderID,
+		&deletedMsg.Text,
+		&deletedMsg.CreatedAt,
+	)
+	if err != nil {
+		return err
+	}
 
 	_, err = tx.ExecContext(context.Background(), DeleteMessageQuery, chatID, messageID)
 	if err != nil {
@@ -297,12 +314,19 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 		if err != nil {
 			return err
 		}
+
 		var updated []model.Message
 		for _, m := range existingMessages {
 			if m.MessageID != messageID {
 				updated = append(updated, m)
 			}
 		}
+
+		if uid != deletedMsg.SenderID {
+			deletedMsg.Status = -1
+			updated = append(updated, deletedMsg)
+		}
+
 		if err := cr.updateMessageCache(chatID, uid, updated); err != nil {
 			return err
 		}
@@ -389,15 +413,49 @@ const (
 )
 
 func (cr *ChatRepo) UpdateMessageStatus(chatID int, userID int) error {
-	redisKey := fmt.Sprintf("chat:%d:messages_user%d", chatID, userID)
-
-	_, err := cr.DB.ExecContext(context.Background(), UpdateMessageStatusQuery, chatID, userID)
+	oldMessages, err := cr.GetMessagesFromCache(chatID, userID)
 	if err != nil {
 		return err
 	}
-	_, err = cr.client.Del(cr.ctx, redisKey).Result()
 
-	return err
+	redisKey := fmt.Sprintf("chat:%d:messages_user%d", chatID, userID)
+	_, err = cr.client.Del(cr.ctx, redisKey).Result()
+	if err != nil {
+		return err
+	}
+
+	_, err = cr.DB.ExecContext(context.Background(), UpdateMessageStatusQuery, chatID, userID)
+	if err != nil {
+		return err
+	}
+
+	firstID, secondID, err := cr.GetChatParticipants(chatID)
+	if err != nil {
+		return err
+	}
+
+	var receiverID int
+	if userID == firstID {
+		receiverID = secondID
+	} else {
+		receiverID = firstID
+	}
+
+	existingMessages, err := cr.GetMessagesFromCache(chatID, receiverID)
+	if err != nil {
+		return err
+	}
+
+	for _, msg := range oldMessages {
+		msg.Status = 2
+		existingMessages = append(existingMessages, msg)
+	}
+
+	if err := cr.updateMessageCache(chatID, receiverID, existingMessages); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Message, error) {
@@ -416,6 +474,16 @@ func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Messag
 	if err != nil {
 		return nil, err
 	}
+
+	var filtered []model.Message
+	for _, m := range messages {
+		if m.Status == 1 {
+			filtered = append(filtered, m)
+		}
+	}
+
+	data, _ := json.Marshal(filtered)
+	cr.client.Set(cr.ctx, redisKey, data, 0)
 
 	return messages, nil
 }
