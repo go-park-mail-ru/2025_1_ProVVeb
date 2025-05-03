@@ -617,7 +617,6 @@ DELETE FROM profiles WHERE profile_id = $1;
 
 func (pr *ProfileRepo) DeleteProfile(userId int) error {
 	var profileId int
-	fmt.Println("kjvnskkfn", userId)
 	err := pr.DB.QueryRowContext(context.Background(), FindUserProfileQuery, userId).Scan(&profileId)
 	if err != nil {
 		if err == sql.ErrNoRows {
