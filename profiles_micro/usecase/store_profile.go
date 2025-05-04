@@ -88,7 +88,7 @@ func (pss *ProfileServiceServer) StoreProfile(
 
 	location := sentProfile.Location
 	if location == "" {
-		location = fake.City()
+		location = fake.Country() + "@" + fake.City() + "@" + fake.State()
 	}
 
 	interests := sentProfile.Interests
