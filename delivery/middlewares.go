@@ -14,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/sirupsen/logrus"
 )
@@ -173,4 +174,56 @@ func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) 
 		return hj.Hijack()
 	}
 	return nil, nil, fmt.Errorf("underlying ResponseWriter does not support Hijacker")
+}
+
+func metricsMiddleware(next http.Handler) http.Handler {
+	httpRequests := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total HTTP requests",
+		},
+		[]string{"path", "method", "status"},
+	)
+	httpDuration := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_duration_seconds",
+			Help:    "Duration of HTTP requests",
+			Buckets: []float64{0.1, 0.5, 1, 2.5, 5},
+		},
+		[]string{"path", "method"},
+	)
+
+	// Регистрируем метрики в глобальном registry
+	prometheus.MustRegister(httpRequests, httpDuration)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &responseRecorder{w, http.StatusOK}
+
+		next.ServeHTTP(rw, r)
+
+		duration := time.Since(start).Seconds()
+
+		// Записываем метрики
+		httpRequests.WithLabelValues(
+			r.URL.Path,
+			r.Method,
+			strconv.Itoa(rw.status),
+		).Inc()
+
+		httpDuration.WithLabelValues(
+			r.URL.Path,
+			r.Method,
+		).Observe(duration)
+	})
+}
+
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseRecorder) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
 }
