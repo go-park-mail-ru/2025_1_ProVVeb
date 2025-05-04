@@ -198,3 +198,21 @@ type ComplaintWithLogins struct {
 	CreatedAt     time.Time  `json:"created_at"`
 	ClosedAt      *time.Time `json:"closed_at"`
 }
+
+type SearchProfileRequest struct {
+	Input     string `json:"input"`
+	IsMale    string `json:"isMale"`
+	AgeMin    int    `json:"ageMin"`
+	AgeMax    int    `json:"ageMax"`
+	HeightMin int    `json:"heightMin"`
+	HeightMax int    `json:"heightMax"`
+	Country   string `json:"country"`
+	City      string `json:"city"`
+}
+
+type FoundProfile struct {
+	IDUser   int    `json:"idUser"`
+	FirstImg string `json:"firstImgSrc"`
+	Fullname string `json:"fullname"`
+	Age      int    `json:"age"`
+}

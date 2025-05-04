@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 )
@@ -48,4 +49,13 @@ func ValidateProfile(p Profile) error {
 	}
 
 	return nil
+}
+
+func CalculateAge(birthday time.Time) int {
+	now := time.Now()
+	age := now.Year() - birthday.Year()
+	if now.YearDay() < birthday.YearDay() {
+		age--
+	}
+	return age
 }

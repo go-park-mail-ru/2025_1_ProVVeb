@@ -144,8 +144,7 @@ CREATE TABLE complaints (
     closed_at TIMESTAMP,
     FOREIGN KEY (complaint_by) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (complaint_on) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (complaint_type) REFERENCES complaint_types(comp_type) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT unique_complaint UNIQUE (complaint_by, complaint_on, complaint_type)
+    FOREIGN KEY (complaint_type) REFERENCES complaint_types(comp_type) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE blacklist (

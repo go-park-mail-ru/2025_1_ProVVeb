@@ -50,6 +50,7 @@ type ProfilesHandler struct {
 	SetProfilesLikeUC     usecase.ProfileSetLike
 	UpdateProfileUC       usecase.ProfileUpdate
 	UpdateProfileImagesUC usecase.StaticUpload
+	SearchProfileUC       usecase.SearchProfiles
 	Logger                *logger.LogrusLogger
 }
 
@@ -594,6 +595,66 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		"profile_id":    profileId,
 		"matches_count": len(profiles),
 	}).Info("successfully retrieved matches")
+
+	MakeResponse(w, http.StatusOK, profiles)
+}
+
+func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("SearchProfiles request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		ph.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized profiles access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"requester_id": profileId,
+	}).Debug("attempting to get profiles list")
+
+	var input model.SearchProfileRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to decode like request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
+		return
+	}
+
+	profiles, err := ph.SearchProfileUC.GetSearchProfiles(int(profileId), input)
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"requester_id": profileId,
+			"error":        err.Error(),
+		}).Error("failed to get profiles list")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		)
+		return
+	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"requester_id":   profileId,
+		"profiles_count": len(profiles),
+	}).Info("profiles list retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, profiles)
 }

@@ -146,6 +146,7 @@ func Run() {
 	profileSubrouter.HandleFunc("/like", profilesHandler.SetLike).Methods("POST")
 	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
 	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
+	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
@@ -389,6 +390,11 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	SearchProfile, err := usecase.NewSearchProfilesUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -398,6 +404,7 @@ func NewProfilesHandler(
 		SetProfilesLikeUC:     *SetProfilesLike,
 		UpdateProfileUC:       *UpdateProfile,
 		UpdateProfileImagesUC: *UpdateProfileImages,
+		SearchProfileUC:       *SearchProfile,
 		Logger:                logger,
 	}, nil
 }
