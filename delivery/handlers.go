@@ -641,6 +641,13 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if len(profiles) == 0 {
+		MakeResponse(w, http.StatusNotFound,
+			map[string]string{"message": "There are no profiles"},
+		)
+		return
+	}
+
 	ph.Logger.WithFields(&logrus.Fields{
 		"requester_id":   profileId,
 		"profiles_count": len(profiles),
