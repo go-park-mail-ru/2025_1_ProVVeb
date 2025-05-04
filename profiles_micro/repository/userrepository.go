@@ -220,14 +220,37 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 }
 
 const CreateProfileQuery = `
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING profile_id;
 `
 
 func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err error) {
+	ctx := context.Background()
+
+	var locationID *int
+	if profile.Location != "" {
+		parts := strings.Split(profile.Location, "@")
+		if len(parts) != 3 {
+			return 0, fmt.Errorf("invalid location format: expected 'Country@City@District'")
+		}
+		country := strings.TrimSpace(parts[0])
+		city := strings.TrimSpace(parts[1])
+		district := strings.TrimSpace(parts[2])
+
+		var id int
+		err := pr.DB.QueryRowContext(ctx, GetLocationID, country, city, district).Scan(&id)
+		if err != nil {
+			err = pr.DB.QueryRowContext(ctx, InsertLocation, country, city, district).Scan(&id)
+			if err != nil {
+				return 0, fmt.Errorf("failed to insert/get location: %w", err)
+			}
+		}
+		locationID = &id
+	}
+
 	err = pr.DB.QueryRowContext(
-		context.Background(),
+		ctx,
 		CreateProfileQuery,
 		profile.FirstName,
 		profile.LastName,
@@ -235,7 +258,9 @@ func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err e
 		profile.Birthday,
 		profile.Height,
 		profile.Description,
+		locationID,
 	).Scan(&profileId)
+
 	return
 }
 
@@ -312,9 +337,13 @@ SET
 	is_male = $3,
 	height = $4,
 	description = $5,
+	location_id = $6,
+	birthday = $7,             
 	updated_at = CURRENT_TIMESTAMP
-WHERE profile_id = $6;
+WHERE profile_id = $8;
+
 `
+
 	DeleteProfileInterests = `
 DELETE FROM profile_interests WHERE profile_id = $1
 `
