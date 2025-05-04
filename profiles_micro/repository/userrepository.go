@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -356,6 +357,16 @@ INSERT INTO interests (description)
 VALUES ($1)
 RETURNING interest_id
 `
+	GetLocationID = `
+SELECT location_id FROM locations
+WHERE country = $1 AND city = $2 AND district = $3
+`
+
+	InsertLocation = `
+INSERT INTO locations (country, city, district)
+VALUES ($1, $2, $3)
+RETURNING location_id			
+`
 )
 
 func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
@@ -367,6 +378,24 @@ func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) 
 	}
 	defer tx.Rollback()
 
+	var locationID int
+	if new_profile.Location != "" {
+		parts := strings.Split(new_profile.Location, "@")
+		if len(parts) != 3 {
+			return fmt.Errorf("invalid location format: expected 'Country@City@District'")
+		}
+		country, city, district := parts[0], parts[1], parts[2]
+
+		err := tx.QueryRowContext(ctx, GetLocationID, country, city, district).Scan(&locationID)
+
+		if err != nil {
+			err = tx.QueryRowContext(ctx, InsertLocation, country, city, district).Scan(&locationID)
+			if err != nil {
+				return fmt.Errorf("failed to insert or get location: %w", err)
+			}
+		}
+	}
+
 	_, err = tx.ExecContext(
 		ctx,
 		UpdateProfileQuery,
@@ -375,6 +404,8 @@ func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) 
 		new_profile.IsMale,
 		new_profile.Height,
 		new_profile.Description,
+		locationID,
+		new_profile.Birthday,
 		profile_id,
 	)
 	if err != nil {
