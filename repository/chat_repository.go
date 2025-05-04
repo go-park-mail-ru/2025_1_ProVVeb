@@ -154,15 +154,15 @@ func (cr *ChatRepo) GetChats(userID int) ([]model.Chat, error) {
 
 		redisKey := fmt.Sprintf("chat:%d:messages_user%d", chat.ChatId, userID)
 
-		_, err = cr.client.Get(cr.ctx, redisKey).Result()
-		if err != nil {
-			if err != redis.Nil {
-				return nil, err
-			}
+		q, err := cr.client.Get(cr.ctx, redisKey).Result()
+		if err == redis.Nil || q == "" || q == "null" {
 			chat.IsRead = false
+		} else if err != nil {
+			return nil, err
 		} else {
 			chat.IsRead = true
 		}
+
 		chats = append(chats, chat)
 	}
 
