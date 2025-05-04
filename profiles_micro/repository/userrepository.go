@@ -125,6 +125,8 @@ SELECT
     p.birthday, 
     p.description, 
     l.country, 
+    l.city,
+    l.district,
     liked.profile_id AS liked_by_profile_id,
     s.path AS avatar,
     i.description AS interest,
@@ -156,7 +158,7 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var preferenceValue sql.NullString
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
-	var location sql.NullString
+	var country, city, district sql.NullString
 
 	rows, err := pr.DB.QueryContext(context.Background(), GetProfileByIdQuery, profileId)
 	if err != nil {
@@ -173,7 +175,9 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&profile.Height,
 			&birth,
 			&profile.Description,
-			&location,
+			&country,
+			&city,
+			&district,
 			&likedByProfileId,
 			&photo,
 			&interest,
@@ -187,9 +191,10 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			profile.Birthday = birth.Time
 		}
 
-		if location.Valid {
-			profile.Location = location.String
+		if country.Valid && city.Valid && district.Valid {
+			profile.Location = fmt.Sprintf("%s@%s@%s", country.String, city.String, district.String)
 		}
+
 		if likedByProfileId.Valid && !slices.Contains(profile.LikedBy, int(likedByProfileId.Int64)) {
 			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
 		}
