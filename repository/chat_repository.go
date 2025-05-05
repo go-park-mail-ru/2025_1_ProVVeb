@@ -174,8 +174,8 @@ func (cr *ChatRepo) GetChats(userID int) ([]model.Chat, error) {
 }
 
 const CreateChatQuery = `
-		INSERT INTO chats (first_profile_id, second_profile_id, last_message)
-		VALUES ($1, $2, $3)
+		INSERT INTO chats (first_profile_id, second_profile_id, last_message, last_sender)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (first_profile_id, second_profile_id) DO NOTHING
 		RETURNING chat_id;
 	`
@@ -185,7 +185,8 @@ func (cr *ChatRepo) CreateChat(firstProfileID, secondProfileID int) (int, error)
 	if firstProfileID > secondProfileID {
 		firstProfileID, secondProfileID = secondProfileID, firstProfileID
 	}
-	err := cr.DB.QueryRowContext(context.Background(), CreateChatQuery, firstProfileID, secondProfileID, "").Scan(&chatID)
+	err := cr.DB.QueryRowContext(context.Background(), 
+	CreateChatQuery, firstProfileID, secondProfileID, "", secondProfileID).Scan(&chatID)
 	if err != nil {
 		return 0, err
 	}
