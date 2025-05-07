@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -124,6 +125,8 @@ SELECT
     p.birthday, 
     p.description, 
     l.country, 
+    l.city,
+    l.district,
     liked.profile_id AS liked_by_profile_id,
     s.path AS avatar,
     i.description AS interest,
@@ -155,7 +158,7 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var preferenceValue sql.NullString
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
-	var location sql.NullString
+	var country, city, district sql.NullString
 
 	rows, err := pr.DB.QueryContext(context.Background(), GetProfileByIdQuery, profileId)
 	if err != nil {
@@ -172,7 +175,9 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&profile.Height,
 			&birth,
 			&profile.Description,
-			&location,
+			&country,
+			&city,
+			&district,
 			&likedByProfileId,
 			&photo,
 			&interest,
@@ -186,9 +191,10 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			profile.Birthday = birth.Time
 		}
 
-		if location.Valid {
-			profile.Location = location.String
+		if country.Valid && city.Valid && district.Valid {
+			profile.Location = fmt.Sprintf("%s@%s@%s", country.String, city.String, district.String)
 		}
+
 		if likedByProfileId.Valid && !slices.Contains(profile.LikedBy, int(likedByProfileId.Int64)) {
 			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
 		}
@@ -219,14 +225,37 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 }
 
 const CreateProfileQuery = `
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING profile_id;
 `
 
 func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err error) {
+	ctx := context.Background()
+
+	var locationID *int
+	if profile.Location != "" {
+		parts := strings.Split(profile.Location, "@")
+		if len(parts) != 3 {
+			return 0, fmt.Errorf("invalid location format: expected 'Country@City@District'")
+		}
+		country := strings.TrimSpace(parts[0])
+		city := strings.TrimSpace(parts[1])
+		district := strings.TrimSpace(parts[2])
+
+		var id int
+		err := pr.DB.QueryRowContext(ctx, GetLocationID, country, city, district).Scan(&id)
+		if err != nil {
+			err = pr.DB.QueryRowContext(ctx, InsertLocation, country, city, district).Scan(&id)
+			if err != nil {
+				return 0, fmt.Errorf("failed to insert/get location: %w", err)
+			}
+		}
+		locationID = &id
+	}
+
 	err = pr.DB.QueryRowContext(
-		context.Background(),
+		ctx,
 		CreateProfileQuery,
 		profile.FirstName,
 		profile.LastName,
@@ -234,7 +263,9 @@ func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err e
 		profile.Birthday,
 		profile.Height,
 		profile.Description,
+		locationID,
 	).Scan(&profileId)
+
 	return
 }
 
@@ -311,9 +342,13 @@ SET
 	is_male = $3,
 	height = $4,
 	description = $5,
+	location_id = $6,
+	birthday = $7,             
 	updated_at = CURRENT_TIMESTAMP
-WHERE profile_id = $6;
+WHERE profile_id = $8;
+
 `
+
 	DeleteProfileInterests = `
 DELETE FROM profile_interests WHERE profile_id = $1
 `
@@ -356,6 +391,16 @@ INSERT INTO interests (description)
 VALUES ($1)
 RETURNING interest_id
 `
+	GetLocationID = `
+SELECT location_id FROM locations
+WHERE country = $1 AND city = $2 AND district = $3
+`
+
+	InsertLocation = `
+INSERT INTO locations (country, city, district)
+VALUES ($1, $2, $3)
+RETURNING location_id			
+`
 )
 
 func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) error {
@@ -367,6 +412,24 @@ func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) 
 	}
 	defer tx.Rollback()
 
+	var locationID int
+	if new_profile.Location != "" {
+		parts := strings.Split(new_profile.Location, "@")
+		if len(parts) != 3 {
+			return fmt.Errorf("invalid location format: expected 'Country@City@District'")
+		}
+		country, city, district := parts[0], parts[1], parts[2]
+
+		err := tx.QueryRowContext(ctx, GetLocationID, country, city, district).Scan(&locationID)
+
+		if err != nil {
+			err = tx.QueryRowContext(ctx, InsertLocation, country, city, district).Scan(&locationID)
+			if err != nil {
+				return fmt.Errorf("failed to insert or get location: %w", err)
+			}
+		}
+	}
+
 	_, err = tx.ExecContext(
 		ctx,
 		UpdateProfileQuery,
@@ -375,6 +438,8 @@ func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) 
 		new_profile.IsMale,
 		new_profile.Height,
 		new_profile.Description,
+		locationID,
+		new_profile.Birthday,
 		profile_id,
 	)
 	if err != nil {

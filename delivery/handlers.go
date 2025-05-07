@@ -521,17 +521,7 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if profile.ProfileId != 0 && int(profileId) != profile.ProfileId {
-		ph.Logger.WithFields(&logrus.Fields{
-			"request_profile_id":  profileId,
-			"provided_profile_id": profile.ProfileId,
-		}).Warn("profile ID mismatch")
-
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access for this"},
-		)
-		return
-	}
+	profile.ProfileId = int(profileId)
 
 	table_profile, err := ph.GetProfileUC.GetProfile(int(profileId))
 	if err != nil {
@@ -662,6 +652,13 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 
 		MakeResponse(w, http.StatusBadRequest,
 			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		)
+		return
+	}
+
+	if len(profiles) == 0 {
+		MakeResponse(w, http.StatusNotFound,
+			map[string]string{"message": "There are no profiles"},
 		)
 		return
 	}

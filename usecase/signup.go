@@ -135,7 +135,7 @@ func (uc *UserSignUp) SaveUserProfile(sentProfile model.Profile) (int, error) {
 	}
 
 	res, err := uc.ProfilesService.StoreProfile(context.Background(), req)
-	uc.logger.WithFields(&logrus.Fields{"err": err, "profileId": int(res.ProfileId)})
+	uc.logger.WithFields(&logrus.Fields{"err": err, "profileId": int(res.GetProfileId())})
 	profileId := int(res.ProfileId)
 
 	return profileId, nil

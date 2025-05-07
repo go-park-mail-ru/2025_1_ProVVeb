@@ -32,7 +32,6 @@ func (pss *ProfileServiceServer) StoreProfile(
 	}
 
 	var sentProfile model.Profile = model.Profile{
-		ProfileId:   int(req.Profile.ProfileId),
 		FirstName:   req.Profile.FirstName,
 		LastName:    req.Profile.LastName,
 		IsMale:      req.Profile.IsMale,
@@ -89,7 +88,7 @@ func (pss *ProfileServiceServer) StoreProfile(
 
 	location := sentProfile.Location
 	if location == "" {
-		location = fake.City()
+		location = fake.Country() + "@" + fake.City() + "@" + fake.State()
 	}
 
 	interests := sentProfile.Interests
@@ -100,17 +99,15 @@ func (pss *ProfileServiceServer) StoreProfile(
 	}
 
 	var photos []string
-	var defaultFileName string
+	var defaultFileName = "/" + fake.CharactersN(15) + ".png"
 	if len(sentProfile.Photos) == 0 {
 		photos = make([]string, 0, 6)
-		defaultFileName := "/" + fake.CharactersN(15) + ".png"
 		photos = append(photos, defaultFileName)
 	} else {
 		photos = sentProfile.Photos
 	}
 
 	profile := model.Profile{
-		// ProfileId:   sentProfile.ProfileId,
 		FirstName:   fname,
 		LastName:    lname,
 		IsMale:      sentProfile.IsMale,

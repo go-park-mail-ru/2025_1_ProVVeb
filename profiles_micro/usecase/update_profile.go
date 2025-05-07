@@ -27,6 +27,13 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		req.Targ.Birthday = req.Value.Birthday
 	}
 
+	// here is joke:
+	// if is male is true, it means that we must change gender
+	// sorry bruh
+	if req.Value.IsMale == true {
+		req.Targ.IsMale = !req.Targ.IsMale
+	}
+
 	if req.Value.Description != "" {
 		req.Targ.Description = req.Value.Description
 	}
@@ -59,6 +66,7 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 	var prof model.Profile = model.Profile{
 		ProfileId:   int(req.ProfileId),
 		FirstName:   req.Targ.FirstName,
+		IsMale:      req.Targ.IsMale,
 		LastName:    req.Targ.LastName,
 		Height:      int(req.Targ.Height),
 		Birthday:    req.Targ.Birthday.AsTime(),
