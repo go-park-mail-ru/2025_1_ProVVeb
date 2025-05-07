@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -10,13 +11,13 @@ var MaxPasswordLength = 64
 var MinLoginLength = 7
 var MaxLoginLength = 15
 
-var SessionDuration = 12 * time.Hour
+var SessionDuration = 3 * 24 * time.Hour
 var SessionIdLength = 32
 
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
-const Megabyte int = 8 * 1024 * 1024
+const Megabyte int = 1 << 23
 const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
 
@@ -141,4 +142,77 @@ type UsersForQuery struct {
 	Login       string `yaml:"login" json:"login"`
 	Answer      string `yaml:"answer" json:"answer"`
 	Score       int    `yaml:"score" json:"score"`
+}
+
+type Chat struct {
+	ProfileId          int    `yaml:"profileId" json:"profileId"`
+	ChatId             int    `yaml:"chatId" json:"chatId"`
+	ProfileName        string `yaml:"profileName" json:"profileName"`
+	ProfilePicture     string `yaml:"profilePicture" json:"profilePicture"`
+	ProfileDescription string `yaml:"profileDescription" json:"profileDescription"`
+	LastMessage        string `yaml:"lastMessage" json:"lastMessage"`
+	IsRead             bool   `yaml:"isRead" json:"isRead"`
+	IsSelf             bool   `yaml:"isSelf" json:"isSelf"`
+}
+
+type Message struct {
+	MessageID int       `yaml:"messageid" json:"messageid"`
+	SenderID  int       `yaml:"senderid" json:"senderid"`
+	Text      string    `yaml:"text" json:"text"`
+	Status    int       `yaml:"status" json:"status"`
+	CreatedAt time.Time `yaml:"createdAt" json:"createdAt"`
+}
+
+type WSMessage struct {
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+type CreatePayload struct {
+	ChatID  int    `json:"chat_id"`
+	UserID  int    `json:"user_id"`
+	Content string `json:"content"`
+}
+
+type DeletePayload struct {
+	ChatID    int `json:"chat_id"`
+	MessageID int `json:"message_id"`
+}
+
+type ReadPayload struct {
+	ChatID int `json:"chat_id"`
+}
+
+type ChatNotificationsPayload struct {
+	ChatID int `json:"chat_id"`
+}
+
+type ComplaintWithLogins struct {
+	ComplaintID   int64      `json:"complaint_id"`
+	ComplaintBy   string     `json:"complaint_by"`
+	ComplaintOn   string     `json:"complaint_on"`
+	ComplaintType int64      `json:"complaint_type"`
+	TypeDesc      string     `json:"type_description"`
+	Text          string     `json:"complaint_text"`
+	Status        int        `json:"status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	ClosedAt      *time.Time `json:"closed_at"`
+}
+
+type SearchProfileRequest struct {
+	Input     string `json:"input"`
+	IsMale    string `json:"isMale"`
+	AgeMin    int    `json:"ageMin"`
+	AgeMax    int    `json:"ageMax"`
+	HeightMin int    `json:"heightMin"`
+	HeightMax int    `json:"heightMax"`
+	Country   string `json:"country"`
+	City      string `json:"city"`
+}
+
+type FoundProfile struct {
+	IDUser   int    `json:"idUser"`
+	FirstImg string `json:"firstImgSrc"`
+	Fullname string `json:"fullname"`
+	Age      int    `json:"age"`
 }

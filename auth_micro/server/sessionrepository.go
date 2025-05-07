@@ -12,9 +12,21 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+type SessionRepository interface {
+	CreateSession(userId int) model.Session
+	DeleteSession(sessionId string) error
+	GetSession(sessionId string) (string, error)
+	StoreSession(sessionId string, data string, ttl time.Duration) error
+	DeleteAllSessions() error
+	CloseRepo() error
+	CheckAttempts(userIP string) (string, error)
+	IncreaseAttempts(userIP string) error
+	DeleteAttempts(userIP string) error
+}
+
 type SessionRepo struct {
-	client *redis.Client
-	ctx    context.Context
+	Client *redis.Client
+	Ctx    context.Context
 }
 
 func NewSessionRepo() (*SessionRepo, error) {
@@ -32,8 +44,8 @@ func NewSessionRepo() (*SessionRepo, error) {
 	}
 
 	return &SessionRepo{
-		client: client,
-		ctx:    ctx,
+		Client: client,
+		Ctx:    ctx,
 	}, nil
 }
 
@@ -58,11 +70,11 @@ func (sr *SessionRepo) CreateSession(userId int) model.Session {
 }
 
 func (sr *SessionRepo) DeleteSession(sessionId string) error {
-	return sr.client.Del(sr.ctx, sessionId).Err()
+	return sr.Client.Del(sr.Ctx, sessionId).Err()
 }
 
 func (sr *SessionRepo) GetSession(sessionId string) (string, error) {
-	data, err := sr.client.Get(sr.ctx, sessionId).Result()
+	data, err := sr.Client.Get(sr.Ctx, sessionId).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return "", model.ErrSessionNotFound
@@ -73,7 +85,7 @@ func (sr *SessionRepo) GetSession(sessionId string) (string, error) {
 }
 
 func (sr *SessionRepo) StoreSession(sessionId string, data string, ttl time.Duration) error {
-	err := sr.client.Set(sr.ctx, sessionId, data, ttl).Err()
+	err := sr.Client.Set(sr.Ctx, sessionId, data, ttl).Err()
 	if err != nil {
 		return model.ErrStoreSession
 	}
@@ -81,20 +93,20 @@ func (sr *SessionRepo) StoreSession(sessionId string, data string, ttl time.Dura
 }
 
 func (sr *SessionRepo) DeleteAllSessions() error {
-	return sr.client.FlushAll(sr.ctx).Err()
+	return sr.Client.FlushAll(sr.Ctx).Err()
 }
 
 func (sr *SessionRepo) CloseRepo() error {
-	return sr.client.Close()
+	return sr.Client.Close()
 }
 
 func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
 
-	countStr, err := sr.client.Get(sr.ctx, tsKey).Result()
+	countStr, err := sr.Client.Get(sr.Ctx, tsKey).Result()
 	if err == redis.Nil {
-		if err := sr.client.Set(sr.ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
+		if err := sr.Client.Set(sr.Ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
 			return "", err
 		}
 		return "", nil
@@ -107,7 +119,7 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 		return "", err
 	}
 
-	blockUntilStr, err := sr.client.Get(sr.ctx, timeKey).Result()
+	blockUntilStr, err := sr.Client.Get(sr.Ctx, timeKey).Result()
 	if err != nil && err != redis.Nil {
 		return "", err
 	}
@@ -131,7 +143,7 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
 
-	count, err := sr.client.Incr(sr.ctx, tsKey).Result()
+	count, err := sr.Client.Incr(sr.Ctx, tsKey).Result()
 	if err != nil {
 		return err
 	}
@@ -139,7 +151,7 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 	if count >= model.MaxAttempts {
 		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
 		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
-		return sr.client.Set(sr.ctx, timeKey, blockUntil, additionalDelay).Err()
+		return sr.Client.Set(sr.Ctx, timeKey, blockUntil, additionalDelay).Err()
 	}
 
 	return nil
@@ -148,5 +160,5 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 func (sr *SessionRepo) DeleteAttempts(userIP string) error {
 	tsKey := model.AttemptsKeyPrefix + userIP
 	timeKey := model.TimeAttemptsKeyPrefix + userIP
-	return sr.client.Del(sr.ctx, tsKey, timeKey).Err()
+	return sr.Client.Del(sr.Ctx, tsKey, timeKey).Err()
 }

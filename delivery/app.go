@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -11,30 +10,78 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
+	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
 	querypb "github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/proto"
+	userspb "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery"
 )
 
 func Run() {
-	query_conn, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
-	}
-	defer query_conn.Close()
+	registry := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
 
-	auth_conn, err := grpc.NewClient("auth_micro:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+	registry.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+
+	grpcMetrics := grpc_prometheus.NewClientMetrics()
+	registry.MustRegister(grpcMetrics)
+
+	grpcOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(grpcMetrics.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(grpcMetrics.StreamClientInterceptor()),
 	}
-	defer auth_conn.Close()
+
+	queryCon, err := grpc.NewClient("query_micro:8081", grpcOpts...)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to query_micro: %v", err))
+	}
+	defer queryCon.Close()
+
+	authCon, err := grpc.NewClient("auth_micro:8082", grpcOpts...)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to auth_micro: %v", err))
+	}
+	defer authCon.Close()
+
+	profilesCon, err := grpc.NewClient("profiles_micro:8083", grpcOpts...)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to profiles_micro: %v", err))
+	}
+	defer profilesCon.Close()
+
+	usersCon, err := grpc.NewClient("users_micro:8085", grpcOpts...)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to connect to users_micro: %v", err))
+	}
+	defer usersCon.Close()
 
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
+		return
+	}
+
+	chatClient, err := repository.NewChatRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize chat repo: %v\n", err)
+		return
+	}
+
+	complaintClient, err := repository.NewComplaintRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize complaint repo: %v\n", err)
 		return
 	}
 
@@ -45,12 +92,6 @@ func Run() {
 		return
 	}
 	defer postgresClient.CloseRepo()
-
-	staticClient, err := repository.NewStaticRepo()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with minio: %v", err))
-		return
-	}
 
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
@@ -64,49 +105,51 @@ func Run() {
 		return
 	}
 
-	getHandler, err := NewGetHandler(postgresClient, staticClient, logger)
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with getHandler: %v", err))
-		return
-	}
-
-	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, auth_conn)
+	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, authCon)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
 	}
 
-	profileHandler, err := NewProfileHandler(postgresClient, staticClient, logger)
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with profileHandler: %v", err))
-		return
-	}
-
-	userHandler, err := NewUserHandler(postgresClient, staticClient, hasher, validator, logger)
+	usersHandler, err := NewUsersHandler(usersCon, profilesCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with userHandler: %v", err))
 		return
 	}
 
-	staticHandler, err := NewStaticHandler(postgresClient, staticClient, logger)
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with staticHandler: %v", err))
-		return
-	}
-
-	queryHandler, err := NewQueryHandler(query_conn, logger)
+	queryHandler, err := NewQueryHandler(queryCon, usersCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
 	}
 
+	messageHandler, err := NewMessageHandler(chatClient, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
+		return
+	}
+
+	profilesHandler, err := NewProfilesHandler(profilesCon, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
+		return
+	}
+
+	complaintHandler, err := NewComplaintHandler(complaintClient, usersCon, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with complaintHandler: %v", err))
+		return
+	}
+
 	r := mux.NewRouter()
 
+	metricsMiddleware := NewMetricsMiddleware(MetricsMiddlewareConfig{Registry: registry})
+	r.Use(metricsMiddleware)
 	r.Use(RequestIDMiddleware)
 	r.Use(PanicMiddleware(logger))
 	r.Use(AccessLogMiddleware(logger))
 
-	r.HandleFunc("/users", userHandler.CreateUser).Methods("POST")
+	r.HandleFunc("/users", usersHandler.CreateUser).Methods("POST")
 	r.HandleFunc("/users/login", sessionHandler.LoginUser).Methods("POST")
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 
@@ -114,26 +157,27 @@ func Run() {
 	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	usersSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	usersSubrouter.HandleFunc("/{id}", userHandler.DeleteUser).Methods("DELETE")
+	usersSubrouter.HandleFunc("/{id}", usersHandler.DeleteUser).Methods("DELETE")
 	usersSubrouter.HandleFunc("/checkSession", sessionHandler.CheckSession).Methods("GET")
-	usersSubrouter.HandleFunc("/getParams", userHandler.GetUserParams).Methods("GET")
+	usersSubrouter.HandleFunc("/getParams", usersHandler.GetUserParams).Methods("GET")
 
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	profileSubrouter.HandleFunc("/{id}", getHandler.GetProfile).Methods("GET")
-	profileSubrouter.HandleFunc("", getHandler.GetProfiles).Methods("GET")
-	profileSubrouter.HandleFunc("/like", profileHandler.SetLike).Methods("POST")
-	profileSubrouter.HandleFunc("/match/{id}", profileHandler.GetMatches).Methods("GET")
-	profileSubrouter.HandleFunc("/update", profileHandler.UpdateProfile).Methods("POST")
+	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
+	profileSubrouter.HandleFunc("", profilesHandler.GetProfiles).Methods("GET")
+	profileSubrouter.HandleFunc("/like", profilesHandler.SetLike).Methods("POST")
+	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
+	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
+	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	photoSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizePhoto)))
 
-	photoSubrouter.HandleFunc("/uploadPhoto", staticHandler.UploadPhoto).Methods("POST")
-	photoSubrouter.HandleFunc("/deletePhoto", staticHandler.DeletePhoto).Methods("DELETE")
+	photoSubrouter.HandleFunc("/uploadPhoto", profilesHandler.UploadPhoto).Methods("POST")
+	photoSubrouter.HandleFunc("/deletePhoto", profilesHandler.DeletePhoto).Methods("DELETE")
 
 	querySubrouter := r.PathPrefix("/queries").Subrouter()
 	querySubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
@@ -143,6 +187,33 @@ func Run() {
 	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
 	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
 	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
+
+	messageSubrouter := r.PathPrefix("/chats").Subrouter()
+	messageSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	messageSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	messageSubrouter.HandleFunc("", messageHandler.GetChats).Methods("GET")
+	messageSubrouter.HandleFunc("/create", messageHandler.CreateChat).Methods("POST")
+	messageSubrouter.HandleFunc("/delete", messageHandler.DeleteChat).Methods("DELETE")
+
+	wsRouter := r.PathPrefix("/chats").Subrouter()
+	wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	wsRouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
+
+	notificationsSubrouter := r.PathPrefix("/notifications").Subrouter()
+	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	notificationsSubrouter.HandleFunc("", messageHandler.GetNotifications).Methods("GET")
+
+	ComplaintSubrouter := r.PathPrefix("/complaints").Subrouter()
+	ComplaintSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	ComplaintSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
@@ -160,70 +231,218 @@ func Run() {
 		WriteTimeout: 10 * time.Second,
 	}
 
+	rmetrics := mux.NewRouter()
+	rmetrics.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
+
+	go http.ListenAndServe(":8099", rmetrics)
+	go func() {
+		for {
+			updateSyscallMetrics()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))
 }
 
+func NewComplaintHandler(
+	complRepo repository.ComplaintRepository,
+	admin_conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
+) (*ComplaitHandler, error) {
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
+
+	GetComplaints, err := usecase.NewGetComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	CreateComplate, err := usecase.NewCreateComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ComplaitHandler{
+		GetComplaintsUC:  *GetComplaints,
+		CreateComplateUC: *CreateComplate,
+		GetAdminUC:       *GetAdminUC,
+		Logger:           logger,
+	}, nil
+}
+
 func NewQueryHandler(
-	conn *grpc.ClientConn,
+	query_conn *grpc.ClientConn,
+	admin_conn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
 ) (*QueryHandler, error) {
-	client := querypb.NewQueryServiceClient(conn)
+	query_client := querypb.NewQueryServiceClient(query_conn)
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
-	GetActive, err := usecase.NewGetActiveQueriesUseCase(client, logger)
+	GetActive, err := usecase.NewGetActiveQueriesUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	StoreAnswers, err := usecase.NewStoreUserAnswer(client, logger)
+	StoreAnswers, err := usecase.NewStoreUserAnswer(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(client, logger)
+	GetAnswersForUser, err := usecase.NewGetAnswersForUserUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(client, logger)
+	GetAnswersForQuery, err := usecase.NewGetAnswersForQueryUseCase(query_client, logger)
 	if err != nil {
 		return nil, err
 	}
+
+	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &QueryHandler{
 		GetActiveQueriesUC:   *GetActive,
 		StoreUserAnswerUC:    *StoreAnswers,
 		GetAnswersForUserUC:  *GetAnswersForUser,
 		GetAnswersForQueryUC: *GetAnswersForQuery,
+		GetAdminUC:           *GetAdminUC,
 		Logger:               logger,
 	}, nil
 }
 
-func NewGetHandler(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
+func NewMessageHandler(
+	messageRepo repository.ChatRepository,
 	logger *logger.LogrusLogger,
-) (*GetHandler, error) {
+) (*MessageHandler, error) {
 
-	getProfileUC, err := usecase.NewGetProfileUseCase(userRepo, staticRepo, logger)
+	getChatsUC, err := usecase.NewGetChatsUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	createChatsUC, err := usecase.NewCreateChatUseCase(messageRepo, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	getProfilesForUserUC, err := usecase.NewGetProfilesForUserUseCase(userRepo, staticRepo, logger)
+	deleteChatsUC, err := usecase.NewDeleteChatUseCase(messageRepo, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	getUserPhotoUC, err := usecase.NewGetUserPhotoUseCase(userRepo, staticRepo, logger)
+	getMessages, err := usecase.NewGetMessagesUseCase(messageRepo, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return &GetHandler{
-		GetProfileUC:    *getProfileUC,
-		GetProfilesUC:   *getProfilesForUserUC,
-		GetProfileImage: *getUserPhotoUC,
-		Logger:          logger,
+	deleteMessage, err := usecase.NewDeleteMessageUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	createMessageUC, err := usecase.NewCreateMessagesUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	getMessagesFromCacheUC, err := usecase.NewGetMessagesFromCacheUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+	updateMessageStatusUC, err := usecase.NewUpdateMessageStatusUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	getParticipantsUC, err := usecase.NewGetChatParticipantsUseCase(messageRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MessageHandler{
+		GetParticipants:        *getParticipantsUC,
+		GetChatsUC:             *getChatsUC,
+		CreateChatUC:           *createChatsUC,
+		DeleteChatUC:           *deleteChatsUC,
+		GetMessagesUC:          *getMessages,
+		DeleteMessageUC:        *deleteMessage,
+		CreateMessageUC:        *createMessageUC,
+		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
+		UpdateMessageStatusUC:  *updateMessageStatusUC,
+		Logger:                 logger,
+	}, nil
+}
+
+func NewProfilesHandler(
+	conn *grpc.ClientConn,
+	logger *logger.LogrusLogger,
+) (*ProfilesHandler, error) {
+	client := profilespb.NewProfilesServiceClient(conn)
+
+	DeleteImage, err := usecase.NewDeleteStaticUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfileImages, err := usecase.NewGetUserPhotoUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfileMatches, err := usecase.NewGetProfileMatchesUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfile, err := usecase.NewGetProfileUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfiles, err := usecase.NewGetProfilesForUserUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	SetProfilesLike, err := usecase.NewProfileSetLikeUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	UpdateProfile, err := usecase.NewProfileUpdateUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	UpdateProfileImages, err := usecase.NewStaticUploadUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	SearchProfile, err := usecase.NewSearchProfilesUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProfilesHandler{
+		DeleteImageUC:         *DeleteImage,
+		GetProfileImagesUC:    *GetProfileImages,
+		GetProfileMatchesUC:   *GetProfileMatches,
+		GetProfileUC:          *GetProfile,
+		GetProfilesUC:         *GetProfiles,
+		SetProfilesLikeUC:     *SetProfilesLike,
+		UpdateProfileUC:       *UpdateProfile,
+		UpdateProfileImagesUC: *UpdateProfileImages,
+		SearchProfileUC:       *SearchProfile,
+		Logger:                logger,
 	}, nil
 }
 
@@ -275,124 +494,32 @@ func NewSessionHandler(
 	}, nil
 }
 
-func NewProfileHandler(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
-	logger *logger.LogrusLogger,
-) (*ProfileHandler, error) {
-	likeUC, err := usecase.NewProfileSetLikeUseCase(
-		userRepo,
-		logger,
-	)
-	if err != nil {
-		return &ProfileHandler{}, err
-	}
-	matchUC, err := usecase.NewGetProfileMatchesUseCase(
-		userRepo,
-		logger,
-	)
-	if err != nil {
-		return &ProfileHandler{}, err
-	}
-	updateUC, err := usecase.NewProfileUpdateUseCase(
-		userRepo,
-		logger,
-	)
-	if err != nil {
-		return &ProfileHandler{}, err
-	}
-	getProfileUC, err := usecase.NewGetProfileUseCase(
-		userRepo,
-		staticRepo,
-		logger,
-	)
-	if err != nil {
-		return &ProfileHandler{}, err
-	}
-	getUserPhotoUC, err := usecase.NewGetUserPhotoUseCase(
-		userRepo,
-		staticRepo,
-		logger,
-	)
-	if err != nil {
-		return &ProfileHandler{}, err
-	}
-	return &ProfileHandler{
-		LikeUC:            *likeUC,
-		MatchUC:           *matchUC,
-		UpdateUC:          *updateUC,
-		GetProfileUC:      *getProfileUC,
-		GetProfileImageUC: *getUserPhotoUC,
-		Logger:            logger,
-	}, nil
-}
-
-func NewStaticHandler(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
-	logger *logger.LogrusLogger,
-) (*StaticHandler, error) {
-	uploadUC, err := usecase.NewStaticUploadUseCase(
-		userRepo,
-		staticRepo,
-		logger,
-	)
-	if err != nil {
-		return &StaticHandler{}, err
-	}
-
-	deleteUC, err := usecase.NewDeleteStaticUseCase(
-		userRepo,
-		staticRepo,
-		logger,
-	)
-	if err != nil {
-		return &StaticHandler{}, err
-	}
-
-	return &StaticHandler{
-		UploadUC: *uploadUC,
-		DeleteUC: *deleteUC,
-		Logger:   logger,
-	}, nil
-}
-
-func NewUserHandler(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
-	hasher repository.PasswordHasher,
-	validator repository.UserParamsValidator,
+func NewUsersHandler(
+	userConn *grpc.ClientConn,
+	profilesConn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
 ) (*UserHandler, error) {
-	signupUC, err := usecase.NewUserSignUpUseCase(
-		userRepo,
-		staticRepo,
-		hasher,
-		validator,
-		logger,
-	)
+	usersClient := userspb.NewUsersServiceClient(userConn)
+	profilesClient := profilespb.NewProfilesServiceClient(profilesConn)
+
+	SignupUC, err := usecase.NewUserSignUpUseCase(usersClient, profilesClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
-	deleteUserUC, err := usecase.NewUserDeleteUseCase(
-		userRepo,
-		logger,
-	)
+	DeleteUserUC, err := usecase.NewUserDeleteUseCase(usersClient, profilesClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
 
-	getParam, err := usecase.NewUserGetParamsUseCase(
-		userRepo,
-	)
+	GetUserParamsUC, err := usecase.NewUserGetParamsUseCase(usersClient, logger)
 	if err != nil {
 		return &UserHandler{}, err
 	}
 
 	return &UserHandler{
-		SignupUC:     *signupUC,
-		DeleteUserUC: *deleteUserUC,
-		GetParamsUC:  *getParam,
+		SignupUC:     *SignupUC,
+		DeleteUserUC: *DeleteUserUC,
+		GetParamsUC:  *GetUserParamsUC,
 		Logger:       logger,
 	}, nil
 }

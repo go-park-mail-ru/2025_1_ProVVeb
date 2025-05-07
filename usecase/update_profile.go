@@ -1,60 +1,100 @@
 package usecase
 
 import (
+	"context"
+
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ProfileUpdate struct {
-	userRepo repository.UserRepository
-	logger   *logger.LogrusLogger
+	ProfilesService profilespb.ProfilesServiceClient
+	logger          *logger.LogrusLogger
 }
 
 func NewProfileUpdateUseCase(
-	userRepo repository.UserRepository,
+	ProfilesService profilespb.ProfilesServiceClient,
 	logger *logger.LogrusLogger,
 ) (*ProfileUpdate, error) {
-	if userRepo == nil || logger == nil {
+	if ProfilesService == nil || logger == nil {
 		return nil, model.ErrProfileUpdateUC
 	}
-	return &ProfileUpdate{userRepo: userRepo, logger: logger}, nil
+	return &ProfileUpdate{ProfilesService: ProfilesService, logger: logger}, nil
 }
 
 func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, profileId int) error {
-	pu.logger.WithFields(&logrus.Fields{"profileId": profileId, "value profile": value}).Info("UpdateProfile")
-	if value.FirstName != "" {
-		targ.FirstName = value.FirstName
+	pu.logger.Info("ProfileUpdateUseCase")
+
+	var valueLikedBy []int32
+	for _, likedBy := range value.LikedBy {
+		valueLikedBy = append(valueLikedBy, int32(likedBy))
 	}
-	if value.LastName != "" {
-		targ.LastName = value.LastName
-	}
-	if value.IsMale {
-		targ.IsMale = !targ.IsMale
-	}
-	if value.Height != 0 {
-		targ.Height = value.Height
-	}
-	if !value.Birthday.IsZero() {
-		targ.Birthday = value.Birthday
-	}
-	if value.Description != "" {
-		targ.Description = value.Description
-	}
-	if value.Location != "" {
-		targ.Location = value.Location
+	var valuePrefs []*profilespb.Preference
+	for _, pref := range value.Preferences {
+		valuePrefs = append(valuePrefs, &profilespb.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
 	}
 
-	if len(value.Interests) != 0 {
-		targ.Interests = value.Interests
+	var profValue *profilespb.Profile = &profilespb.Profile{
+		ProfileId:   int32(value.ProfileId),
+		FirstName:   value.FirstName,
+		LastName:    value.LastName,
+		IsMale:      value.IsMale,
+		Height:      int32(value.Height),
+		Birthday:    timestamppb.New(value.Birthday),
+		Description: value.Description,
+		Location:    value.Location,
+		Interests:   value.Interests,
+		LikedBy:     valueLikedBy,
+		Preferences: valuePrefs,
+		Photos:      value.Photos,
 	}
 
-	if len(value.Preferences) != 0 {
-		targ.Preferences = value.Preferences
+	var targLikedBy []int32
+	for _, likedBy := range targ.LikedBy {
+		targLikedBy = append(targLikedBy, int32(likedBy))
+	}
+	var targPrefs []*profilespb.Preference
+	for _, pref := range targ.Preferences {
+		targPrefs = append(targPrefs, &profilespb.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
 	}
 
-	err := pu.userRepo.UpdateProfile(profileId, targ)
-	pu.logger.WithFields(&logrus.Fields{"error": err}).Error("UpdateProfile")
+	var targValue *profilespb.Profile = &profilespb.Profile{
+		ProfileId:   int32(targ.ProfileId),
+		FirstName:   targ.FirstName,
+		LastName:    targ.LastName,
+		IsMale:      targ.IsMale,
+		Height:      int32(targ.Height),
+		Birthday:    timestamppb.New(targ.Birthday),
+		Description: targ.Description,
+		Location:    targ.Location,
+		Interests:   targ.Interests,
+		LikedBy:     targLikedBy,
+		Preferences: targPrefs,
+		Photos:      targ.Photos,
+	}
+
+	req := &profilespb.UpdateProfileRequest{
+		Value:     profValue,
+		Targ:      targValue,
+		ProfileId: int32(profileId),
+	}
+
+	_, err := pu.ProfilesService.UpdateProfile(context.Background(), req)
+
+	pu.logger.WithFields(&logrus.Fields{
+		"value":     value,
+		"targ":      targ,
+		"profileId": profileId,
+	}).Error("ProfileUpdateUseCase", err)
+
 	return err
 }

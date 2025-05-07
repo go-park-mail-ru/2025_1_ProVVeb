@@ -1,41 +1,70 @@
 package usecase
 
 import (
+	"context"
+
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
 	"github.com/sirupsen/logrus"
 )
 
 type GetProfilesForUser struct {
-	userRepo   repository.UserRepository
-	staticRepo repository.StaticRepository
-	logger     *logger.LogrusLogger
+	ProfilesService profilespb.ProfilesServiceClient
+	logger          *logger.LogrusLogger
 }
 
 func NewGetProfilesForUserUseCase(
-	userRepo repository.UserRepository,
-	staticRepo repository.StaticRepository,
+	ProfilesService profilespb.ProfilesServiceClient,
 	logger *logger.LogrusLogger,
 ) (*GetProfilesForUser, error) {
-	if userRepo == nil || staticRepo == nil || logger == nil {
+	if ProfilesService == nil || logger == nil {
 		return nil, model.ErrGetProfilesForUserUC
 	}
 
 	return &GetProfilesForUser{
-		userRepo:   userRepo,
-		staticRepo: staticRepo,
-		logger:     logger,
+		ProfilesService: ProfilesService,
+		logger:          logger,
 	}, nil
 }
 
 func (gp *GetProfilesForUser) GetProfiles(forUserId int) ([]model.Profile, error) {
-	gp.logger.Info("GetProfiles", "forUserId", forUserId)
-	result, err := gp.userRepo.GetProfilesByUserId(forUserId)
-	if err != nil {
-		gp.logger.Error("GetProfiles", "forUserId", forUserId, "error", err)
-	} else {
-		gp.logger.WithFields(&logrus.Fields{"forUserId": forUserId, "profilesCount": len(result)}).Info("GetProfiles")
+	gp.logger.Info("GetProfilesForUserUseCase")
+	req := &profilespb.GetProfilesRequest{
+		ForUserId: int32(forUserId),
 	}
-	return result, err
+	resp, err := gp.ProfilesService.GetProfiles(context.Background(), req)
+
+	var profs []model.Profile
+	for _, match := range resp.Profiles {
+		var prefs []model.Preference
+		for _, pref := range match.Preferences {
+			prefs = append(prefs, model.Preference{
+				Description: pref.Description,
+				Value:       pref.Value,
+			})
+		}
+		profs = append(profs, model.Profile{
+			ProfileId:   int(match.ProfileId),
+			FirstName:   match.FirstName,
+			LastName:    match.LastName,
+			IsMale:      match.IsMale,
+			Height:      int(match.Height),
+			Birthday:    match.Birthday.AsTime(),
+			Description: match.Description,
+			Location:    match.Location,
+			Interests:   match.Interests,
+			// LikedBy:	 match.LikedBy,
+			// give smbd information about by whom the user is liked?..
+			Preferences: prefs,
+			Photos:      match.Photos,
+		})
+	}
+	gp.logger.WithFields(&logrus.Fields{
+		"len matches": len(profs),
+		"method":      "GetProfileMatches",
+		"error":       err,
+	})
+	return profs, err
+
 }

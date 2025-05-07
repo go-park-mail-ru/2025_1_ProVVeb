@@ -99,18 +99,6 @@ CREATE TABLE profile_preferences (
     FOREIGN KEY (preference_id) REFERENCES preferences(preference_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE messages (
-    message_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    sender_profile_id BIGINT NOT NULL,
-    receiver_profile_id BIGINT NOT NULL,
-    content TEXT NOT NULL,
-    status INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sender_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (receiver_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
 CREATE TABLE likes (
     like_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     profile_id BIGINT NOT NULL,
@@ -156,8 +144,7 @@ CREATE TABLE complaints (
     closed_at TIMESTAMP,
     FOREIGN KEY (complaint_by) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (complaint_on) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (complaint_type) REFERENCES complaint_types(comp_type) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT unique_complaint UNIQUE (complaint_by, complaint_on, complaint_type)
+    FOREIGN KEY (complaint_type) REFERENCES complaint_types(comp_type) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE blacklist (
@@ -209,4 +196,36 @@ CREATE TABLE user_answer (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (query_id) REFERENCES queries(query_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE chats (
+    chat_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    first_profile_id BIGINT NOT NULL,
+    second_profile_id BIGINT NOT NULL,
+    last_message TEXT NOT NULL CHECK (LENGTH(last_message) <= 400),
+    last_sender BIGINT NOT NULL,
+    FOREIGN KEY (first_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (second_profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (last_sender) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE (first_profile_id, second_profile_id)
+);
+
+
+CREATE TABLE messages (
+    message_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    chat_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    status INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE admins (
+    admin_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    role TEXT NOT NULL CHECK (LENGTH(role) <= 40),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE
 );

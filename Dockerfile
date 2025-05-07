@@ -8,4 +8,5 @@ COPY . .
 
 WORKDIR /backend/cmd
 
+EXPOSE 8099
 CMD ["go", "run", "main.go"]

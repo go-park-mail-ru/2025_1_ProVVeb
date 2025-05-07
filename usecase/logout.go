@@ -70,5 +70,3 @@ func (ul *UserLogOut) Logout(sessionId string) error {
 
 	return nil
 }
-
-//

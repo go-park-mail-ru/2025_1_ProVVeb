@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package users;
+option go_package = "./users";
+
+import "google/protobuf/empty.proto";
+
+service UsersService {
+    rpc SaveUserData(SaveUserDataRequest) returns (SaveUserDataResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
+    rpc UserExists(UserExistsRequest) returns (UserExistsResponse);
+    rpc ValidateLogin(ValidateLoginRequest) returns (google.protobuf.Empty);
+    rpc ValidatePassword(ValidatePasswordRequest) returns (google.protobuf.Empty);
+
+    rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse);
+}
+
+message GetAdminRequest {
+    int32 user_id = 1;
+}
+
+message GetAdminResponse {
+    bool is_admin = 1;
+}
+
+message User {
+    int32 user_id = 1;
+    string login = 2;
+    string password = 3;
+    string email = 4;
+    string phone = 5;
+    int32 status = 6;
+}
+
+message DeleteUserRequest {
+    int32 user_id = 1;
+}
+
+message GetUserRequest {
+    int32 user_id = 1;
+}
+
+message GetUserResponse {
+    User user = 1;
+}
+
+message SaveUserDataRequest {
+    int32 user_id = 1;
+    User user = 2;
+}
+
+message SaveUserDataResponse {
+    int32 user_id = 1;
+}
+
+message ValidateLoginRequest {
+    string login = 1;    
+}
+
+message ValidatePasswordRequest {
+    string password = 1;
+}
+
+message UserExistsRequest {
+    string login = 1;
+}
+
+message UserExistsResponse {
+    bool exists = 1;
+}

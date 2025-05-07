@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package profiles;
+option go_package = "./profiles";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service ProfilesService {
+    rpc StoreProfile(StoreProfileRequest) returns (StoreProfileResponse);
+    rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+    rpc UpdateProfile(UpdateProfileRequest) returns (google.protobuf.Empty);
+    rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty);
+    rpc GetProfiles(GetProfilesRequest) returns (GetProfilesResponse);
+    rpc GetProfileImages(GetProfileImagesRequest) returns (GetProfileImagesResponse);
+    rpc UploadProfileImage(UploadProfileImageRequest) returns (google.protobuf.Empty);
+    rpc DeleteImage(DeleteImageRequest) returns (google.protobuf.Empty);
+    rpc GetProfileMatches(GetProfileMatchesRequest) returns (GetProfileMatchesResponse);
+    rpc SetProfileLike(SetProfileLikeRequest) returns (SetProfileLikeResponse);
+}
+
+message Preference {
+    string description = 1;
+    string value = 2;
+}
+
+message Profile {
+    int32 profile_id = 1;
+    string first_name = 2;
+    string last_name = 3;
+    bool is_male = 4;
+    int32 height = 5;
+    google.protobuf.Timestamp birthday = 6;
+    string description = 7;
+    string location = 8;
+    repeated string interests = 9;
+    repeated int32 liked_by = 10;
+    repeated Preference preferences = 11;
+    repeated string photos = 12;
+}
+
+message GetProfileRequest {
+    int32 profile_id = 1;
+}
+
+message GetProfileResponse {
+    Profile profile = 1;
+}
+
+message UpdateProfileRequest {
+    Profile value = 1;
+    Profile targ = 2;
+    int32 profile_id = 3;
+}
+
+message GetProfilesRequest {
+    int32 for_user_id = 1;
+}
+
+message GetProfilesResponse {
+    repeated Profile profiles = 1;
+}
+
+message GetProfileImagesRequest {
+    int32 user_id = 1;
+}
+
+message GetProfileImagesResponse {
+    repeated bytes files = 1;
+    repeated string urls = 2;
+}
+
+message UploadProfileImageRequest {
+    int32 user_id = 1;
+    bytes file = 2;
+    string filename = 3;
+    string content_type = 4;
+}
+
+message DeleteImageRequest {
+    int32 user_id = 1;
+    string filename = 2;
+}
+
+message GetProfileMatchesRequest {
+    int32 for_user_id = 1;
+}
+
+message GetProfileMatchesResponse {
+    repeated Profile profiles = 1;
+}
+
+message SetProfileLikeRequest {
+    int32 from = 1;
+    int32 to = 2;
+    int32 status = 3;
+}
+
+message SetProfileLikeResponse {
+    int32 like_id = 1;
+}
+
+message StoreProfileRequest {
+    Profile profile = 1;
+}
+
+message StoreProfileResponse {
+    int32 profile_id = 1;
+}
+
+message DeleteProfileRequest {
+    int32 profile_id = 1;
+}
