@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,13 +19,14 @@ func TestValidateProfile(t *testing.T) {
 		expectedError error
 	}{
 		{profile: utils.Profile{Profile: model.Profile{
-			ProfileId: 1,
-			FirstName: "John",
-			LastName:  "Doe",
-			Height:    180,
-			Birthday:  time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-			Location:  "USA",
-			Interests: []string{"Reading", "Traveling"},
+			ProfileId:   1,
+			FirstName:   "John",
+			LastName:    "Doe",
+			Height:      180,
+			Birthday:    time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
+			Location:    "USA",
+			Interests:   []string{"Reading", "Traveling"},
+			Preferences: []model.Preference{{Description: "Likes Sports", Value: "Yes"}},
 		}}, expectedError: nil},
 
 		{profile: utils.Profile{Profile: model.Profile{
@@ -37,13 +40,14 @@ func TestValidateProfile(t *testing.T) {
 		}}, expectedError: utils.ErrInvalidFirstName},
 
 		{profile: utils.Profile{Profile: model.Profile{
-			ProfileId: 3,
-			FirstName: "Jane",
-			LastName:  "Doe",
-			Height:    165,
-			Birthday:  time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-			Location:  "Germany",
-			Interests: []string{"Photography", "Cycling"},
+			ProfileId:   3,
+			FirstName:   "Jane",
+			LastName:    "Doe",
+			Height:      165,
+			Birthday:    time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
+			Location:    "Germany",
+			Interests:   []string{"Reading", "Traveling"},
+			Preferences: []model.Preference{{Description: "Likes Sports", Value: "Yes"}},
 		}}, expectedError: nil},
 
 		{profile: utils.Profile{Profile: model.Profile{
@@ -112,6 +116,51 @@ func TestCreateUser(t *testing.T) {
 				require.NotEqual(t, tt.password, user.User.Password, "password should be encrypted")
 				require.NotEmpty(t, user.User.Password, "encrypted password should not be empty")
 			}
+		})
+	}
+}
+
+func TestValidateLogin(t *testing.T) {
+	tests := []struct {
+		login    string
+		expected error
+	}{
+		{"validLogin123", nil},
+
+		{"", model.ErrInvalidLoginSize},
+		{"a", model.ErrInvalidLoginSize},
+		{"thisLoginIsWayTooLongForTheSystem12345", model.ErrInvalidLoginSize},
+		{"123invalidStart", model.ErrInvalidLogin},
+		{"InvalidLogin$", model.ErrInvalidLogin},
+	}
+
+	uv, _ := repository.NewUParamsValidator()
+
+	for _, tt := range tests {
+		t.Run(tt.login, func(t *testing.T) {
+			err := uv.ValidateLogin(tt.login)
+			assert.Equal(t, tt.expected, err)
+		})
+	}
+}
+
+func TestValidatePassword(t *testing.T) {
+	tests := []struct {
+		password string
+		expected error
+	}{
+		{"ValidPass123!", nil},
+		{"", model.ErrInvalidPasswordSize},
+		{"short", model.ErrInvalidPasswordSize},
+		{"thisPasswordIsWayTooLongForTheSystem123456789012345678901234567890", model.ErrInvalidPasswordSize},
+	}
+
+	uv, _ := repository.NewUParamsValidator()
+
+	for _, tt := range tests {
+		t.Run(tt.password, func(t *testing.T) {
+			err := uv.ValidatePassword(tt.password)
+			assert.Equal(t, tt.expected, err)
 		})
 	}
 }

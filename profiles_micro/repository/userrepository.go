@@ -373,20 +373,20 @@ INSERT INTO profile_preferences (profile_id, preference_id)
 VALUES ($1, $2)
 ON CONFLICT DO NOTHING
 `
-	getInterestIdByDescription = `
+	GetInterestIdByDescription = `
 SELECT interest_id FROM interests WHERE description = $1
 `
-	insertProfileInterest = `
+	InsertProfileInterest = `
 INSERT INTO profile_interests (profile_id, interest_id)
 VALUES ($1, $2)
 ON CONFLICT DO NOTHING
 `
 
-	insertStaticPhoto = `
+	InsertStaticPhoto = `
 INSERT INTO static (profile_id, path)
 VALUES ($1, $2)
 `
-	insertInterestIfNotExists = `
+	InsertInterestIfNotExists = `
 INSERT INTO interests (description)
 VALUES ($1)
 RETURNING interest_id
@@ -455,15 +455,15 @@ func (pr *ProfileRepo) UpdateProfile(profile_id int, new_profile model.Profile) 
 		for _, desc := range new_profile.Interests {
 			var interestID int
 
-			err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+			err := tx.QueryRowContext(ctx, GetInterestIdByDescription, desc).Scan(&interestID)
 			if err != nil {
-				err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+				err = tx.QueryRowContext(ctx, InsertInterestIfNotExists, desc).Scan(&interestID)
 				if err != nil {
 					return fmt.Errorf("failed to insert new interest '%s': %w", desc, err)
 				}
 			}
 
-			_, err = tx.ExecContext(ctx, insertProfileInterest, profile_id, interestID)
+			_, err = tx.ExecContext(ctx, InsertProfileInterest, profile_id, interestID)
 			if err != nil {
 				return fmt.Errorf("failed to insert profile interest: %w", err)
 			}
@@ -642,15 +642,15 @@ func (pr *ProfileRepo) StoreInterests(profileID int, interests []string) error {
 	for _, desc := range interests {
 		var interestID int
 
-		err := tx.QueryRowContext(ctx, getInterestIdByDescription, desc).Scan(&interestID)
+		err := tx.QueryRowContext(ctx, GetInterestIdByDescription, desc).Scan(&interestID)
 		if err != nil {
-			err = tx.QueryRowContext(ctx, insertInterestIfNotExists, desc).Scan(&interestID)
+			err = tx.QueryRowContext(ctx, InsertInterestIfNotExists, desc).Scan(&interestID)
 			if err != nil {
 				return err
 			}
 		}
 
-		_, err = tx.ExecContext(ctx, insertProfileInterest, profileID, interestID)
+		_, err = tx.ExecContext(ctx, InsertProfileInterest, profileID, interestID)
 		if err != nil {
 			return err
 		}
@@ -663,7 +663,7 @@ func (pr *ProfileRepo) StorePhotos(profileID int, paths []string) error {
 	ctx := context.Background()
 
 	for _, path := range paths {
-		_, err := pr.DB.ExecContext(ctx, insertStaticPhoto, profileID, path)
+		_, err := pr.DB.ExecContext(ctx, InsertStaticPhoto, profileID, path)
 		if err != nil {
 			return err
 		}
