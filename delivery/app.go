@@ -10,7 +10,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -143,10 +143,7 @@ func Run() {
 
 	r := mux.NewRouter()
 
-	r.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-		EnableOpenMetrics: true,
-	}))
-
+	metricsMiddleware := NewMetricsMiddleware(MetricsMiddlewareConfig{Registry: registry})
 	r.Use(metricsMiddleware)
 	r.Use(RequestIDMiddleware)
 	r.Use(PanicMiddleware(logger))
@@ -233,6 +230,19 @@ func Run() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+
+	rmetrics := mux.NewRouter()
+	rmetrics.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
+
+	go http.ListenAndServe(":8099", rmetrics)
+	go func() {
+		for {
+			updateSyscallMetrics()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))

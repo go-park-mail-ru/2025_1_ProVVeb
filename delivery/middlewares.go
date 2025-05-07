@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
@@ -130,7 +133,7 @@ func AccessLogMiddleware(logger logger.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			lrw := newLoggingResponseWriter(w)
+			lrw := NewResponseWriter(w)
 
 			requestID := ""
 			if ctxVal := r.Context().Value("request_id"); ctxVal != nil {
@@ -152,39 +155,51 @@ func AccessLogMiddleware(logger logger.Logger) mux.MiddlewareFunc {
 	}
 }
 
-type loggingResponseWriter struct {
+type ResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
 
-func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
-	return &loggingResponseWriter{
+func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
+	return &ResponseWriter{
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
 	}
 }
 
-func (lrw *loggingResponseWriter) WriteHeader(code int) {
+func (lrw *ResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+func (lrw *ResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hj, ok := lrw.ResponseWriter.(http.Hijacker); ok {
 		return hj.Hijack()
 	}
 	return nil, nil, fmt.Errorf("underlying ResponseWriter does not support Hijacker")
 }
 
-func metricsMiddleware(next http.Handler) http.Handler {
-	httpRequests := prometheus.NewCounterVec(
+var (
+	httpRequests  *prometheus.CounterVec
+	httpDuration  *prometheus.HistogramVec
+	syscallReads  *prometheus.CounterVec
+	syscallWrites *prometheus.CounterVec
+)
+
+type MetricsMiddlewareConfig struct {
+	Registry *prometheus.Registry
+}
+
+func NewMetricsMiddleware(cfg MetricsMiddlewareConfig) mux.MiddlewareFunc {
+	httpRequests = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Total HTTP requests",
 		},
 		[]string{"path", "method", "status"},
 	)
-	httpDuration := prometheus.NewHistogramVec(
+
+	httpDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "http_request_duration_seconds",
 			Help:    "Duration of HTTP requests",
@@ -193,37 +208,100 @@ func metricsMiddleware(next http.Handler) http.Handler {
 		[]string{"path", "method"},
 	)
 
-	// Регистрируем метрики в глобальном registry
-	prometheus.MustRegister(httpRequests, httpDuration)
+	syscallReads = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "app_syscall_reads_total",
+			Help: "Total read syscalls",
+		},
+		[]string{"pid", "syscalls"},
+	)
+	syscallWrites = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "app_syscall_writes_total",
+			Help: "Total write syscalls",
+		},
+		[]string{"pid", "syscalls"},
+	)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseRecorder{w, http.StatusOK}
+	cfg.Registry.MustRegister(httpRequests, httpDuration)
+	cfg.Registry.MustRegister(syscallReads, syscallWrites)
+	cfg.Registry.MustRegister(
+		messageChatsCreated,
+		messageChatsViews,
+		messageChatsDeleted,
+		messageSent,
+		messageReceived,
+		messageNotificationsFetched,
 
-		next.ServeHTTP(rw, r)
+		profileRetrieved,
+		profileUpdated,
+		photoRemoved,
+		likeSet,
+		searchPerformed,
+		matchesRetrieved,
+		photoUploaded,
+		profilesListRetrieved,
 
-		duration := time.Since(start).Seconds()
+		loginAttempts,
+		sessionChecks,
+		logoutAttempts,
+	)
 
-		// Записываем метрики
-		httpRequests.WithLabelValues(
-			r.URL.Path,
-			r.Method,
-			strconv.Itoa(rw.status),
-		).Inc()
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			rw := &ResponseWriter{w, http.StatusOK}
 
-		httpDuration.WithLabelValues(
-			r.URL.Path,
-			r.Method,
-		).Observe(duration)
-	})
+			next.ServeHTTP(rw, r)
+
+			duration := time.Since(start).Seconds()
+
+			httpRequests.WithLabelValues(
+				r.URL.Path,
+				r.Method,
+				strconv.Itoa(rw.statusCode),
+			).Inc()
+
+			httpDuration.WithLabelValues(
+				r.URL.Path,
+				r.Method,
+			).Observe(duration)
+		})
+	}
 }
 
-type responseRecorder struct {
-	http.ResponseWriter
-	status int
+func updateSyscallMetrics() {
+	pid := os.Getpid()
+	pidStr := strconv.Itoa(pid)
+
+	ioData, err := os.ReadFile(fmt.Sprintf("/proc/%d/io", pid))
+	if err != nil {
+		log.Printf("Failed to read io data: %v", err)
+		return
+	}
+
+	reads, writes := parseIOStats(string(ioData))
+
+	syscallReads.WithLabelValues(pidStr, "").Add(float64(reads))
+	syscallWrites.WithLabelValues(pidStr, "").Add(float64(writes))
 }
 
-func (rw *responseRecorder) WriteHeader(code int) {
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
+func parseIOStats(data string) (reads, writes uint64) {
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Text()
+		switch {
+		case strings.HasPrefix(line, "rchar:"):
+			parts := strings.Fields(line)
+			if len(parts) > 1 {
+				reads, _ = strconv.ParseUint(parts[1], 10, 64)
+			}
+		case strings.HasPrefix(line, "wchar:"):
+			parts := strings.Fields(line)
+			if len(parts) > 1 {
+				writes, _ = strconv.ParseUint(parts[1], 10, 64)
+			}
+		}
+	}
+	return reads, writes
 }
