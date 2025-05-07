@@ -30,8 +30,8 @@ type ChatRepository interface {
 
 type ChatRepo struct {
 	DB     *sql.DB
-	client *redis.Client
-	ctx    context.Context
+	Client *redis.Client
+	Ctx    context.Context
 }
 
 func NewChatRepo() (*ChatRepo, error) {
@@ -57,13 +57,13 @@ func NewChatRepo() (*ChatRepo, error) {
 
 	return &ChatRepo{
 		DB:     db,
-		client: client,
-		ctx:    ctx,
+		Client: client,
+		Ctx:    ctx,
 	}, nil
 }
 
 func (cr *ChatRepo) CloseRepo() error {
-	return cr.client.Close()
+	return cr.Client.Close()
 }
 
 const GetChatParticipantsQuery = `
@@ -154,7 +154,7 @@ func (cr *ChatRepo) GetChats(userID int) ([]model.Chat, error) {
 
 		redisKey := fmt.Sprintf("chat:%d:messages_user%d", chat.ChatId, userID)
 
-		q, err := cr.client.Get(cr.ctx, redisKey).Result()
+		q, err := cr.Client.Get(cr.Ctx, redisKey).Result()
 		if err == redis.Nil || q == "" || q == "null" {
 			chat.IsRead = false
 		} else if err != nil {
@@ -185,8 +185,8 @@ func (cr *ChatRepo) CreateChat(firstProfileID, secondProfileID int) (int, error)
 	if firstProfileID > secondProfileID {
 		firstProfileID, secondProfileID = secondProfileID, firstProfileID
 	}
-	err := cr.DB.QueryRowContext(context.Background(), 
-	CreateChatQuery, firstProfileID, secondProfileID, "", secondProfileID).Scan(&chatID)
+	err := cr.DB.QueryRowContext(context.Background(),
+		CreateChatQuery, firstProfileID, secondProfileID, "", secondProfileID).Scan(&chatID)
 	if err != nil {
 		return 0, err
 	}
@@ -274,7 +274,7 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 	defer tx.Rollback()
 
 	var deletedMsg model.Message
-	err = tx.QueryRowContext(cr.ctx, GetDeletedMessageQuery, chatID, messageID).Scan(
+	err = tx.QueryRowContext(cr.Ctx, GetDeletedMessageQuery, chatID, messageID).Scan(
 		&deletedMsg.MessageID,
 		&deletedMsg.SenderID,
 		&deletedMsg.Text,
@@ -421,7 +421,7 @@ func (cr *ChatRepo) UpdateMessageStatus(chatID int, userID int) error {
 	}
 
 	redisKey := fmt.Sprintf("chat:%d:messages_user%d", chatID, userID)
-	_, err = cr.client.Del(cr.ctx, redisKey).Result()
+	_, err = cr.Client.Del(cr.Ctx, redisKey).Result()
 	if err != nil {
 		return err
 	}
@@ -463,7 +463,7 @@ func (cr *ChatRepo) UpdateMessageStatus(chatID int, userID int) error {
 func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Message, error) {
 	redisKey := fmt.Sprintf("chat:%d:messages_user%d", chatID, userID)
 
-	result, err := cr.client.Get(cr.ctx, redisKey).Result()
+	result, err := cr.Client.Get(cr.Ctx, redisKey).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, nil
@@ -485,7 +485,7 @@ func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Messag
 	}
 
 	data, _ := json.Marshal(filtered)
-	cr.client.Set(cr.ctx, redisKey, data, 0)
+	cr.Client.Set(cr.Ctx, redisKey, data, 0)
 
 	return messages, nil
 }
@@ -497,12 +497,12 @@ func (cr *ChatRepo) updateMessageCache(chatID, userID int, messages []model.Mess
 	if err != nil {
 		return err
 	}
-	_, err = cr.client.Set(cr.ctx, redisKey, messageJSON, 0).Result()
+	_, err = cr.Client.Set(cr.Ctx, redisKey, messageJSON, 0).Result()
 	if err != nil {
 		return err
 	}
 
-	cr.client.LTrim(cr.ctx, redisKey, 0, 49)
+	cr.Client.LTrim(cr.Ctx, redisKey, 0, 49)
 
 	return nil
 }

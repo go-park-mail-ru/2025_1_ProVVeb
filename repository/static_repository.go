@@ -22,14 +22,14 @@ type StaticRepository interface {
 }
 
 type StaticRepo struct {
-	client     *minio.Client
-	bucketName string
+	Client     *minio.Client
+	BucketName string
 }
 
 func (sr *StaticRepo) UploadImage(fileBytes []byte, filename, contentType string) error {
 	ctx := context.Background()
 
-	_, err := sr.client.PutObject(ctx, sr.bucketName, filename,
+	_, err := sr.Client.PutObject(ctx, sr.BucketName, filename,
 		bytes.NewReader(fileBytes),
 		int64(len(fileBytes)),
 		minio.PutObjectOptions{ContentType: contentType},
@@ -44,7 +44,7 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 	var results [][]byte
 
 	for _, objectName := range urls {
-		obj, err := sr.client.GetObject(context.Background(), sr.bucketName, objectName, minio.GetObjectOptions{})
+		obj, err := sr.Client.GetObject(context.Background(), sr.BucketName, objectName, minio.GetObjectOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get object %s: %w", objectName, err)
 		}
@@ -89,15 +89,15 @@ func NewStaticRepo() (*StaticRepo, error) {
 	}
 
 	return &StaticRepo{
-		client:     minioClient,
-		bucketName: bucketName,
+		Client:     minioClient,
+		BucketName: bucketName,
 	}, nil
 }
 
 func (sr *StaticRepo) DeleteImage(user_id int, filename string) error {
 	ctx := context.Background()
 
-	return sr.client.RemoveObject(ctx, sr.bucketName, filename, minio.RemoveObjectOptions{})
+	return sr.Client.RemoveObject(ctx, sr.BucketName, filename, minio.RemoveObjectOptions{})
 }
 
 func (sr *StaticRepo) GenerateImage(contentType string, ismale bool) ([]byte, error) {

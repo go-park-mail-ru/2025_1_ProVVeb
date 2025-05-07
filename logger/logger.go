@@ -31,7 +31,7 @@ func NewLogrusLogger(accessLogPath string) (*LogrusLogger, error) {
 	if err := os.MkdirAll(filepath.Dir(accessLogPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
-	
+
 	accessFile, err := os.OpenFile(accessLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
