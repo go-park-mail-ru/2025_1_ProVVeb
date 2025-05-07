@@ -10,6 +10,10 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/gorilla/mux"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,29 +25,47 @@ import (
 )
 
 func Run() {
-	query_con, err := grpc.NewClient("query_micro:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	registry := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
+
+	registry.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+
+	grpcMetrics := grpc_prometheus.NewClientMetrics()
+	registry.MustRegister(grpcMetrics)
+
+	grpcOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(grpcMetrics.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(grpcMetrics.StreamClientInterceptor()),
+	}
+
+	queryCon, err := grpc.NewClient("query_micro:8081", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to query_micro: %v", err))
 	}
-	defer query_con.Close()
+	defer queryCon.Close()
 
-	auth_con, err := grpc.NewClient("auth_micro:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authCon, err := grpc.NewClient("auth_micro:8082", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to auth_micro: %v", err))
 	}
-	defer auth_con.Close()
+	defer authCon.Close()
 
-	profiles_con, err := grpc.NewClient("profiles_micro:8083", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	profilesCon, err := grpc.NewClient("profiles_micro:8083", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to profiles_micro: %v", err))
 	}
-	defer profiles_con.Close()
+	defer profilesCon.Close()
 
-	users_con, err := grpc.NewClient("users_micro:8085", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	usersCon, err := grpc.NewClient("users_micro:8085", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to users_micro: %v", err))
 	}
-	defer users_con.Close()
+	defer usersCon.Close()
 
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
@@ -83,19 +105,19 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, auth_con)
+	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, authCon)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
 	}
 
-	usersHandler, err := NewUsersHandler(users_con, profiles_con, logger)
+	usersHandler, err := NewUsersHandler(usersCon, profilesCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with userHandler: %v", err))
 		return
 	}
 
-	queryHandler, err := NewQueryHandler(query_con, users_con, logger)
+	queryHandler, err := NewQueryHandler(queryCon, usersCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
@@ -107,13 +129,13 @@ func Run() {
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profiles_con, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
 	}
 
-	complaintHandler, err := NewComplaintHandler(complaintClient, users_con, logger)
+	complaintHandler, err := NewComplaintHandler(complaintClient, usersCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with complaintHandler: %v", err))
 		return
@@ -121,6 +143,8 @@ func Run() {
 
 	r := mux.NewRouter()
 
+	metricsMiddleware := NewMetricsMiddleware(MetricsMiddlewareConfig{Registry: registry})
+	r.Use(metricsMiddleware)
 	r.Use(RequestIDMiddleware)
 	r.Use(PanicMiddleware(logger))
 	r.Use(AccessLogMiddleware(logger))
@@ -206,6 +230,19 @@ func Run() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+
+	rmetrics := mux.NewRouter()
+	rmetrics.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
+
+	go http.ListenAndServe(":8099", rmetrics)
+	go func() {
+		for {
+			updateSyscallMetrics()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	fmt.Println("starting server at :8080")
 	fmt.Println(fmt.Errorf("server ended with error: %v", server.ListenAndServe()))

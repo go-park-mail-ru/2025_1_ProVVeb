@@ -87,6 +87,7 @@ var upgrader = websocket.Upgrader{
 
 func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 	userIDRaw := r.Context().Value(userIDKey)
+	messageNotificationsFetched.Inc()
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		mh.Logger.WithFields(&logrus.Fields{
@@ -212,6 +213,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			case <-done:
 				return
 			case <-ticker.C:
+
 				newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
@@ -243,6 +245,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 		switch wsMessage.Type {
 		case "create":
+			messageSent.WithLabelValues().Inc()
 			var payload model.CreatePayload
 			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal CreatePayload: ", err)
@@ -264,6 +267,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}(payload)
 
 		case "delete":
+			messageSent.WithLabelValues().Inc()
 			var payload model.DeletePayload
 			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal DeletePayload: ", err)
@@ -285,6 +289,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}(payload)
 
 		case "get":
+			messageReceived.WithLabelValues().Inc()
 			newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 			if err != nil {
 				mh.Logger.Error("Failed to get messages from cache: ", err)
@@ -294,6 +299,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			conn.WriteJSON(map[string]interface{}{"type": "new_messages", "messages": newMessages})
 
 		case "read":
+			messageReceived.WithLabelValues().Inc()
 			var payload model.ReadPayload
 			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
@@ -327,6 +333,8 @@ func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing CreateChat request")
+
+	messageChatsCreated.WithLabelValues().Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
@@ -384,6 +392,7 @@ func (mh *MessageHandler) GetChats(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing GetChats request")
+	messageChatsViews.WithLabelValues().Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
@@ -426,6 +435,9 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing DeleteChat request")
+
+	roomType := mux.Vars(r)["room_type"] // Предполагаемый тип комнаты
+	messageChatsDeleted.WithLabelValues(roomType).Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
@@ -482,6 +494,7 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing UpdateProfile request")
 
+	profileUpdated.WithLabelValues("update profile").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -551,6 +564,7 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("GetMatches request started")
 
+	matchesRetrieved.WithLabelValues("get matches").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -597,6 +611,7 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 		"ip":         r.RemoteAddr,
 	}).Info("SearchProfiles request started")
 
+	searchPerformed.WithLabelValues("search profiles").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -663,6 +678,7 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("SetLike request started")
 
+	likeSet.WithLabelValues("set like").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -775,6 +791,7 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		"content_type": r.Header.Get("Content-Type"),
 	}).Info("UploadPhoto request started")
 
+	photoUploaded.WithLabelValues("upload photo").Inc()
 	sanitizer := bluemonday.UGCPolicy()
 	var maxMemory int64 = model.MaxFileSize
 	allowedTypes := map[string]bool{
@@ -973,6 +990,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusBadRequest,
 			map[string]string{"message": "Invalid JSON data"},
 		)
+		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -988,6 +1006,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusBadRequest,
 			map[string]string{"message": "Invalid login or password"},
 		)
+		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -1005,6 +1024,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		}).Warn("login attempts limit exceeded")
 
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("you have been temporary blocked, please try again at %s %v", blockTime, err)})
+		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -1027,6 +1047,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusBadRequest,
 			map[string]string{"message": fmt.Sprintf("%v", err)},
 		)
+		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -1058,6 +1079,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusInternalServerError,
 			map[string]string{"message": "Failed to store session"},
 		)
+		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -1100,6 +1122,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		"ip":         ip,
 	}).Info("login completed successfully")
 
+	loginAttempts.WithLabelValues("true").Inc()
 	MakeResponse(w, http.StatusOK, map[string]interface{}{
 		"message": "Logged in",
 		"user_id": session.UserId,
@@ -1153,6 +1176,8 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		"ip":         r.RemoteAddr,
 	}).Info("CheckSession request started")
 
+	sessionChecks.WithLabelValues("inactive").Inc()
+
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
 		sh.Logger.WithFields(&logrus.Fields{
@@ -1166,6 +1191,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			Message:   "No cookies got",
 			InSession: false,
 		}
+		sessionChecks.WithLabelValues("inactive").Inc()
 		MakeResponse(w, http.StatusOK, response)
 		return
 	} else if err != nil {
@@ -1176,6 +1202,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusBadRequest,
 			map[string]string{"message": "Invalid cookie"},
 		)
+		sessionChecks.WithLabelValues("inactive").Inc()
 		return
 	}
 
@@ -1190,6 +1217,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "session not found"},
 			)
+			sessionChecks.WithLabelValues("inactive").Inc()
 			return
 		}
 		if err == model.ErrGetSession {
@@ -1201,6 +1229,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "error getting session"},
 			)
+			sessionChecks.WithLabelValues("inactive").Inc()
 			return
 		}
 		if err == model.ErrInvalidSessionId {
@@ -1211,6 +1240,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "error invalid session id"},
 			)
+			sessionChecks.WithLabelValues("inactive").Inc()
 			return
 		}
 
@@ -1222,6 +1252,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusInternalServerError,
 			map[string]string{"message": "unknown session error"},
 		)
+		sessionChecks.WithLabelValues("inactive").Inc()
 		return
 	}
 
@@ -1240,6 +1271,7 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		UserId:    userId,
 	}
 
+	sessionChecks.WithLabelValues("active").Inc()
 	MakeResponse(w, http.StatusOK, response)
 }
 
@@ -1286,6 +1318,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "session not found"},
 			)
+			logoutAttempts.WithLabelValues("false").Inc()
 			return
 		}
 		if err == model.ErrGetSession {
@@ -1297,6 +1330,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "error getting session"},
 			)
+			logoutAttempts.WithLabelValues("false").Inc()
 			return
 		}
 		if err == model.ErrDeleteSession {
@@ -1308,6 +1342,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			MakeResponse(w, http.StatusInternalServerError,
 				map[string]string{"message": "error deleting session"},
 			)
+			logoutAttempts.WithLabelValues("false").Inc()
 			return
 		}
 
@@ -1319,6 +1354,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		MakeResponse(w, http.StatusInternalServerError,
 			map[string]string{"message": "unknown logout error"},
 		)
+		logoutAttempts.WithLabelValues("false").Inc()
 		return
 	}
 
@@ -1345,6 +1381,7 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 		"session_id": session.Value,
 	}).Info("user logged out successfully")
 
+	logoutAttempts.WithLabelValues("true").Inc()
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
 
@@ -1441,6 +1478,7 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		"ip":         r.RemoteAddr,
 	}).Info("GetProfile request started")
 
+	profileRetrieved.WithLabelValues("get profile").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -1486,6 +1524,7 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		"ip":         r.RemoteAddr,
 	}).Info("GetProfiles request started")
 
+	profilesListRetrieved.WithLabelValues("get profiles").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -1533,6 +1572,7 @@ func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 		"query_params": r.URL.Query(),
 	}).Info("DeletePhoto request started")
 
+	photoRemoved.WithLabelValues("delete photo").Inc()
 	sanitizer := bluemonday.UGCPolicy()
 	fileURL := sanitizer.Sanitize(r.URL.Query().Get("file_url"))
 
