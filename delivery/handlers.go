@@ -1036,6 +1036,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
+
 	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"login": input.Login,
@@ -1068,22 +1069,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-
-	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
-		sh.Logger.WithFields(&logrus.Fields{
-			"session_id": session.SessionId,
-			"user_id":    session.UserId,
-			"error":      err.Error(),
-		}).Error("failed to store session")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Failed to store session"},
-		)
-		loginAttempts.WithLabelValues("false").Inc()
-		return
-	}
-
-	fmt.Println(cookie)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookie.Name,

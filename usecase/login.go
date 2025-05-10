@@ -12,33 +12,34 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	sessionpb "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/proto"
+	userspb "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery"
 )
 
 type UserLogIn struct {
-	userRepo       repository.UserRepository
 	hasher         repository.PasswordHasher
 	token          repository.JwtTokenizer
 	validator      repository.UserParamsValidator
+	UsersService   userspb.UsersServiceClient
 	SessionService sessionpb.SessionServiceClient
 	logger         *logger.LogrusLogger
 }
 
 func NewUserLogInUseCase(
-	userRepo repository.UserRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
+	UsersService userspb.UsersServiceClient,
 	SessionService sessionpb.SessionServiceClient,
 	logger *logger.LogrusLogger,
 ) (*UserLogIn, error) {
-	if userRepo == nil || hasher == nil || validator == nil {
+	if hasher == nil || validator == nil {
 		return nil, model.ErrUserLogInUC
 	}
 	return &UserLogIn{
-		userRepo:       userRepo,
 		hasher:         hasher,
 		token:          token,
 		validator:      validator,
+		UsersService:   UsersService,
 		SessionService: SessionService,
 		logger:         logger,
 	}, nil
@@ -50,13 +51,20 @@ type LogInInput struct {
 }
 
 func (uc *UserLogIn) CreateSession(ctx context.Context, input LogInInput) (model.Session, error) {
-	uc.logger.Info("CreateSession", "input", input)
-	user, err := uc.userRepo.GetUserByLogin(ctx, input.Login)
+	login_req := &userspb.GetUserByLoginRequest{Login: input.Login}
+	res, err := uc.UsersService.GetUserByLogin(context.Background(), login_req)
 	if err != nil {
-		uc.logger.Error("CreateSession", "error", err)
+		uc.logger.Error("GetUserParams", "error", err)
 		return model.Session{}, err
 	}
-
+	user := model.User{
+		UserId:   int(res.User.UserId),
+		Login:    res.User.Login,
+		Password: res.User.Password,
+		Email:    res.User.Email,
+		Phone:    res.User.Phone,
+		Status:   int(res.User.Status),
+	}
 	if !uc.hasher.Compare(user.Password, user.Login, input.Password) {
 		uc.logger.Error("CreateSession", "error", model.ErrInvalidPassword)
 		return model.Session{}, model.ErrInvalidPassword
@@ -134,13 +142,14 @@ func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) er
 		Ttl:       ttl,
 	}
 
+	fmt.Println(req)
+
 	_, err := uc.SessionService.StoreSession(ctx, req)
 	if err != nil {
 		uc.logger.WithFields(&logrus.Fields{"session": session, "error": err}).Error("StoreSession")
 		return err
 	}
 
-	err = uc.userRepo.StoreSession(session.UserId, session.SessionId)
 	uc.logger.WithFields(&logrus.Fields{"session": session, "error": err}).Error("StoreSession")
 	return err
 }

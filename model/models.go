@@ -11,9 +11,6 @@ var MaxPasswordLength = 64
 var MinLoginLength = 7
 var MaxLoginLength = 15
 
-var SessionDuration = 3 * 24 * time.Hour
-var SessionIdLength = 32
-
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
@@ -22,13 +19,6 @@ const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
 
 var Key string = "Hello"
-
-const (
-	AttemptsKeyPrefix     = "login_attempts:"
-	TimeAttemptsKeyPrefix = "time:"
-	MaxAttempts           = 5
-	AttemptTTL            = 10 * time.Minute
-)
 
 // regexps
 var (

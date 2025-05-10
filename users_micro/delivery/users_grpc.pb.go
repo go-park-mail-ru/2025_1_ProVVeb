@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type UsersServiceClient interface {
 	SaveUserData(ctx context.Context, in *SaveUserDataRequest, opts ...grpc.CallOption) (*SaveUserDataResponse, error)
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+	GetUserByLogin(ctx context.Context, in *GetUserByLoginRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UserExists(ctx context.Context, in *UserExistsRequest, opts ...grpc.CallOption) (*UserExistsResponse, error)
 	ValidateLogin(ctx context.Context, in *ValidateLoginRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -48,6 +49,15 @@ func (c *usersServiceClient) SaveUserData(ctx context.Context, in *SaveUserDataR
 func (c *usersServiceClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
 	out := new(GetUserResponse)
 	err := c.cc.Invoke(ctx, "/users.UsersService/GetUser", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *usersServiceClient) GetUserByLogin(ctx context.Context, in *GetUserByLoginRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
+	out := new(GetUserResponse)
+	err := c.cc.Invoke(ctx, "/users.UsersService/GetUserByLogin", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +115,7 @@ func (c *usersServiceClient) GetAdmin(ctx context.Context, in *GetAdminRequest, 
 type UsersServiceServer interface {
 	SaveUserData(context.Context, *SaveUserDataRequest) (*SaveUserDataResponse, error)
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+	GetUserByLogin(context.Context, *GetUserByLoginRequest) (*GetUserResponse, error)
 	DeleteUser(context.Context, *DeleteUserRequest) (*emptypb.Empty, error)
 	UserExists(context.Context, *UserExistsRequest) (*UserExistsResponse, error)
 	ValidateLogin(context.Context, *ValidateLoginRequest) (*emptypb.Empty, error)
@@ -122,6 +133,9 @@ func (UnimplementedUsersServiceServer) SaveUserData(context.Context, *SaveUserDa
 }
 func (UnimplementedUsersServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUser not implemented")
+}
+func (UnimplementedUsersServiceServer) GetUserByLogin(context.Context, *GetUserByLoginRequest) (*GetUserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserByLogin not implemented")
 }
 func (UnimplementedUsersServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUser not implemented")
@@ -183,6 +197,24 @@ func _UsersService_GetUser_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UsersServiceServer).GetUser(ctx, req.(*GetUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UsersService_GetUserByLogin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByLoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersServiceServer).GetUserByLogin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/users.UsersService/GetUserByLogin",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersServiceServer).GetUserByLogin(ctx, req.(*GetUserByLoginRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -291,6 +323,10 @@ var UsersService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUser",
 			Handler:    _UsersService_GetUser_Handler,
+		},
+		{
+			MethodName: "GetUserByLogin",
+			Handler:    _UsersService_GetUserByLogin_Handler,
 		},
 		{
 			MethodName: "DeleteUser",

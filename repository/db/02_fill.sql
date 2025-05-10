@@ -39,16 +39,16 @@ INSERT INTO profiles (firstname, lastname, is_male, birthday, height, descriptio
 
 
 INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
-(1, 1, 'ivanivanov', 'ivan@example.com', '1111111111', 'f40331940a2eb0ec842f09e39726335747f04e7cf3d3a56ea633f3b72ef2458d'),
-(2, 1, 'annapetrova', 'anna@example.com', '1111111112', 'eda6e9d3f2ff853757a9f864b8c793f5700d794f410252f1222b576e56b67983'),
-(3, 1, 'olgasmirnova', 'olga@example.com', '1111111113', 'ad98820e33eded62823c5abfc1db9780846d014b11d07eb28ac3186d68e15486'),
-(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '1111111114', '5bf6e3a85f0a1406b5602e21e0aad1369bc1ff57389c2f6174b2606db7b388ca'),
-(5, 1, 'alexpopov', 'alex@example.com', '1111111115', 'fbdd78794b1dbc3864c7bcbefb7c90f5c4ca5a1f409f9db1d492ffbeec6fb119'),
-(6, 1, 'maksorlov', 'maks@example.com', '1111111116', '78226589b60338ee48a4c411b34c9b93a3ee5a658ec8ea039e63a0e7c1274638'),
-(7, 1, 'innalisova', 'inna@example.com', '1111111117', '07e0c313ec2ea761e366fbda9dbdba9c903da501962ff298bbf050500e27be53'),
-(8, 1, 'leozaharov', 'leo@example.com', '1111111118', '0e03f2a800342f4bab3bb0ca88db5d37779f306898caf6ccf9d509c293f36f57'),
-(9, 1, 'ninamoro', 'nina@example.com', '1111111119', '2ee3914dee3e33b53083024874f141ce7050a11afa21cb2f04378642da9ad0a7'),
-(10, 1, 'verasokolova', 'vera@example.com', '1111111120', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
+(1, 1, 'ivanivanov', 'ivan@example.com', '+71111111111', 'f40331940a2eb0ec842f09e39726335747f04e7cf3d3a56ea633f3b72ef2458d'),
+(2, 1, 'annapetrova', 'anna@example.com', '+71111111112', 'eda6e9d3f2ff853757a9f864b8c793f5700d794f410252f1222b576e56b67983'),
+(3, 1, 'olgasmirnova', 'olga@example.com', '+71111111113', 'ad98820e33eded62823c5abfc1db9780846d014b11d07eb28ac3186d68e15486'),
+(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '+71111111114', '5bf6e3a85f0a1406b5602e21e0aad1369bc1ff57389c2f6174b2606db7b388ca'),
+(5, 1, 'alexpopov', 'alex@example.com', '+71111111115', 'fbdd78794b1dbc3864c7bcbefb7c90f5c4ca5a1f409f9db1d492ffbeec6fb119'),
+(6, 1, 'maksorlov', 'maks@example.com', '+71111111116', '78226589b60338ee48a4c411b34c9b93a3ee5a658ec8ea039e63a0e7c1274638'),
+(7, 1, 'innalisova', 'inna@example.com', '+71111111117', '07e0c313ec2ea761e366fbda9dbdba9c903da501962ff298bbf050500e27be53'),
+(8, 1, 'leozaharov', 'leo@example.com', '+71111111118', '0e03f2a800342f4bab3bb0ca88db5d37779f306898caf6ccf9d509c293f36f57'),
+(9, 1, 'ninamoro', 'nina@example.com', '+71111111119', '2ee3914dee3e33b53083024874f141ce7050a11afa21cb2f04378642da9ad0a7'),
+(10, 1, 'verasokolova', 'vera@example.com', '+71111111190', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
 
 
 INSERT INTO admins (user_id, role) VALUES 
@@ -127,36 +127,6 @@ INSERT INTO profile_preferences (profile_id, preference_id) VALUES
 (8, 11), (8, 13), (8, 1), (8, 3), (8, 5),
 (9, 7), (9, 9), (9, 11), (9, 13), (9, 2),
 (10, 4), (10, 6), (10, 8), (10, 10), (10, 12);
-
-
-
--- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
--- (1, 2, 1), 
--- (2, 3, 1), 
--- (3, 4, 1), 
--- (4, 5, 1),
--- (5, 6, 1), 
--- (6, 7, 1), 
--- (7, 8, 1), 
--- (8, 9, 1), 
--- (9, 10, 1), 
--- (10, 1, 1);
-
--- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
--- (1, 3, 2),
--- (2, 4, 2),
--- (3, 5, 2),
--- (4, 6, 2),
--- (5, 7, 2),
--- (6, 8, 2),
--- (7, 9, 2),
--- (8, 10, 2),
--- (9, 1, 2),
--- (10, 2, 2);
-
-
--- INSERT INTO matches (profile_id, matched_profile_id) VALUES
--- (10, 2), (3, 4);
 
 
 INSERT INTO subscriptions (user_id, sub_type, transaction_data) VALUES 

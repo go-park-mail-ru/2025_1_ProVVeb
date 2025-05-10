@@ -71,10 +71,6 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 			check: func() bool { return cfg.User == "" },
 			msg:   "user name cannot be empty",
 		},
-		// "Password": {
-		// 	check: func() bool { return cfg.Password == "" },
-		// 	msg:   "password cannot be empty",
-		// },
 		"DBName": {
 			check: func() bool { return cfg.DBName == "" },
 			msg:   "database name cannot be empty",

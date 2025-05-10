@@ -86,12 +86,6 @@ func Run() {
 	}
 
 	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
-	postgresClient, err := repository.NewUserRepo()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
-		return
-	}
-	defer postgresClient.CloseRepo()
 
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
@@ -105,7 +99,7 @@ func Run() {
 		return
 	}
 
-	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, authCon)
+	sessionHandler, err := NewSessionHandler(hasher, tokenValidator, validator, logger, authCon, usersCon)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -447,21 +441,23 @@ func NewProfilesHandler(
 }
 
 func NewSessionHandler(
-	userRepo repository.UserRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
 	validator repository.UserParamsValidator,
 	logger *logger.LogrusLogger,
 	conn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
 ) (*SessionHandler, error) {
 
 	client := sessionpb.NewSessionServiceClient(conn)
 
+	userClient := userspb.NewUsersServiceClient(userConn)
+
 	loginUC, err := usecase.NewUserLogInUseCase(
-		userRepo,
 		hasher,
 		token,
 		validator,
+		userClient,
 		client,
 		logger,
 	)
@@ -478,7 +474,6 @@ func NewSessionHandler(
 	}
 
 	logoutUC, err := usecase.NewUserLogOutUseCase(
-		userRepo,
 		client,
 		logger,
 	)

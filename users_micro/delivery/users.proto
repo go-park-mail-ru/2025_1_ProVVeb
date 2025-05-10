@@ -8,12 +8,17 @@ import "google/protobuf/empty.proto";
 service UsersService {
     rpc SaveUserData(SaveUserDataRequest) returns (SaveUserDataResponse);
     rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc GetUserByLogin(GetUserByLoginRequest) returns (GetUserResponse);
     rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
     rpc UserExists(UserExistsRequest) returns (UserExistsResponse);
     rpc ValidateLogin(ValidateLoginRequest) returns (google.protobuf.Empty);
     rpc ValidatePassword(ValidatePasswordRequest) returns (google.protobuf.Empty);
 
     rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse);
+}
+
+message GetUserByLoginRequest {
+    string login = 1;
 }
 
 message GetAdminRequest {
