@@ -1,9 +1,9 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
     ports:
       - "8020:5432"
@@ -11,7 +11,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/repository/db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
+      test: ["CMD-SHELL", "pg_isready -U app_user -d dev"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -55,8 +55,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379
@@ -94,8 +94,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
     depends_on:
@@ -115,8 +115,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379
@@ -140,8 +140,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
     depends_on:
@@ -161,8 +161,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
     depends_on:
