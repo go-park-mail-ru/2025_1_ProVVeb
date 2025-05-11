@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:15
+    build:
+      context: ./backend/repository/db
     environment:
       POSTGRES_USER: app_user
       POSTGRES_PASSWORD: your_secure_password
@@ -16,6 +17,7 @@ services:
       timeout: 5s
       retries: 10
     restart: always
+
 
   redis:
     image: redis:7-alpine
