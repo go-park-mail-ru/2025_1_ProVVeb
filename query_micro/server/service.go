@@ -19,7 +19,6 @@ func NewSessionService(repo *QueryRepo) *QueryServiceServerImpl {
 }
 
 func (s *QueryServiceServerImpl) GetActive(ctx context.Context, req *querypb.GetUserRequest) (*querypb.ActiveQueryList, error) {
-	fmt.Println("Hello")
 	queries, err := s.Repo.GetActive(int(req.GetUserId()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting active queries: %v", err)

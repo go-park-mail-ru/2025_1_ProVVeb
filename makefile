@@ -4,6 +4,28 @@ COVERAGE_OUT=coverage.out
 FILES_TO_CLEAN=*.out *.out.tmp *DS_Store 
 MOCKS="mocks"
 
+
+launch:
+	clear 
+	@echo "Сейчас пойдет веселье"
+	@echo "Копируем docker файл"
+	cd ..
+	cp backend/docker-compose.yml docker-compose.yml
+	@echo "Запускаем docker файл"
+	docker compose up --build 
+	@echo "Все"
+
+
+test_injection:
+	clear 
+	@echo "Делаем тесты на SQL инъекции"
+	@echo "Улыбнитесь, вашу консоль снимают!"
+	@echo "Запускаем тесты"
+	./docs/administration/test.sh
+	@echo "Закончили тесты"
+	@echo "Лови запись тестов"
+
+
 test:
 	clear
 	@echo "Делаем моки..."

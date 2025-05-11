@@ -452,11 +452,11 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type CreateChatRequest struct {
+	type DeleteChatRequest struct {
 		FristID  int `json:"firstID"`
 		SecondID int `json:"secondID"`
 	}
-	var req CreateChatRequest
+	var req DeleteChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
 		return

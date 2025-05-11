@@ -45,8 +45,8 @@ func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
 		Host:     "postgres",
 		Port:     5432,
-		User:     "postgres",
-		Password: "Grey31415",
+		User:     "app_user",
+		Password: "your_secure_password",
 		DBName:   "dev",
 		SSLMode:  "disable",
 	}
