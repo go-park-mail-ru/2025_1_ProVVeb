@@ -40,4 +40,5 @@ GRANT USAGE ON SCHEMA public TO app_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-CREATE EXTENSION IF NOT EXISTS autoexplain;
+
+LOAD 'auto_explain';
