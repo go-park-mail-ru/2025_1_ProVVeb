@@ -34,7 +34,7 @@ type UserHandler struct {
 	Logger       *logger.LogrusLogger
 }
 
-type ComplaitHandler struct {
+type ComplaintHandler struct {
 	GetComplaintsUC  usecase.GetComplaint
 	CreateComplateUC usecase.CreateComplaint
 	GetAdminUC       usecase.GetAdmin
@@ -65,14 +65,14 @@ type QueryHandler struct {
 }
 
 type MessageHandler struct {
-	GetParticipants usecase.GetChatParticipants
-	GetChatsUC      usecase.GetChats
-	CreateChatUC    usecase.CreateChat
-	DeleteChatUC    usecase.DeleteChat
+	GetParticipantsUC usecase.GetChatParticipants
+	GetChatsUC        usecase.GetChats
+	CreateChatUC      usecase.CreateChat
+	DeleteChatUC      usecase.DeleteChat
 
 	GetMessagesUC          usecase.GetMessages
 	DeleteMessageUC        usecase.DeleteMessage
-	CreateMessageUC        usecase.CreateMessages
+	CreateMessagesUC       usecase.CreateMessages
 	GetMessagesFromCacheUC usecase.GetMessagesFromCache
 	UpdateMessageStatusUC  usecase.UpdateMessageStatus
 
@@ -86,6 +86,11 @@ var upgrader = websocket.Upgrader{
 }
 
 func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
+	mh.Logger.WithFields(&logrus.Fields{
+		"method": r.Method,
+		"path":   r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("request started")
 	userIDRaw := r.Context().Value(userIDKey)
 	messageNotificationsFetched.Inc()
 	profileId, ok := userIDRaw.(uint32)
@@ -184,7 +189,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	first, second, err := mh.GetParticipants.GetChatParticipants(chatID)
+	first, second, err := mh.GetParticipantsUC.GetChatParticipants(chatID)
 	if err != nil {
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to get chat participants"})
 		return
@@ -257,7 +262,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			go func(payload model.CreatePayload) {
-				messageID, err := mh.CreateMessageUC.CreateMessages(payload.ChatID, payload.UserID, payload.Content)
+				messageID, err := mh.CreateMessagesUC.CreateMessages(payload.ChatID, payload.UserID, payload.Content)
 				if err != nil {
 					mh.Logger.Error("Failed to create message: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to create message"})
@@ -436,7 +441,7 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing DeleteChat request")
 
-	roomType := mux.Vars(r)["room_type"] // Предполагаемый тип комнаты
+	roomType := mux.Vars(r)["room_type"] 
 	messageChatsDeleted.WithLabelValues(roomType).Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
@@ -1847,7 +1852,7 @@ func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Reques
 	MakeResponse(w, http.StatusOK, answers)
 }
 
-func (ch *ComplaitHandler) CreateComplaint(w http.ResponseWriter, r *http.Request) {
+func (ch *ComplaintHandler) CreateComplaint(w http.ResponseWriter, r *http.Request) {
 	ch.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
@@ -1901,7 +1906,7 @@ func (ch *ComplaitHandler) CreateComplaint(w http.ResponseWriter, r *http.Reques
 
 }
 
-func (ch *ComplaitHandler) GetComplaints(w http.ResponseWriter, r *http.Request) {
+func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request) {
 	ch.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,

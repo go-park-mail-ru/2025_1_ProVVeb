@@ -252,7 +252,7 @@ func NewComplaintHandler(
 	complRepo repository.ComplaintRepository,
 	admin_conn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
-) (*ComplaitHandler, error) {
+) (*ComplaintHandler, error) {
 	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
 	GetComplaints, err := usecase.NewGetComplaintUseCase(complRepo, logger)
@@ -270,7 +270,7 @@ func NewComplaintHandler(
 		return nil, err
 	}
 
-	return &ComplaitHandler{
+	return &ComplaintHandler{
 		GetComplaintsUC:  *GetComplaints,
 		CreateComplateUC: *CreateComplate,
 		GetAdminUC:       *GetAdminUC,
@@ -368,13 +368,13 @@ func NewMessageHandler(
 	}
 
 	return &MessageHandler{
-		GetParticipants:        *getParticipantsUC,
+		GetParticipantsUC:      *getParticipantsUC,
 		GetChatsUC:             *getChatsUC,
 		CreateChatUC:           *createChatsUC,
 		DeleteChatUC:           *deleteChatsUC,
 		GetMessagesUC:          *getMessages,
 		DeleteMessageUC:        *deleteMessage,
-		CreateMessageUC:        *createMessageUC,
+		CreateMessagesUC:       *createMessageUC,
 		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
 		UpdateMessageStatusUC:  *updateMessageStatusUC,
 		Logger:                 logger,
