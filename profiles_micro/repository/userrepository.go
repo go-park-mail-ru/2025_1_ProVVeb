@@ -292,6 +292,17 @@ func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err e
 }
 
 const GetProfilesQuery = `
+WITH filtered_profiles AS (
+    SELECT p.profile_id
+    FROM profiles p
+    LEFT JOIN likes liked 
+        ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
+    WHERE p.profile_id != $1 
+      AND liked.profile_id IS NULL 
+      AND p.profile_id > $2
+    ORDER BY p.profile_id
+    LIMIT $3
+)
 SELECT 
     p.profile_id, 
     p.firstname, 
@@ -307,7 +318,8 @@ SELECT
     i.description AS interest,
     pr.preference_description,
     pr.preference_value 
-FROM profiles p
+FROM filtered_profiles fp
+JOIN profiles p ON p.profile_id = fp.profile_id
 LEFT JOIN locations l 
     ON p.location_id = l.location_id
 LEFT JOIN "static" s 
@@ -320,10 +332,8 @@ LEFT JOIN profile_preferences pp
     ON pp.profile_id = p.profile_id
 LEFT JOIN preferences pr 
     ON pp.preference_id = pr.preference_id
-LEFT JOIN likes liked 
-    ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
-WHERE p.profile_id != $1 AND liked.profile_id IS NULL AND p.profile_id > $2
-LIMIT $3;
+ORDER BY p.profile_id;
+
 `
 
 func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
@@ -331,22 +341,19 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 	redisKey := fmt.Sprintf(redisKeyFormat, forUserId)
 
 	var lastSeenID int
+	ctx := context.Background()
 
-	result, err := pr.Client.Get(context.Background(), redisKey).Result()
-	if err != nil {
-		if err == redis.Nil {
-			lastSeenID = 0
-		} else {
-			return nil, err
+	result, err := pr.Client.Get(ctx, redisKey).Result()
+	lastSeenID = 0
+	if err == nil {
+		if id, convErr := strconv.Atoi(result); convErr == nil {
+			lastSeenID = id
 		}
-	} else {
-		lastSeenID, err = strconv.Atoi(result)
-		if err != nil {
-			lastSeenID = 0
-		}
+	} else if err != redis.Nil {
+		return nil, err
 	}
 
-	rows, err := pr.DB.QueryContext(context.Background(), GetProfilesQuery, forUserId, lastSeenID, model.PageSize)
+	rows, err := pr.DB.QueryContext(ctx, GetProfilesQuery, forUserId, lastSeenID, model.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -446,19 +453,16 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 		return nil, err
 	}
 
-	// Преобразуем map в слайс и сортируем
 	profiles := make([]model.Profile, 0, len(profileMap))
 	for _, p := range profileMap {
 		profiles = append(profiles, *p)
 	}
 
-	slices.SortFunc(profiles, func(a, b model.Profile) int {
-		return a.ProfileId - b.ProfileId
-	})
-
 	if maxProfileID > 0 {
 		go func() {
-			pr.Client.Set(context.Background(), redisKey, strconv.Itoa(maxProfileID), 10*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = pr.Client.Set(ctx, redisKey, strconv.Itoa(maxProfileID), 10*time.Minute).Err()
 		}()
 	}
 
