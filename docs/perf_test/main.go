@@ -52,7 +52,7 @@ func main() {
 func isFileEmpty(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
-		return true // файла нет — значит пуст
+		return true
 	}
 	return info.Size() == 0
 }
@@ -65,7 +65,7 @@ func generateCreateUsers(ctx context.Context, client *redis.Client) error {
 	defer file.Close()
 
 	for i := 1; i <= count; i++ {
-		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i)
+		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i%count)
 		if err := ensureSession(ctx, client, sessionKey, userID); err != nil {
 			fmt.Printf("Ошибка при работе с Redis: %v\n", err)
 			continue
@@ -79,12 +79,13 @@ func generateCreateUsers(ctx context.Context, client *redis.Client) error {
 		}
 
 		jsonStr := strings.TrimSpace(string(jsonBody))
+		adress := "localhost"
 		createTarget := fmt.Sprintf(
-			"POST http://localhost:8080/users\r\nContent-Type: application/json\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n%s\r\n",
-			sessionKey, jsonStr)
+			"POST http://%s:8080/users\r\nContent-Type: application/json\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n%s\r\n",
+			adress, sessionKey, jsonStr)
 
 		if _, err := file.WriteString(createTarget + "\r\n"); err != nil {
-			fmt.Printf("Ошибка записи POST: %v\n", err)
+			fmt.Printf("POST error: %v\n", err)
 		}
 	}
 
@@ -100,15 +101,16 @@ func generateGetProfiles(ctx context.Context, client *redis.Client) error {
 	defer file.Close()
 
 	for i := 1; i <= count; i++ {
-		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i)
+		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i%count)
 		if err := ensureSession(ctx, client, sessionKey, userID); err != nil {
 			fmt.Printf("Ошибка при работе с Redis: %v\n", err)
 			continue
 		}
 
+		adress := "213.219.214.83"
 		getTarget := fmt.Sprintf(
-			"GET http://localhost:8080/profiles\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n",
-			sessionKey)
+			"GET http://%s:8080/profiles\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n",
+			adress, sessionKey)
 		if _, err := file.WriteString(getTarget + "\r\n"); err != nil {
 			fmt.Printf("Ошибка записи GET: %v\n", err)
 		}

@@ -145,6 +145,59 @@ histogram:
 
 ### Cоздание профиля
 
+Для создания профиля существует handler POST http://213.219.214.83:8080/users
+На вход подается учетная запись user с конфиденциальными данными и profile, который требуется создать
+
+Текст запроса:
+```sql
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING profile_id;
+```
+
+Также совершаются отдельные запросы в таблицу интересов и профилей по необходимости
+
+```sql
+INSERT INTO interests (description)
+VALUES ($1)
+RETURNING interest_id
+```
+
+
+```sql
+INSERT INTO profile_interests (profile_id, interest_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+```
+
+Аналогично с preferences
+
+Тестирование:
+
+```bash
+Requests      [total, rate, throughput]         6000, 100.02, 0.00
+Duration      [total, attack, wait]             59.99s, 59.99s, 22.375µs
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.292µs, 77.519µs, 40.909µs, 94.325µs, 122.439µs, 795.979µs, 20.162ms
+Bytes In      [total, mean]                     0, 0.00
+Bytes Out     [total, mean]                     0, 0.00
+
+Bucket           #     %       Histogram
+[0s,     10ms]   5999  99.98%  ##########################################################################
+[10ms,   20ms]   0     0.00%   
+[20ms,   50ms]   1     0.02%   
+[50ms,   100ms]  0     0.00%   
+[100ms,  200ms]  0     0.00%   
+[200ms,  500ms]  0     0.00%   
+[500ms,  1s]     0     0.00%   
+[1s,     +Inf]   0     0.00%   
+```
+
+Видно, что запросы идут достаточно быстро, так как запросы итак были изначально разделены, каждый из них по отдельности максимально отпимизирован
+
+
+P.S. не знаете,что за ошибка 2025/05/19 02:46:14 bad method: {"profile":{"birthday":"1990-01-01T00:00:00Z","description":"nemo
+2025/05/19 02:46:14 encode: can't detect encoding of "stdin"? Тот же запрос в postman нормально проходил
+
 ### Получение профиля
 
 В качестве получение профиля тестируется handler GET http://localhost:8080/profiles
@@ -281,4 +334,300 @@ Bucket           #     %       Histogram
 [1s,     +Inf]   0     0.00%  
 ```
 
-Несмотря на увеличение интенсивности, значения
+Несмотря на увеличение интенсивности, значения все еще остались в приемлемом диапазоне. Проверим это на виртуальной машине
+Для этого в файле инициализации make заменим localhost на адрес машины
+
+```bash
+Requests      [total, rate, throughput]         6000, 100.02, 42.81
+Duration      [total, attack, wait]             1m28s, 59.99s, 28.161s
+Latencies     [min, mean, 50, 90, 95, 99, max]  388.243ms, 11.637s, 6.12s, 30.001s, 30.001s, 30.005s, 30.023s
+Bytes In      [total, mean]                     3176001, 529.33
+Bytes Out     [total, mean]                     0, 0.00
+
+
+Генерация гистограммы латентности...
+Bucket           #     %       Histogram
+[0s,     10ms]   0     0.00%   
+[10ms,   20ms]   0     0.00%   
+[20ms,   50ms]   0     0.00%   
+[50ms,   100ms]  0     0.00%   
+[100ms,  200ms]  0     0.00%   
+[200ms,  500ms]  175   2.92%   ##
+[500ms,  1s]     2437  40.62%  ##############################
+[1s,     +Inf]   3388  56.47%  ##########################################
+```
+
+При запуске на виртмашине обнаружилось, что запросы все еще остаются неэффективными
+Самый длинный запрос на получение шел 30 секунд. Это слишком долго, поэтому необходимо провести дополнительную оптимизацию
+
+- Многочисленные join и фильтрации
+Сейчас JOIN'ы выполняются до фильтрации (WHERE), что увеличивает количество строк, проходящих через джойны
+Оптимизация: сначала получить profile_id нужных профилей, затем сделать JOIN'ы по ним, чтобы JOIN'ы работали только по 30 записям (LIMIT $3), а не по всей таблице profiles:
+
+```sql
+WITH filtered_profiles AS (
+    SELECT p.profile_id
+    FROM profiles p
+    LEFT JOIN likes liked 
+        ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
+    WHERE p.profile_id != $1 
+      AND liked.profile_id IS NULL 
+      AND p.profile_id > $2
+    ORDER BY p.profile_id
+    LIMIT $3
+)
+SELECT 
+    p.profile_id, 
+    p.firstname, 
+    p.lastname, 
+    p.is_male,
+    p.height,
+    p.birthday, 
+    p.description, 
+    l.country, 
+    l.city,
+    l.district,
+    s.path AS avatar,
+    i.description AS interest,
+    pr.preference_description,
+    pr.preference_value 
+FROM filtered_profiles fp
+JOIN profiles p ON p.profile_id = fp.profile_id
+LEFT JOIN locations l 
+    ON p.location_id = l.location_id
+LEFT JOIN "static" s 
+    ON p.profile_id = s.profile_id
+LEFT JOIN profile_interests pi 
+    ON pi.profile_id = p.profile_id
+LEFT JOIN interests i 
+    ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp 
+    ON pp.profile_id = p.profile_id
+LEFT JOIN preferences pr 
+    ON pp.preference_id = pr.preference_id;
+
+```
+
+
+- Добавить дополнительные индексы по join
+
+Для устранения Seq Scan (полных проходов по таблице) PostgreSQL, были добавлены недостающие индексы, участвующие в JOIN'ах по profile_id:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_static_profile_id ON "static"(profile_id);
+CREATE INDEX IF NOT EXISTS idx_profile_interests_profile_id ON profile_interests(profile_id);
+CREATE INDEX IF NOT EXISTS idx_profile_preferences_profile_id ON profile_preferences(profile_id);
+```
+Эти индексы позволяют PostgreSQL использовать Index Scan, что значительно снижает время выполнения сложных объединений.
+
+
+- Упорядочивание
+Для более эффективной постраничной выборки (keyset pagination), используется сортировка по profile_id:
+
+```sql
+ORDER BY p.profile_id
+```
+В сочетании с фильтрацией p.profile_id > $2 это позволяет избежать пагинации через OFFSET, что критично при больших объемах данных.
+
+- Оптимизация внутри go кода
+
+Ранее: профили загружались из базы в неоптимальном порядке, хранились в map, затем сортировались вручную.
+
+Теперь:
+
+- Профили извлекаются уже отсортированными SQL-запросом.
+
+- Используется keyset pagination.
+
+- Обновление Redis-ключа вынесено из критического пути — выполняется асинхронно.
+
+
+Тестирование кода после исправления
+
+```sql
+
+Requests      [total, rate, throughput]         6000, 100.02, 51.90
+Duration      [total, attack, wait]             1m26s, 59.989s, 25.727s
+Latencies     [min, mean, 50, 90, 95, 99, max]  215.264ms, 9.371s, 727.273ms, 30s, 30.001s, 30.003s, 30.03s
+Bytes In      [total, mean]                     74895699, 12482.62
+Bytes Out     [total, mean]                     0, 0.00
+
+Генерация гистограммы латентности...
+Bucket           #     %       Histogram
+[0s,     10ms]   0     0.00%   
+[10ms,   20ms]   0     0.00%   
+[20ms,   50ms]   0     0.00%   
+[50ms,   100ms]  0     0.00%   
+[100ms,  200ms]  0     0.00%   
+[200ms,  500ms]  1897  31.62%  #######################
+[500ms,  1s]     1250  20.83%  ###############
+[1s,     +Inf]   2853  47.55%  ###################################
+```
+Путем оптимизаций улалось снизить задержку и увеличить количество быстродействующих запросов. На всякий случай, убедимся и сделаем EXPLAM ANALYZE
+
+```js
+[
+  {
+    "QUERY PLAN": "Sort  (cost=334.17..334.61 rows=177 width=288) (actual time=2.774..2.877 rows=623 loops=1)"
+  },
+  {
+    "QUERY PLAN": "  Sort Key: p.profile_id"
+  },
+  {
+    "QUERY PLAN": "  Sort Method: quicksort  Memory: 182kB"
+  },
+  {
+    "QUERY PLAN": "  ->  Hash Left Join  (cost=256.18..327.56 rows=177 width=288) (actual time=0.603..2.149 rows=623 loops=1)"
+  },
+  {
+    "QUERY PLAN": "        Hash Cond: (pi.interest_id = i.interest_id)"
+  },
+  {
+    "QUERY PLAN": "        ->  Nested Loop Left Join  (cost=252.70..323.60 rows=177 width=278) (actual time=0.508..1.670 rows=623 loops=1)"
+  },
+  {
+    "QUERY PLAN": "              ->  Hash Left Join  (cost=252.28..290.55 rows=60 width=270) (actual time=0.484..0.855 rows=107 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                    Hash Cond: (pp.preference_id = pr.preference_id)"
+  },
+  {
+    "QUERY PLAN": "                    ->  Nested Loop Left Join  (cost=247.71..285.82 rows=60 width=233) (actual time=0.352..0.641 rows=107 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                          ->  Nested Loop Left Join  (cost=247.29..270.64 rows=30 width=225) (actual time=0.332..0.437 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                ->  Hash Right Join  (cost=247.13..269.24 rows=30 width=137) (actual time=0.295..0.338 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                      Hash Cond: (s.profile_id = p.profile_id)"
+  },
+  {
+    "QUERY PLAN": "                                      ->  Seq Scan on static s  (cost=0.00..18.80 rows=880 width=40) (actual time=0.023..0.027 rows=10 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                      ->  Hash  (cost=246.76..246.76 rows=30 width=105) (actual time=0.249..0.252 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                            Buckets: 1024  Batches: 1  Memory Usage: 13kB"
+  },
+  {
+    "QUERY PLAN": "                                            ->  Nested Loop  (cost=0.74..246.76 rows=30 width=105) (actual time=0.094..0.222 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                                  ->  Limit  (cost=0.44..1.46 rows=30 width=8) (actual time=0.069..0.091 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                                        ->  Merge Anti Join  (cost=0.44..3378.85 rows=100003 width=8) (actual time=0.068..0.084 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                                              Merge Cond: (p_1.profile_id = liked.liked_profile_id)"
+  },
+  {
+    "QUERY PLAN": "                                                              ->  Index Only Scan using profiles_pkey on profiles p_1  (cost=0.29..3104.49 rows=100009 width=8) (actual time=0.056..0.065 rows=30 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                                                    Index Cond: (profile_id > 0)"
+  },
+  {
+    "QUERY PLAN": "                                                                    Filter: (profile_id <> 1)"
+  },
+  {
+    "QUERY PLAN": "                                                                    Rows Removed by Filter: 1"
+  },
+  {
+    "QUERY PLAN": "                                                                    Heap Fetches: 0"
+  },
+  {
+    "QUERY PLAN": "                                                              ->  Index Only Scan using likes_profile_id_liked_profile_id_key on likes liked  (cost=0.15..24.26 rows=6 width=8) (actual time=0.007..0.007 rows=0 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                                                                    Index Cond: (profile_id = 1)"
+  },
+  {
+    "QUERY PLAN": "                                                                    Heap Fetches: 0"
+  },
+  {
+    "QUERY PLAN": "                                                  ->  Index Scan using profiles_pkey on profiles p  (cost=0.29..8.18 rows=1 width=105) (actual time=0.003..0.003 rows=1 loops=30)"
+  },
+  {
+    "QUERY PLAN": "                                                        Index Cond: (profile_id = p_1.profile_id)"
+  },
+  {
+    "QUERY PLAN": "                                ->  Memoize  (cost=0.16..0.18 rows=1 width=104) (actual time=0.002..0.002 rows=0 loops=30)"
+  },
+  {
+    "QUERY PLAN": "                                      Cache Key: p.location_id"
+  },
+  {
+    "QUERY PLAN": "                                      Cache Mode: logical"
+  },
+  {
+    "QUERY PLAN": "                                      Hits: 24  Misses: 6  Evictions: 0  Overflows: 0  Memory Usage: 1kB"
+  },
+  {
+    "QUERY PLAN": "                                      ->  Index Scan using locations_pkey on locations l  (cost=0.15..0.17 rows=1 width=104) (actual time=0.007..0.007 rows=1 loops=6)"
+  },
+  {
+    "QUERY PLAN": "                                            Index Cond: (location_id = p.location_id)"
+  },
+  {
+    "QUERY PLAN": "                          ->  Index Only Scan using profile_preferences_pkey on profile_preferences pp  (cost=0.42..0.49 rows=2 width=16) (actual time=0.004..0.005 rows=4 loops=30)"
+  },
+  {
+    "QUERY PLAN": "                                Index Cond: (profile_id = p.profile_id)"
+  },
+  {
+    "QUERY PLAN": "                                Heap Fetches: 0"
+  },
+  {
+    "QUERY PLAN": "                    ->  Hash  (cost=3.14..3.14 rows=114 width=53) (actual time=0.107..0.108 rows=114 loops=1)"
+  },
+  {
+    "QUERY PLAN": "                          Buckets: 1024  Batches: 1  Memory Usage: 19kB"
+  },
+  {
+    "QUERY PLAN": "                          ->  Seq Scan on preferences pr  (cost=0.00..3.14 rows=114 width=53) (actual time=0.014..0.060 rows=114 loops=1)"
+  },
+  {
+    "QUERY PLAN": "              ->  Index Only Scan using profile_interests_pkey on profile_interests pi  (cost=0.42..0.52 rows=3 width=16) (actual time=0.004..0.005 rows=6 loops=107)"
+  },
+  {
+    "QUERY PLAN": "                    Index Cond: (profile_id = p.profile_id)"
+  },
+  {
+    "QUERY PLAN": "                    Heap Fetches: 0"
+  },
+  {
+    "QUERY PLAN": "        ->  Hash  (cost=2.10..2.10 rows=110 width=26) (actual time=0.077..0.078 rows=110 loops=1)"
+  },
+  {
+    "QUERY PLAN": "              Buckets: 1024  Batches: 1  Memory Usage: 15kB"
+  },
+  {
+    "QUERY PLAN": "              ->  Seq Scan on interests i  (cost=0.00..2.10 rows=110 width=26) (actual time=0.009..0.039 rows=110 loops=1)"
+  },
+  {
+    "QUERY PLAN": "Planning Time: 4.785 ms"
+  },
+  {
+    "QUERY PLAN": "Execution Time: 3.626 ms"
+  }
+]
+```
+
+Время выполнения: 3.626 ms
+
+Ключевые моменты:
+
+- Используются Index Only Scan для таблиц profiles, likes, profile_preferences, profile_interests.
+
+- Активно задействован Memoize для кэширования location_id → locations, что ускоряет повторные запросы.
+
+- Большинство соединений — Hash Left Join и Nested Loop Join, что допустимо при небольшом объеме данных (или хороших индексах).
+
+- Последовательное сканирование (Seq Scan) осталось только на малых таблицах (static, preferences, interests), что не критично при их размере.
+
+Вывод: план запроса теперь оптимален и использует индексы, результат достигается за миллисекунды.
+

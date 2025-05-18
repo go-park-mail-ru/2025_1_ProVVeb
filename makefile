@@ -38,7 +38,7 @@ make_perf_test_create:
 perf_tests_get:
 	clear
 	@echo "Запуск установки сессий..."
-	REDIS_ADDR=localhost:8010 go run docs/perf_test/main.go
+	REDIS_ADDR=213.219.214.83:8010 go run docs/perf_test/main.go
 	@echo "Запуск нагрузки..."
 	$(MAKE) clean
 	$(MAKE) make_perf_test_get
