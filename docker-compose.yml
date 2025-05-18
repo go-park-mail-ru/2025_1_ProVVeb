@@ -4,6 +4,7 @@ services:
       context: ./backend/repository/db
     environment:
       POSTGRES_USER: app_user
+      POSTGRES_HOST: postgres
       POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
     ports:
@@ -146,8 +147,14 @@ services:
       POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: miniopassword
+      REDIS_ADDR: redis:6379
+      REDIS_DB: 0
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   
   users_micro:

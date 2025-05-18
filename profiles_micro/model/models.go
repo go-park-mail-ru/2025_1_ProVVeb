@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var PageSize = 10
+var PageSize = 30
 
 type Preference struct {
 	Description string `yaml:"preference_description" json:"preference_description"`

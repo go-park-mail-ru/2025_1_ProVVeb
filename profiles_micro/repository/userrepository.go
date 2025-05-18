@@ -4,10 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
+	"github.com/go-redis/redis/v8"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -28,26 +32,44 @@ type ProfileRepository interface {
 }
 
 type ProfileRepo struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Client *redis.Client
 }
 
 func NewUserRepo() (*ProfileRepo, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: "",
+		DB:       0,
+	})
+
+	ctx := context.Background()
+
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		return &ProfileRepo{}, err
+	}
+
 	cfg := InitPostgresConfig()
 	db, err := InitPostgresConnection(cfg)
 	if err != nil {
 		fmt.Println("Error connecting to database:", err)
 		return &ProfileRepo{}, err
 	}
-	return &ProfileRepo{DB: db}, nil
+
+	return &ProfileRepo{
+		DB:     db,
+		Client: client,
+	}, nil
 }
 
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
-		Host:     "postgres",
+		Host:     os.Getenv("POSTGRES_HOST"),
 		Port:     5432,
-		User:     "app_user",
-		Password: "your_secure_password",
-		DBName:   "dev",
+		User:     os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		DBName:   os.Getenv("POSTGRES_DB"),
 		SSLMode:  "disable",
 	}
 }
@@ -269,22 +291,178 @@ func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err e
 	return
 }
 
+const GetProfilesQuery = `
+SELECT 
+    p.profile_id, 
+    p.firstname, 
+    p.lastname, 
+    p.is_male,
+    p.height,
+    p.birthday, 
+    p.description, 
+    l.country, 
+    l.city,
+    l.district,
+    s.path AS avatar,
+    i.description AS interest,
+    pr.preference_description,
+    pr.preference_value 
+FROM profiles p
+LEFT JOIN locations l 
+    ON p.location_id = l.location_id
+LEFT JOIN "static" s 
+    ON p.profile_id = s.profile_id
+LEFT JOIN profile_interests pi 
+    ON pi.profile_id = p.profile_id
+LEFT JOIN interests i 
+    ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp 
+    ON pp.profile_id = p.profile_id
+LEFT JOIN preferences pr 
+    ON pp.preference_id = pr.preference_id
+LEFT JOIN likes liked 
+    ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
+WHERE p.profile_id != $1 AND liked.profile_id IS NULL AND p.profile_id > $2
+LIMIT $3;
+`
+
 func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
-	profiles := make([]model.Profile, 0, model.PageSize)
-	amount := 0
-	for i := 1; ; i++ {
-		if i != forUserId {
-			profile, err := pr.GetProfileById(i)
-			if err != nil {
-				return profiles, err
-			}
-			if profile.ProfileId == 0 && profile.FirstName == "" {
-				return profiles, nil
-			}
-			profiles = append(profiles, profile)
-			amount++
+	const redisKeyFormat = "profiles_for_user:%d"
+	redisKey := fmt.Sprintf(redisKeyFormat, forUserId)
+
+	var lastSeenID int
+
+	result, err := pr.Client.Get(context.Background(), redisKey).Result()
+	if err != nil {
+		if err == redis.Nil {
+			lastSeenID = 0
+		} else {
+			return nil, err
+		}
+	} else {
+		lastSeenID, err = strconv.Atoi(result)
+		if err != nil {
+			lastSeenID = 0
 		}
 	}
+
+	rows, err := pr.DB.QueryContext(context.Background(), GetProfilesQuery, forUserId, lastSeenID, model.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	profileMap := make(map[int]*model.Profile)
+
+	var maxProfileID int
+
+	for rows.Next() {
+		var (
+			profileId           int
+			firstName, lastName string
+			isMale              bool
+			height              int
+			birth               sql.NullTime
+			description         sql.NullString
+			country, city       sql.NullString
+			district            sql.NullString
+			photo               sql.NullString
+			interest            sql.NullString
+			preferenceDesc      sql.NullString
+			preferenceValue     sql.NullString
+		)
+
+		if err := rows.Scan(
+			&profileId,
+			&firstName,
+			&lastName,
+			&isMale,
+			&height,
+			&birth,
+			&description,
+			&country,
+			&city,
+			&district,
+			&photo,
+			&interest,
+			&preferenceDesc,
+			&preferenceValue,
+		); err != nil {
+			return nil, err
+		}
+
+		if profileId > maxProfileID {
+			maxProfileID = profileId
+		}
+
+		profile, exists := profileMap[profileId]
+		if !exists {
+			profile = &model.Profile{
+				ProfileId:   profileId,
+				FirstName:   firstName,
+				LastName:    lastName,
+				IsMale:      isMale,
+				Height:      height,
+				Interests:   []string{},
+				Preferences: []model.Preference{},
+				Photos:      []string{},
+			}
+
+			if birth.Valid {
+				profile.Birthday = birth.Time
+			}
+
+			if description.Valid {
+				profile.Description = description.String
+			}
+
+			if country.Valid && city.Valid && district.Valid {
+				profile.Location = fmt.Sprintf("%s@%s@%s", country.String, city.String, district.String)
+			}
+
+			profileMap[profileId] = profile
+		}
+
+		if interest.Valid && !slices.Contains(profile.Interests, interest.String) {
+			profile.Interests = append(profile.Interests, interest.String)
+		}
+
+		if preferenceDesc.Valid && preferenceValue.Valid {
+			pref := model.Preference{
+				Description: preferenceDesc.String,
+				Value:       preferenceValue.String,
+			}
+			if !slices.Contains(profile.Preferences, pref) {
+				profile.Preferences = append(profile.Preferences, pref)
+			}
+		}
+
+		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
+			profile.Photos = append(profile.Photos, photo.String)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Преобразуем map в слайс и сортируем
+	profiles := make([]model.Profile, 0, len(profileMap))
+	for _, p := range profileMap {
+		profiles = append(profiles, *p)
+	}
+
+	slices.SortFunc(profiles, func(a, b model.Profile) int {
+		return a.ProfileId - b.ProfileId
+	})
+
+	if maxProfileID > 0 {
+		go func() {
+			pr.Client.Set(context.Background(), redisKey, strconv.Itoa(maxProfileID), 10*time.Minute)
+		}()
+	}
+
+	return profiles, nil
 }
 
 const GetMatches = `

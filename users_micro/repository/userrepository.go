@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"os"
 	"regexp"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/model"
@@ -45,12 +46,12 @@ func NewUserRepo() (*UserRepo, error) {
 
 func InitPostgresConfig() DatabaseConfig {
 	return DatabaseConfig{
-		Host:     "postgres",
+		Host:     os.Getenv("POSTGRES_HOST"),
 		Port:     5432,
-		User:     "app_user",
-		Password: "your_secure_password",
-		DBName:   "dev",
-		SSLMode:  "disable",
+		User:     os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		DBName:   os.Getenv("POSTGRES_DB"),
+		SSLMode:  os.Getenv("POSTGRES_SSLMODE"),
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -53,11 +54,11 @@ func CheckPostgresConfig(cfg config.DatabaseConfig) error {
 
 func InitPostgresConfig() config.DatabaseConfig {
 	return config.DatabaseConfig{
-		Host:     "postgres",
+		Host:     os.Getenv("POSTGRES_HOST"),
 		Port:     5432,
-		User:     "app_user",
-		Password: "your_secure_password",
-		DBName:   "dev",
+		User:     os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		DBName:   os.Getenv("POSTGRES_DB"),
 		SSLMode:  "disable",
 	}
 }

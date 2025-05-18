@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"os"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -62,8 +63,8 @@ func (sr *StaticRepo) GetImages(urls []string) ([][]byte, error) {
 
 func NewStaticRepo() (*StaticRepo, error) {
 	endpoint := "minio:9000"
-	accessKeyID := "minioadmin"
-	secretAccessKey := "miniopassword"
+	accessKeyID := os.Getenv("MINIO_ROOT_USER")
+	secretAccessKey := os.Getenv("MINIO_ROOT_PASSWORD")
 	useSSL := false
 
 	minioClient, err := minio.New(endpoint, &minio.Options{
