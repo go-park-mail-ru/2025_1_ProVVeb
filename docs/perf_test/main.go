@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -13,10 +12,12 @@ import (
 )
 
 const (
-	count          = 100000
+	count          = 1000
+	cookie_cnt     = 1000
 	targetsDir     = "docs/perf_test"
 	createUserFile = "create-user-targets.txt"
 	getProfileFile = "get-profile-targets.txt"
+	adress         = "213.219.214.83"
 )
 
 func main() {
@@ -58,38 +59,40 @@ func isFileEmpty(path string) bool {
 }
 
 func generateCreateUsers(ctx context.Context, client *redis.Client) error {
-	file, err := os.Create(fmt.Sprintf("%s/%s", targetsDir, createUserFile))
-	if err != nil {
-		return fmt.Errorf("не удалось создать файл: %w", err)
+	bodiesDir := fmt.Sprintf("%s/bodies", targetsDir)
+	if err := os.MkdirAll(bodiesDir, os.ModePerm); err != nil {
+		return fmt.Errorf("не удалось создать директорию с JSON: %w", err)
 	}
-	defer file.Close()
+
+	targetsPath := fmt.Sprintf("%s/%s", targetsDir, createUserFile)
+	targetsFile, err := os.Create(targetsPath)
+	if err != nil {
+		return fmt.Errorf("не удалось создать файл целей: %w", err)
+	}
+	defer targetsFile.Close()
 
 	for i := 1; i <= count; i++ {
-		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i%count)
-		if err := ensureSession(ctx, client, sessionKey, userID); err != nil {
-			fmt.Printf("Ошибка при работе с Redis: %v\n", err)
-			continue
-		}
-
 		body := generateUserProfile(i)
-		jsonBody, err := json.Marshal(body)
+		jsonBody, err := json.MarshalIndent(body, "", "  ")
 		if err != nil {
 			fmt.Printf("Ошибка сериализации JSON: %v\n", err)
 			continue
 		}
 
-		jsonStr := strings.TrimSpace(string(jsonBody))
-		adress := "localhost"
-		createTarget := fmt.Sprintf(
-			"POST http://%s:8080/users\r\nContent-Type: application/json\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n%s\r\n",
-			adress, sessionKey, jsonStr)
+		jsonFilename := fmt.Sprintf("user_%05d.json", i)
+		jsonPath := fmt.Sprintf("%s/%s", bodiesDir, jsonFilename)
+		if err := os.WriteFile(jsonPath, jsonBody, 0644); err != nil {
+			fmt.Printf("Ошибка записи JSON: %v\n", err)
+			continue
+		}
 
-		if _, err := file.WriteString(createTarget + "\r\n"); err != nil {
-			fmt.Printf("POST error: %v\n", err)
+		target := fmt.Sprintf("POST http://%s:8080/users\n@%s\n", adress, jsonPath)
+		if _, err := targetsFile.WriteString(target); err != nil {
+			fmt.Printf("Ошибка записи в targets файл: %v\n", err)
 		}
 	}
 
-	fmt.Printf("Создан файл %s с %d запросами\n", createUserFile, count)
+	fmt.Printf("Создано %d JSON-профилей в %s и файл целей %s\n", count, bodiesDir, createUserFile)
 	return nil
 }
 
@@ -101,13 +104,12 @@ func generateGetProfiles(ctx context.Context, client *redis.Client) error {
 	defer file.Close()
 
 	for i := 1; i <= count; i++ {
-		sessionKey, userID := fmt.Sprintf("session_%d", i), fmt.Sprintf("%d", i%count)
+		sessionKey, userID := fmt.Sprintf("session_%d", i%cookie_cnt), fmt.Sprintf("%d", i%cookie_cnt)
 		if err := ensureSession(ctx, client, sessionKey, userID); err != nil {
 			fmt.Printf("Ошибка при работе с Redis: %v\n", err)
 			continue
 		}
 
-		adress := "213.219.214.83"
 		getTarget := fmt.Sprintf(
 			"GET http://%s:8080/profiles\r\nCookie: session_id=%s; csrf_token=dummy_csrf\r\nX-CSRF-Token: dummy_csrf\r\n",
 			adress, sessionKey)
@@ -134,16 +136,33 @@ func ensureSession(ctx context.Context, client *redis.Client, sessionKey, userID
 	}
 	return nil
 }
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
+}
 
 func generateUserProfile(i int) map[string]interface{} {
 	login := fmt.Sprintf("user%d_%s", i, fake.FirstName())
-	email := fmt.Sprintf("%d_%s", i, fake.EmailAddress())
-	phone := fmt.Sprintf("+1774707777%d", i)
+	login = truncate(login, 255)
+
+	emailPrefix := fmt.Sprintf("%d", i)
+	emailSuffix := fake.EmailAddress()
+	if len(emailPrefix)+len(emailSuffix) > 254 {
+		emailSuffix = truncate(emailSuffix, 254-len(emailPrefix))
+	}
+	email := emailPrefix + "_" + emailSuffix
+	email = truncate(email, 255)
+
+	phone := fmt.Sprintf("+1%09d", i)
+
+	password := "password123"
 
 	return map[string]interface{}{
 		"user": map[string]interface{}{
 			"login":    login,
-			"password": "password123",
+			"password": password,
 			"email":    email,
 			"phone":    phone,
 			"status":   1,

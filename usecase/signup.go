@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -44,6 +45,7 @@ func (uc *UserSignUp) ValidateLogin(login string) error {
 		Login: login,
 	}
 	_, err := uc.UsersService.ValidateLogin(context.Background(), req)
+	fmt.Println(login, err)
 	uc.logger.Info("error", err)
 	return err
 }
