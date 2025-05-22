@@ -21,14 +21,14 @@ HISTOGRAM_FILE_HTML = docs/perf_test/plot.html
 
 perf_tests_create:
 	clear
-	@echo "Запуск установки сессий..."
-	REDIS_ADDR=localhost:8010 go run docs/perf_test/main.go
+	$(MAKE) init_perf_tests
 	@echo "Запуск нагрузки..."
 	$(MAKE) clean
 	$(MAKE) make_perf_test_create
 	$(MAKE) report
 	$(MAKE) plot
 	$(MAKE) histogram
+	rm -rf docs/perf_test/bodies
 
 make_perf_test_create:
 	@echo "Запуск нагрузки на $(DURATION) с частотой $(RATE) запросов/сек..."
@@ -37,14 +37,14 @@ make_perf_test_create:
 
 perf_tests_get:
 	clear
-	@echo "Запуск установки сессий..."
-	REDIS_ADDR=213.219.214.83:8010 go run docs/perf_test/main.go
+	$(MAKE) init_perf_tests
 	@echo "Запуск нагрузки..."
 	$(MAKE) clean
 	$(MAKE) make_perf_test_get
 	$(MAKE) report
 	$(MAKE) plot
 	$(MAKE) histogram
+	rm -rf docs/perf_test/bodies
 
 make_perf_test_get:
 	@echo "Запуск нагрузки на $(DURATION) с частотой $(RATE) запросов/сек..."
@@ -53,6 +53,10 @@ make_perf_test_get:
 report:
 	@echo "Генерация текстового отчёта..."
 	@cat $(REPORT_FILE)
+
+init_perf_tests:
+	@echo "Запуск установки сессий..."
+	REDIS_ADDR=213.219.214.83:8010 go run docs/perf_test/main.go
 
 plot:
 	@echo "Генерация HTML-графика..."

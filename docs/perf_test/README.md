@@ -175,28 +175,32 @@ ON CONFLICT DO NOTHING
 Тестирование:
 
 ```bash
-Requests      [total, rate, throughput]         6000, 100.02, 0.00
-Duration      [total, attack, wait]             59.99s, 59.99s, 22.375µs
-Latencies     [min, mean, 50, 90, 95, 99, max]  4.292µs, 77.519µs, 40.909µs, 94.325µs, 122.439µs, 795.979µs, 20.162ms
-Bytes In      [total, mean]                     0, 0.00
-Bytes Out     [total, mean]                     0, 0.00
+Генерация текстового отчёта...
+Requests      [total, rate, throughput]         100000, 20.00, 19.45
+Duration      [total, attack, wait]             1h23m0s, 1h23m0s, 78.186ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  1.898ms, 695.698ms, 59.143ms, 229.948ms, 1.122s, 24.497s, 31.054s
+Bytes In      [total, mean]                     2640606, 26.41
+Bytes Out     [total, mean]                     63736049, 637.36
+Success       [ratio]                           97.27%
+Status Codes  [code:count]                      0:2362  201:97273  500:365  
+Error Set:
+500 Internal Server Error
+Post "http://localhost:8080/users": EOF
+Post "http://localhost:8080/users": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
 
-Bucket           #     %       Histogram
-[0s,     10ms]   5999  99.98%  ##########################################################################
-[10ms,   20ms]   0     0.00%   
-[20ms,   50ms]   1     0.02%   
-[50ms,   100ms]  0     0.00%   
-[100ms,  200ms]  0     0.00%   
-[200ms,  500ms]  0     0.00%   
-[500ms,  1s]     0     0.00%   
-[1s,     +Inf]   0     0.00%   
+Bucket           #      %       Histogram
+[0s,     10ms]   1      0.00%   
+[10ms,   20ms]   0      0.00%   
+[20ms,   50ms]   29060  29.06%  #####################
+[50ms,   100ms]  52009  52.01%  #######################################
+[100ms,  200ms]  8024   8.02%   ######
+[200ms,  500ms]  4366   4.37%   ###
+[500ms,  1s]     1463   1.46%   #
+[1s,     +Inf]   5077   5.08%   ###
 ```
 
 Видно, что запросы идут достаточно быстро, так как запросы итак были изначально разделены, каждый из них по отдельности максимально отпимизирован
 
-
-P.S. не знаете,что за ошибка 2025/05/19 02:46:14 bad method: {"profile":{"birthday":"1990-01-01T00:00:00Z","description":"nemo
-2025/05/19 02:46:14 encode: can't detect encoding of "stdin"? Тот же запрос в postman нормально проходил
 
 ### Получение профиля
 
@@ -294,8 +298,8 @@ Duration      [total, attack, wait]             59.916s, 59.901s, 15.194ms
 Latencies     [min, mean, 50, 90, 95, 99, max]  1.314ms, 16.522ms, 4.062ms, 9.053ms, 21.434ms, 449.168ms, 659.905ms
 Bytes In      [total, mean]                     11400, 19.00
 Bytes Out     [total, mean]                     0, 0.00
-Success       [ratio]                           0.00%
-Status Codes  [code:count]                      404:600  
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:600  
 
 
 Bucket           #    %       Histogram
@@ -320,8 +324,8 @@ Duration      [total, attack, wait]             59.992s, 59.989s, 2.567ms
 Latencies     [min, mean, 50, 90, 95, 99, max]  710.5µs, 5.572ms, 2.293ms, 6.194ms, 13.23ms, 84.175ms, 312.17ms
 Bytes In      [total, mean]                     114000, 19.00
 Bytes Out     [total, mean]                     0, 0.00
-Success       [ratio]                           0.00%
-Status Codes  [code:count]                      404:6000  
+Success       [ratio]                           100%
+Status Codes  [code:count]                      200:6000  
 
 Bucket           #     %       Histogram
 [0s,     10ms]   5627  93.78%  ######################################################################
@@ -343,6 +347,8 @@ Duration      [total, attack, wait]             1m28s, 59.99s, 28.161s
 Latencies     [min, mean, 50, 90, 95, 99, max]  388.243ms, 11.637s, 6.12s, 30.001s, 30.001s, 30.005s, 30.023s
 Bytes In      [total, mean]                     3176001, 529.33
 Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:6000  
 
 
 Генерация гистограммы латентности...
@@ -445,12 +451,14 @@ ORDER BY p.profile_id
 Тестирование кода после исправления
 
 ```sql
-
-Requests      [total, rate, throughput]         6000, 100.02, 51.90
-Duration      [total, attack, wait]             1m26s, 59.989s, 25.727s
-Latencies     [min, mean, 50, 90, 95, 99, max]  215.264ms, 9.371s, 727.273ms, 30s, 30.001s, 30.003s, 30.03s
-Bytes In      [total, mean]                     74895699, 12482.62
+Генерация текстового отчёта...
+Requests      [total, rate, throughput]         6000, 100.02, 98.81
+Duration      [total, attack, wait]             1m1s, 59.99s, 730.255ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  493.767ms, 804.216ms, 766.496ms, 1.14s, 1.267s, 1.456s, 2s
+Bytes In      [total, mean]                     97694103, 16282.35
 Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:6000  
 
 Генерация гистограммы латентности...
 Bucket           #     %       Histogram
@@ -459,9 +467,9 @@ Bucket           #     %       Histogram
 [20ms,   50ms]   0     0.00%   
 [50ms,   100ms]  0     0.00%   
 [100ms,  200ms]  0     0.00%   
-[200ms,  500ms]  1897  31.62%  #######################
-[500ms,  1s]     1250  20.83%  ###############
-[1s,     +Inf]   2853  47.55%  ###################################
+[200ms,  500ms]  75    1.25%   
+[500ms,  1s]     5171  86.18%  ################################################################
+[1s,     +Inf]   754   12.57%  #########
 ```
 Путем оптимизаций улалось снизить задержку и увеличить количество быстродействующих запросов. На всякий случай, убедимся и сделаем EXPLAM ANALYZE
 
