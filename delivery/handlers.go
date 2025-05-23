@@ -87,10 +87,11 @@ var upgrader = websocket.Upgrader{
 
 func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 	mh.Logger.WithFields(&logrus.Fields{
-		"method": r.Method,
-		"path":   r.URL.Path,
+		"method":     r.Method,
+		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("request started")
+	
 	userIDRaw := r.Context().Value(userIDKey)
 	messageNotificationsFetched.Inc()
 	profileId, ok := userIDRaw.(uint32)
@@ -441,7 +442,7 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing DeleteChat request")
 
-	roomType := mux.Vars(r)["room_type"] 
+	roomType := mux.Vars(r)["room_type"]
 	messageChatsDeleted.WithLabelValues(roomType).Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
