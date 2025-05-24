@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+	"github.com/go-redis/redis/v8"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -75,6 +77,8 @@ type MessageHandler struct {
 	CreateMessagesUC       usecase.CreateMessages
 	GetMessagesFromCacheUC usecase.GetMessagesFromCache
 	UpdateMessageStatusUC  usecase.UpdateMessageStatus
+
+	Subscriber *redis.Client
 
 	Logger *logger.LogrusLogger
 }
@@ -209,8 +213,13 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
 
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	channelName := fmt.Sprintf("user:%d chat:%d messages", profileId, chatID)
+	pubsub := mh.Subscriber.Subscribe(ctx, channelName)
+	defer pubsub.Close()
+
 	done := make(chan struct{})
 
 	go func() {
@@ -218,8 +227,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-done:
 				return
-			case <-ticker.C:
-
+			case <-pubsub.Channel():
 				newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)

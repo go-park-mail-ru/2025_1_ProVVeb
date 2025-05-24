@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -111,7 +112,7 @@ func Run() {
 		return
 	}
 
-	messageHandler, err := NewMessageHandler(chatClient, logger)
+	messageHandler, err := NewMessageHandler(chatClient, chatClient.Client, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
@@ -311,6 +312,7 @@ func NewQueryHandler(
 
 func NewMessageHandler(
 	messageRepo repository.ChatRepository,
+	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*MessageHandler, error) {
 
@@ -365,6 +367,7 @@ func NewMessageHandler(
 		CreateMessagesUC:       *createMessageUC,
 		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
 		UpdateMessageStatusUC:  *updateMessageStatusUC,
+		Subscriber:             Subscriber,
 		Logger:                 logger,
 	}, nil
 }

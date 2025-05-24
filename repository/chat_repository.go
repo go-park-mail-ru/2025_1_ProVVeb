@@ -403,6 +403,12 @@ func (cr *ChatRepo) CreateMessage(chatID int, userID int, content string, status
 		return 0, err
 	}
 
+	channel := fmt.Sprintf("user:%d chat:%d messages", receiverID, chatID)
+	err = cr.Client.Publish(context.Background(), channel, "new").Err()
+	if err != nil {
+		return 0, err
+	}
+
 	return messageID, nil
 }
 
