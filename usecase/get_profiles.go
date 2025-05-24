@@ -44,11 +44,19 @@ func (gp *GetProfilesForUser) GetProfiles(forUserId int) ([]model.Profile, error
 				Value:       pref.Value,
 			})
 		}
+		var params []model.Preference
+		for _, pref := range match.Parametres {
+			params = append(params, model.Preference{
+				Description: pref.Description,
+				Value:       pref.Value,
+			})
+		}
 		profs = append(profs, model.Profile{
 			ProfileId:   int(match.ProfileId),
 			FirstName:   match.FirstName,
 			LastName:    match.LastName,
 			IsMale:      match.IsMale,
+			Goal:        int(match.Goal),
 			Height:      int(match.Height),
 			Birthday:    match.Birthday.AsTime(),
 			Description: match.Description,
@@ -57,6 +65,7 @@ func (gp *GetProfilesForUser) GetProfiles(forUserId int) ([]model.Profile, error
 			// LikedBy:	 match.LikedBy,
 			// give smbd information about by whom the user is liked?..
 			Preferences: prefs,
+			Parameters:  params,
 			Photos:      match.Photos,
 		})
 	}

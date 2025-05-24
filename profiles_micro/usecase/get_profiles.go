@@ -36,17 +36,26 @@ func (pss *ProfileServiceServer) GetProfiles(
 				Value:       preference.Value,
 			})
 		}
+		var params []*profiles.Preference
+		for _, preference := range profile.Parameters {
+			params = append(params, &profiles.Preference{
+				Description: preference.Description,
+				Value:       preference.Value,
+			})
+		}
 		profs = append(profs, &profiles.Profile{
 			ProfileId:   int32(profile.ProfileId),
 			FirstName:   profile.FirstName,
 			LastName:    profile.LastName,
 			IsMale:      profile.IsMale,
 			Height:      int32(profile.Height),
+			Goal:        int32(profile.Goal),
 			Birthday:    timestamppb.New(profile.Birthday),
 			Description: profile.Description,
 			Location:    profile.Location,
 			Interests:   profile.Interests,
 			Preferences: prefs,
+			Parametres:  params,
 			Photos:      profile.Photos,
 			LikedBy:     likedBy,
 		})

@@ -29,6 +29,7 @@ type ProfileRepository interface {
 	StorePhotos(profileId int, paths []string) error
 	StoreInterests(profileId int, interests []string) error
 	SetLike(from int, to int, status int) (int, error)
+	SearchProfiles(cur_user int, params model.SearchProfileRequest) ([]model.FoundProfile, error)
 	CloseRepo()
 }
 
@@ -143,38 +144,44 @@ func ClosePostgresConnection(pool *pgxpool.Pool) {
 }
 
 const GetProfileByIdQuery = `
+WITH base_profile AS (
+    SELECT 
+        profile_id, firstname, lastname, is_male,
+        height, birthday, description, goal, location_id
+    FROM profiles
+    WHERE profile_id = $1
+)
 SELECT 
-    p.profile_id, 
-    p.firstname, 
-    p.lastname, 
-    p.is_male,
-    p.height,
-    p.birthday, 
-    p.description, 
-    l.country, 
+    bp.profile_id,
+    bp.firstname,
+    bp.lastname,
+    bp.is_male,
+    bp.height,
+    bp.birthday,
+    bp.description,
+    bp.goal,
+    l.country,
     l.city,
     l.district,
     liked.profile_id AS liked_by_profile_id,
     s.path AS avatar,
     i.description AS interest,
     pr.preference_description,
-	pr.preference_value 
-FROM profiles p
-LEFT JOIN locations l 
-    ON p.location_id = l.location_id
-LEFT JOIN "static" s 
-    ON p.profile_id = s.profile_id
-LEFT JOIN profile_interests pi 
-    ON pi.profile_id = p.profile_id
-LEFT JOIN interests i 
-    ON pi.interest_id = i.interest_id
-LEFT JOIN profile_preferences pp 
-    ON pp.profile_id = p.profile_id
-LEFT JOIN preferences pr 
-    ON pp.preference_id = pr.preference_id
-LEFT JOIN likes liked
-    ON liked.liked_profile_id = p.profile_id
-WHERE p.profile_id = $1;
+    pr.preference_value,
+    param.parameter_description,
+    param.parameter_value
+FROM base_profile bp
+LEFT JOIN locations l ON bp.location_id = l.location_id
+LEFT JOIN "static" s ON bp.profile_id = s.profile_id
+LEFT JOIN profile_interests pi ON pi.profile_id = bp.profile_id
+LEFT JOIN interests i ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp ON pp.profile_id = bp.profile_id
+LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id
+LEFT JOIN profile_parameter pp2 ON pp2.profile_id = bp.profile_id
+LEFT JOIN parameters param ON pp2.parameter_id = param.parameter_id
+LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id;
+
+
 `
 
 func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -186,6 +193,9 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 	var likedByProfileId sql.NullInt64
 	var photo sql.NullString
 	var country, city, district sql.NullString
+
+	var goal sql.NullInt64
+	var paramDesc, paramValue sql.NullString
 
 	ctx := context.Background()
 	rows, err := pr.DB.Query(ctx, GetProfileByIdQuery, profileId)
@@ -204,6 +214,7 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&profile.Height,
 			&birth,
 			&profile.Description,
+			&goal,
 			&country,
 			&city,
 			&district,
@@ -212,6 +223,8 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&interest,
 			&preferenceDesc,
 			&preferenceValue,
+			&paramDesc,
+			&paramValue,
 		); err != nil {
 			return profile, err
 		}
@@ -230,6 +243,19 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 
 		if interest.Valid && !slices.Contains(profile.Interests, interest.String) {
 			profile.Interests = append(profile.Interests, interest.String)
+		}
+		if goal.Valid {
+			profile.Goal = int(goal.Int64)
+		}
+
+		if paramDesc.Valid && paramValue.Valid {
+			param := model.Preference{
+				Description: paramDesc.String,
+				Value:       paramValue.String,
+			}
+			if !slices.Contains(profile.Parameters, param) {
+				profile.Parameters = append(profile.Parameters, param)
+			}
 		}
 
 		if preferenceDesc.Valid && preferenceValue.Valid {
@@ -254,8 +280,10 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 }
 
 const CreateProfileQuery = `
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO profiles (
+    firstname, lastname, is_male, birthday, height, description, location_id, goal, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING profile_id;
 `
 
@@ -293,6 +321,7 @@ func (pr *ProfileRepo) StoreProfile(profile model.Profile) (profileId int, err e
 		profile.Height,
 		profile.Description,
 		locationID,
+		profile.Goal,
 	).Scan(&profileId)
 
 	return
@@ -317,14 +346,17 @@ SELECT
     p.is_male,
     p.height,
     p.birthday, 
-    p.description, 
+    p.description,
+    p.goal,
     l.country, 
     l.city,
     l.district,
     s.path AS avatar,
     i.description AS interest,
     pr.preference_description,
-    pr.preference_value 
+    pr.preference_value,
+    param.parameter_description,
+    param.parameter_value
 FROM filtered_profiles fp
 JOIN profiles p ON p.profile_id = fp.profile_id
 LEFT JOIN locations l 
@@ -339,8 +371,11 @@ LEFT JOIN profile_preferences pp
     ON pp.profile_id = p.profile_id
 LEFT JOIN preferences pr 
     ON pp.preference_id = pr.preference_id
+LEFT JOIN profile_parameter pp2 
+    ON pp2.profile_id = p.profile_id
+LEFT JOIN parameters param 
+    ON param.parameter_id = pp2.parameter_id
 ORDER BY p.profile_id;
-
 `
 
 func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
@@ -372,18 +407,20 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 
 	for rows.Next() {
 		var (
-			profileId           int
-			firstName, lastName string
-			isMale              bool
-			height              int
-			birth               sql.NullTime
-			description         sql.NullString
-			country, city       sql.NullString
-			district            sql.NullString
-			photo               sql.NullString
-			interest            sql.NullString
-			preferenceDesc      sql.NullString
-			preferenceValue     sql.NullString
+			profileId                     int
+			firstName, lastName           string
+			isMale                        bool
+			height                        int
+			goal                          int
+			birth                         sql.NullTime
+			description                   sql.NullString
+			country, city                 sql.NullString
+			district                      sql.NullString
+			photo                         sql.NullString
+			interest                      sql.NullString
+			preferenceDesc                sql.NullString
+			preferenceValue               sql.NullString
+			parameterDesc, parameterValue sql.NullString
 		)
 
 		if err := rows.Scan(
@@ -394,6 +431,7 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 			&height,
 			&birth,
 			&description,
+			&goal,
 			&country,
 			&city,
 			&district,
@@ -401,6 +439,8 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 			&interest,
 			&preferenceDesc,
 			&preferenceValue,
+			&parameterDesc,
+			&parameterValue,
 		); err != nil {
 			return nil, err
 		}
@@ -416,6 +456,7 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 				FirstName:   firstName,
 				LastName:    lastName,
 				IsMale:      isMale,
+				Goal:        goal,
 				Height:      height,
 				Interests:   []string{},
 				Preferences: []model.Preference{},
@@ -439,6 +480,16 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 
 		if interest.Valid && !slices.Contains(profile.Interests, interest.String) {
 			profile.Interests = append(profile.Interests, interest.String)
+		}
+
+		if parameterDesc.Valid && parameterValue.Valid {
+			param := model.Preference{
+				Description: parameterDesc.String,
+				Value:       parameterValue.String,
+			}
+			if !slices.Contains(profile.Parameters, param) {
+				profile.Parameters = append(profile.Parameters, param)
+			}
 		}
 
 		if preferenceDesc.Valid && preferenceValue.Valid {
@@ -532,9 +583,10 @@ SET
 	height = $4,
 	description = $5,
 	location_id = $6,
-	birthday = $7,             
+	birthday = $7,    
+	goal = $8         
 	updated_at = CURRENT_TIMESTAMP
-WHERE profile_id = $8;
+WHERE profile_id = $9;
 
 `
 
@@ -590,6 +642,27 @@ INSERT INTO locations (country, city, district)
 VALUES ($1, $2, $3)
 RETURNING location_id			
 `
+
+	DeleteProfileParameters = `
+DELETE FROM profile_parameter WHERE profile_id = $1
+`
+
+	GetParameterIDByFields = `
+SELECT parameter_id FROM parameters
+WHERE parameter_type = $1 AND parameter_description = $2 AND parameter_value = $3
+`
+
+	InsertParameterIfNotExists = `
+INSERT INTO parameters (parameter_type, parameter_description, parameter_value)
+VALUES ($1, $2, $3)
+RETURNING parameter_id
+`
+
+	InsertProfileParameter = `
+INSERT INTO profile_parameter (profile_id, parameter_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
 )
 
 func (pr *ProfileRepo) UpdateProfile(profileID int, newProfile model.Profile) error {
@@ -627,6 +700,7 @@ func (pr *ProfileRepo) UpdateProfile(profileID int, newProfile model.Profile) er
 		newProfile.Description,
 		locationID,
 		newProfile.Birthday,
+		newProfile.Goal,
 		profileID,
 	)
 	if err != nil {
@@ -675,6 +749,29 @@ func (pr *ProfileRepo) UpdateProfile(profileID int, newProfile model.Profile) er
 			_, err = tx.Exec(ctx, InsertProfilePreference, profileID, preferenceID)
 			if err != nil {
 				return fmt.Errorf("failed to insert profile preference: %w", err)
+			}
+		}
+	}
+
+	if len(newProfile.Parameters) != 0 {
+		if _, err := tx.Exec(ctx, DeleteProfileParameters, profileID); err != nil {
+			return fmt.Errorf("failed to delete old parameters: %w", err)
+		}
+
+		for _, pref := range newProfile.Parameters {
+			var parameterID int
+
+			err := tx.QueryRow(ctx, GetParameterIDByFields, 1, pref.Description, pref.Value).Scan(&parameterID)
+			if err != nil {
+				err = tx.QueryRow(ctx, InsertParameterIfNotExists, 1, pref.Description, pref.Value).Scan(&parameterID)
+				if err != nil {
+					return fmt.Errorf("failed to insert parameter %+v: %w", pref, err)
+				}
+			}
+
+			_, err = tx.Exec(ctx, InsertProfileParameter, profileID, parameterID)
+			if err != nil {
+				return fmt.Errorf("failed to insert profile parameter: %w", err)
 			}
 		}
 	}
@@ -874,4 +971,119 @@ func (pr *ProfileRepo) DeleteProfile(userId int) error {
 	}
 
 	return nil
+}
+
+const SearchProfilesQuery = `
+WITH filtered_profiles AS (
+    SELECT p.profile_id, p.firstname, p.lastname, p.birthday, p.goal,
+           s.path AS avatar
+    FROM profiles p
+    LEFT JOIN "static" s ON s.profile_id = p.profile_id
+    LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
+    WHERE p.profile_id != $1
+      AND liked.profile_id IS NULL
+      AND (
+          $2 = '' OR $2 = 'Any' OR
+          (p.is_male = CASE 
+                        WHEN $2 = 'Male' THEN true
+                        WHEN $2 = 'Female' THEN false
+                        ELSE NULL
+                      END)
+      )
+      AND (
+          $3 = 0 OR DATE_PART('year', AGE(CURRENT_DATE, p.birthday)) >= $3
+      )
+      AND (
+          $4 = 0 OR DATE_PART('year', AGE(CURRENT_DATE, p.birthday)) <= $4
+      )
+      AND (
+          $5 = 0 OR p.height >= $5
+      )
+      AND (
+          $6 = 0 OR p.height <= $6
+      )
+      AND (
+          $7 = 0 OR p.goal = $7
+      )
+      AND (
+          $8 = '' OR EXISTS (
+              SELECT 1 FROM locations l 
+              WHERE l.location_id = p.location_id 
+                AND LOWER(TRIM(l.country)) = LOWER(TRIM($8))
+          )
+      )
+      AND (
+          $9 = '' OR EXISTS (
+              SELECT 1 FROM locations l 
+              WHERE l.location_id = p.location_id 
+                AND LOWER(TRIM(l.city)) = LOWER(TRIM($9))
+          )
+      )
+      AND (
+          NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements($10) AS pref(elem)
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM profile_preferences pp
+                JOIN preferences pr ON pr.preference_id = pp.preference_id
+                WHERE pp.profile_id = p.profile_id
+                  AND pr.preference_description = pref.elem->>'preference_description'
+                  AND pr.preference_value = pref.elem->>'preference_value'
+            )
+          )
+          OR jsonb_array_length($10) = 0
+      )
+)
+SELECT
+    profile_id AS "IDUser",
+    avatar AS "FirstImg",
+    firstname || ' ' || lastname AS "Fullname",
+    FLOOR(DATE_PART('year', AGE(CURRENT_DATE, birthday)))::int AS "Age",
+    goal AS "Goal"
+FROM filtered_profiles
+ORDER BY profile_id
+`
+
+func (pr *ProfileRepo) SearchProfiles(cur_user int, params model.SearchProfileRequest) ([]model.FoundProfile, error) {
+	ctx := context.Background()
+
+	rows, err := pr.DB.Query(ctx, SearchProfilesQuery,
+		cur_user,
+		params.IsMale,
+		params.AgeMin,
+		params.AgeMax,
+		params.HeightMin,
+		params.HeightMax,
+		params.Goal,
+		params.Country,
+		params.City,
+		params.Preferences,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []model.FoundProfile
+
+	for rows.Next() {
+		var fp model.FoundProfile
+		if err := rows.Scan(
+			&fp.IDUser,
+			&fp.FirstImg,
+			&fp.Fullname,
+			&fp.Age,
+			&fp.Goal,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, fp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }

@@ -12,6 +12,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // ProfilesServiceClient is the client API for ProfilesService service.
@@ -28,6 +29,7 @@ type ProfilesServiceClient interface {
 	DeleteImage(ctx context.Context, in *DeleteImageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetProfileMatches(ctx context.Context, in *GetProfileMatchesRequest, opts ...grpc.CallOption) (*GetProfileMatchesResponse, error)
 	SetProfileLike(ctx context.Context, in *SetProfileLikeRequest, opts ...grpc.CallOption) (*SetProfileLikeResponse, error)
+	SearchProfile(ctx context.Context, in *SearchProfileRequest, opts ...grpc.CallOption) (*SearchProfileResponse, error)
 }
 
 type profilesServiceClient struct {
@@ -128,6 +130,15 @@ func (c *profilesServiceClient) SetProfileLike(ctx context.Context, in *SetProfi
 	return out, nil
 }
 
+func (c *profilesServiceClient) SearchProfile(ctx context.Context, in *SearchProfileRequest, opts ...grpc.CallOption) (*SearchProfileResponse, error) {
+	out := new(SearchProfileResponse)
+	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/SearchProfile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProfilesServiceServer is the server API for ProfilesService service.
 // All implementations must embed UnimplementedProfilesServiceServer
 // for forward compatibility
@@ -142,6 +153,7 @@ type ProfilesServiceServer interface {
 	DeleteImage(context.Context, *DeleteImageRequest) (*emptypb.Empty, error)
 	GetProfileMatches(context.Context, *GetProfileMatchesRequest) (*GetProfileMatchesResponse, error)
 	SetProfileLike(context.Context, *SetProfileLikeRequest) (*SetProfileLikeResponse, error)
+	SearchProfile(context.Context, *SearchProfileRequest) (*SearchProfileResponse, error)
 	mustEmbedUnimplementedProfilesServiceServer()
 }
 
@@ -179,6 +191,9 @@ func (UnimplementedProfilesServiceServer) GetProfileMatches(context.Context, *Ge
 func (UnimplementedProfilesServiceServer) SetProfileLike(context.Context, *SetProfileLikeRequest) (*SetProfileLikeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetProfileLike not implemented")
 }
+func (UnimplementedProfilesServiceServer) SearchProfile(context.Context, *SearchProfileRequest) (*SearchProfileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchProfile not implemented")
+}
 func (UnimplementedProfilesServiceServer) mustEmbedUnimplementedProfilesServiceServer() {}
 
 // UnsafeProfilesServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -188,8 +203,8 @@ type UnsafeProfilesServiceServer interface {
 	mustEmbedUnimplementedProfilesServiceServer()
 }
 
-func RegisterProfilesServiceServer(s *grpc.Server, srv ProfilesServiceServer) {
-	s.RegisterService(&_ProfilesService_serviceDesc, srv)
+func RegisterProfilesServiceServer(s grpc.ServiceRegistrar, srv ProfilesServiceServer) {
+	s.RegisterService(&ProfilesService_ServiceDesc, srv)
 }
 
 func _ProfilesService_StoreProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -372,7 +387,28 @@ func _ProfilesService_SetProfileLike_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-var _ProfilesService_serviceDesc = grpc.ServiceDesc{
+func _ProfilesService_SearchProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilesServiceServer).SearchProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/profiles.ProfilesService/SearchProfile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilesServiceServer).SearchProfile(ctx, req.(*SearchProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ProfilesService_ServiceDesc is the grpc.ServiceDesc for ProfilesService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ProfilesService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "profiles.ProfilesService",
 	HandlerType: (*ProfilesServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
@@ -415,6 +451,10 @@ var _ProfilesService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetProfileLike",
 			Handler:    _ProfilesService_SetProfileLike_Handler,
+		},
+		{
+			MethodName: "SearchProfile",
+			Handler:    _ProfilesService_SearchProfile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

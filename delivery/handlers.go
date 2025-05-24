@@ -91,7 +91,7 @@ func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Reques
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("request started")
-	
+
 	userIDRaw := r.Context().Value(userIDKey)
 	messageNotificationsFetched.Inc()
 	profileId, ok := userIDRaw.(uint32)
@@ -1002,19 +1002,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	input.Login = sanitizer.Sanitize(input.Login)
 	input.Password = sanitizer.Sanitize(input.Password)
-
-	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
-		sh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-			"error": "invalid login or password format",
-		}).Warn("validation failed")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid login or password"},
-		)
-		loginAttempts.WithLabelValues("false").Inc()
-		return
-	}
 
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

@@ -40,6 +40,14 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		})
 	}
 
+	var valueParams []*profilespb.Preference
+	for _, pref := range value.Parameters {
+		valueParams = append(valueParams, &profilespb.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
+	}
+
 	var profValue *profilespb.Profile = &profilespb.Profile{
 		ProfileId:   int32(value.ProfileId),
 		FirstName:   value.FirstName,
@@ -50,6 +58,7 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		Description: value.Description,
 		Location:    value.Location,
 		Interests:   value.Interests,
+		Parametres:  valueParams,
 		LikedBy:     valueLikedBy,
 		Preferences: valuePrefs,
 		Photos:      value.Photos,
@@ -67,11 +76,20 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		})
 	}
 
+	var targParams []*profilespb.Preference
+	for _, pref := range targ.Parameters {
+		targParams = append(targParams, &profilespb.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
+	}
+
 	var targValue *profilespb.Profile = &profilespb.Profile{
 		ProfileId:   int32(targ.ProfileId),
 		FirstName:   targ.FirstName,
 		LastName:    targ.LastName,
 		IsMale:      targ.IsMale,
+		Goal:        int32(targ.Goal),
 		Height:      int32(targ.Height),
 		Birthday:    timestamppb.New(targ.Birthday),
 		Description: targ.Description,
@@ -79,6 +97,7 @@ func (pu *ProfileUpdate) UpdateProfile(value model.Profile, targ model.Profile, 
 		Interests:   targ.Interests,
 		LikedBy:     targLikedBy,
 		Preferences: targPrefs,
+		Parametres:  targParams,
 		Photos:      targ.Photos,
 	}
 

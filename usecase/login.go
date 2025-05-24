@@ -18,7 +18,6 @@ import (
 type UserLogIn struct {
 	hasher         repository.PasswordHasher
 	token          repository.JwtTokenizer
-	validator      repository.UserParamsValidator
 	UsersService   userspb.UsersServiceClient
 	SessionService sessionpb.SessionServiceClient
 	logger         *logger.LogrusLogger
@@ -27,18 +26,17 @@ type UserLogIn struct {
 func NewUserLogInUseCase(
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
-	validator repository.UserParamsValidator,
 	UsersService userspb.UsersServiceClient,
 	SessionService sessionpb.SessionServiceClient,
 	logger *logger.LogrusLogger,
 ) (*UserLogIn, error) {
-	if hasher == nil || validator == nil {
+	if hasher == nil {
 		return nil, model.ErrUserLogInUC
 	}
 	return &UserLogIn{
-		hasher:         hasher,
-		token:          token,
-		validator:      validator,
+		hasher: hasher,
+		token:  token,
+
 		UsersService:   UsersService,
 		SessionService: SessionService,
 		logger:         logger,
@@ -142,8 +140,6 @@ func (uc *UserLogIn) StoreSession(ctx context.Context, session model.Session) er
 		Ttl:       ttl,
 	}
 
-	fmt.Println(req)
-
 	_, err := uc.SessionService.StoreSession(ctx, req)
 	if err != nil {
 		uc.logger.WithFields(&logrus.Fields{"session": session, "error": err}).Error("StoreSession")
@@ -172,12 +168,4 @@ func (uc *UserLogIn) GetSession(sessionId string) (string, error) {
 	}
 
 	return sessionResp.Data, nil
-}
-
-func (uc *UserLogIn) ValidateLogin(login string) bool {
-	return uc.validator.ValidateLogin(login) == nil
-}
-
-func (uc *UserLogIn) ValidatePassword(password string) bool {
-	return uc.validator.ValidatePassword(password) == nil
 }

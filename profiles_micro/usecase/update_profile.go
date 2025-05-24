@@ -27,10 +27,14 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		req.Targ.Birthday = req.Value.Birthday
 	}
 
+	if req.Value.Goal != 0 {
+		req.Targ.Goal = req.Value.Goal
+	}
+
 	// here is joke:
 	// if is male is true, it means that we must change gender
 	// sorry bruh
-	if req.Value.IsMale == true {
+	if req.Value.IsMale {
 		req.Targ.IsMale = !req.Targ.IsMale
 	}
 
@@ -50,6 +54,10 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		req.Targ.Preferences = req.Value.Preferences
 	}
 
+	if len(req.Value.Parametres) != 0 {
+		req.Targ.Parametres = req.Value.Parametres
+	}
+
 	likedBy := []int{}
 	for _, like := range req.Value.LikedBy {
 		likedBy = append(likedBy, int(like))
@@ -63,17 +71,27 @@ func (pss *ProfileServiceServer) UpdateProfile(ctx context.Context, req *profile
 		})
 	}
 
+	var params []model.Preference
+	for _, preference := range req.Value.Parametres {
+		params = append(params, model.Preference{
+			Description: preference.Description,
+			Value:       preference.Value,
+		})
+	}
+
 	var prof model.Profile = model.Profile{
 		ProfileId:   int(req.ProfileId),
 		FirstName:   req.Targ.FirstName,
 		IsMale:      req.Targ.IsMale,
 		LastName:    req.Targ.LastName,
+		Goal:        int(req.Targ.Goal),
 		Height:      int(req.Targ.Height),
 		Birthday:    req.Targ.Birthday.AsTime(),
 		Description: req.Targ.Description,
 		Location:    req.Targ.Location,
 		Interests:   req.Targ.Interests,
 		Preferences: prefs,
+		Parameters:  params,
 		LikedBy:     likedBy,
 	}
 

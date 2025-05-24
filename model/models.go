@@ -83,6 +83,7 @@ type Profile struct {
 	FirstName   string       `yaml:"firstName" json:"firstName"`
 	LastName    string       `yaml:"lastName" json:"lastName"`
 	IsMale      bool         `yaml:"isMale" json:"isMale"`
+	Goal        int          `yaml:"goal" json:"goal"`
 	Height      int          `yaml:"height" json:"height"`
 	Birthday    time.Time    `yaml:"birthday" json:"birthday"`
 	Description string       `yaml:"description" json:"description"`
@@ -90,6 +91,7 @@ type Profile struct {
 	Interests   []string     `yaml:"interests" json:"interests"`
 	LikedBy     []int        `yaml:"likedBy" json:"likedBy"`
 	Preferences []Preference `yaml:"preferences" json:"preferences"`
+	Parameters  []Preference `yaml:"parameters" json:"parameters"`
 	Photos      []string     `yaml:"photos" json:"photos"`
 }
 
@@ -190,14 +192,16 @@ type ComplaintWithLogins struct {
 }
 
 type SearchProfileRequest struct {
-	Input     string `json:"input"`
-	IsMale    string `json:"isMale"`
-	AgeMin    int    `json:"ageMin"`
-	AgeMax    int    `json:"ageMax"`
-	HeightMin int    `json:"heightMin"`
-	HeightMax int    `json:"heightMax"`
-	Country   string `json:"country"`
-	City      string `json:"city"`
+	Input       string       `json:"input"`
+	IsMale      string       `json:"isMale"`
+	AgeMin      int          `json:"ageMin"`
+	AgeMax      int          `json:"ageMax"`
+	HeightMin   int          `json:"heightMin"`
+	HeightMax   int          `json:"heightMax"`
+	Goal        int          `yaml:"goal" json:"goal"`
+	Preferences []Preference `yaml:"preferences" json:"preferences"`
+	Country     string       `json:"country"`
+	City        string       `json:"city"`
 }
 
 type FoundProfile struct {
@@ -205,4 +209,5 @@ type FoundProfile struct {
 	FirstImg string `json:"firstImgSrc"`
 	Fullname string `json:"fullname"`
 	Age      int    `json:"age"`
+	Goal     int    `yaml:"goal" json:"goal"`
 }

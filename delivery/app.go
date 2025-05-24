@@ -93,13 +93,7 @@ func Run() {
 		return
 	}
 
-	validator, err := repository.NewUParamsValidator()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with validator: %v", err))
-		return
-	}
-
-	sessionHandler, err := NewSessionHandler(hasher, tokenValidator, validator, logger, authCon, usersCon)
+	sessionHandler, err := NewSessionHandler(hasher, tokenValidator, logger, authCon, usersCon)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -210,7 +204,7 @@ func Run() {
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
+		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000", "http://localhost"},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
 		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -443,7 +437,6 @@ func NewProfilesHandler(
 func NewSessionHandler(
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
-	validator repository.UserParamsValidator,
 	logger *logger.LogrusLogger,
 	conn *grpc.ClientConn,
 	userConn *grpc.ClientConn,
@@ -456,7 +449,6 @@ func NewSessionHandler(
 	loginUC, err := usecase.NewUserLogInUseCase(
 		hasher,
 		token,
-		validator,
 		userClient,
 		client,
 		logger,

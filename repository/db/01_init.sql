@@ -28,6 +28,7 @@ CREATE TABLE profiles (
     firstname TEXT NOT NULL CHECK (LENGTH(firstname) <= 255),
     lastname TEXT NOT NULL CHECK (LENGTH(lastname) <= 255),
     is_male BOOLEAN NOT NULL,
+    goal INT NOT NULL,
     birthday DATE NOT NULL,
     height INT CHECK (height >= 50 AND height <= 280),
     description TEXT,
@@ -98,6 +99,23 @@ CREATE TABLE profile_preferences (
     PRIMARY KEY (profile_id, preference_id),
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (preference_id) REFERENCES preferences(preference_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+CREATE TABLE parameters (
+    parameter_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    parameter_type INT NOT NULL,
+    parameter_description TEXT NOT NULL CHECK (LENGTH(parameter_description) <= 255),
+    parameter_value TEXT NOT NULL CHECK (LENGTH(parameter_value) <= 255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE profile_parameter (
+    profile_id BIGINT NOT NULL,
+    parameter_id BIGINT NOT NULL,
+    PRIMARY KEY (profile_id, parameter_id),
+    FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE likes (
