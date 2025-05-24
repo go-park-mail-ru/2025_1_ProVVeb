@@ -257,13 +257,13 @@ func NewMetricsMiddleware(cfg MetricsMiddlewareConfig) mux.MiddlewareFunc {
 			duration := time.Since(start).Seconds()
 
 			httpRequests.WithLabelValues(
-				r.URL.Path,
+				GetUrlForMetrics(r.URL.Path),
 				r.Method,
 				strconv.Itoa(rw.statusCode),
 			).Inc()
 
 			httpDuration.WithLabelValues(
-				r.URL.Path,
+				GetUrlForMetrics(r.URL.Path),
 				r.Method,
 			).Observe(duration)
 		})
