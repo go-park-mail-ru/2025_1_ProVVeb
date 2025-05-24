@@ -3,13 +3,14 @@ package repository
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/model"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -31,7 +32,7 @@ type UserRepository interface {
 }
 
 type UserRepo struct {
-	DB *sql.DB
+	DB *pgxpool.Pool
 }
 
 func NewUserRepo() (*UserRepo, error) {
@@ -87,7 +88,7 @@ func CheckPostgresConfig(cfg DatabaseConfig) error {
 	return nil
 }
 
-func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
+func InitPostgresConnection(cfg DatabaseConfig) (*pgxpool.Pool, error) {
 	err := CheckPostgresConfig(cfg)
 	if err != nil {
 		return nil, model.ErrInvalidUserRepoConfig
@@ -95,23 +96,28 @@ func InitPostgresConnection(cfg DatabaseConfig) (*sql.DB, error) {
 
 	connStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)
-	db, err := sql.Open("pgx", connStr)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
-		return nil, fmt.Errorf("error while connecting to a database: %v", err)
+		return nil, fmt.Errorf("failed to create pgx pool: %w", err)
 	}
 
-	return db, nil
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	return pool, nil
 }
 
-func ClosePostgresConnection(conn *sql.DB) error {
-	var err error
-	if conn != nil {
-		err = conn.Close()
-		if err != nil {
-			fmt.Printf("failed while closing connection: %v\n", err)
-		}
+func ClosePostgresConnection(pool *pgxpool.Pool) error {
+	if pool != nil {
+		pool.Close()
 	}
-	return err
+	return nil
 }
 
 const GetUserByLoginQuery = `
@@ -129,7 +135,7 @@ WHERE u.login = $1;
 func (ur *UserRepo) GetUserByLogin(login string) (model.User, error) {
 	var user model.User
 
-	err := ur.DB.QueryRowContext(context.Background(), GetUserByLoginQuery, login).Scan(
+	err := ur.DB.QueryRow(context.Background(), GetUserByLoginQuery, login).Scan(
 		&user.UserId,
 		&user.Login,
 		&user.Email,
@@ -148,7 +154,7 @@ RETURNING user_id;
 `
 
 func (ur *UserRepo) StoreUser(user model.User) (userId int, err error) {
-	err = ur.DB.QueryRowContext(
+	err = ur.DB.QueryRow(
 		context.Background(),
 		CreateUserQuery,
 		user.Login,
@@ -168,7 +174,7 @@ DELETE FROM users WHERE user_id = $1;
 )
 
 func (ur *UserRepo) DeleteUserById(userId int) error {
-	_, err := ur.DB.ExecContext(context.Background(), DeleteUserQuery, userId)
+	_, err := ur.DB.Exec(context.Background(), DeleteUserQuery, userId)
 	if err != nil {
 		return model.ErrDeleteUser
 	}
@@ -189,7 +195,7 @@ RETURNING id;
 func (ur *UserRepo) StoreSession(userID int, sessionID string) error {
 	var sessionId int
 
-	err := ur.DB.QueryRowContext(
+	err := ur.DB.QueryRow(
 		context.Background(),
 		StoreSessionQuery,
 		userID,
@@ -209,7 +215,7 @@ DELETE FROM sessions WHERE user_id = $1;
 
 func (ur *UserRepo) DeleteSession(userId int) error {
 	var profileId int
-	err := ur.DB.QueryRowContext(context.Background(), FindSessionQuery, userId).Scan(&profileId)
+	err := ur.DB.QueryRow(context.Background(), FindSessionQuery, userId).Scan(&profileId)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return model.ErrSessionNotFound
@@ -217,7 +223,7 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 		return model.ErrDeleteSession
 	}
 
-	_, err = ur.DB.ExecContext(context.Background(), DeleteSessionQuery, userId)
+	_, err = ur.DB.Exec(context.Background(), DeleteSessionQuery, userId)
 	if err != nil {
 		return model.ErrDeleteSession
 	}
@@ -231,7 +237,7 @@ const GetUserByIdQuery = `
 func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {
 	var user model.User
 
-	err := ur.DB.QueryRowContext(context.Background(), GetUserByIdQuery, userID).Scan(
+	err := ur.DB.QueryRow(context.Background(), GetUserByIdQuery, userID).Scan(
 		&user.Login,
 		&user.Email,
 		&user.Phone,
@@ -250,7 +256,7 @@ const GetAdminQuery = `
 
 func (ur *UserRepo) GetAdmin(userID int) (bool, error) {
 	var exists bool
-	err := ur.DB.QueryRowContext(context.Background(), GetAdminQuery, userID).Scan(&exists)
+	err := ur.DB.QueryRow(context.Background(), GetAdminQuery, userID).Scan(&exists)
 	return exists, err
 }
 
