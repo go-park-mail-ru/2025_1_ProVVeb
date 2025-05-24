@@ -14,6 +14,7 @@ func (pss *ProfileServiceServer) SearchProfile(
 
 	params := model.SearchProfileRequest{
 		IsMale:      req.GetIsMale(),
+		Input:       req.GetInput(),
 		AgeMin:      int(req.GetAgeMin()),
 		AgeMax:      int(req.GetAgeMax()),
 		HeightMin:   int(req.GetHeightMin()),
@@ -30,7 +31,6 @@ func (pss *ProfileServiceServer) SearchProfile(
 		})
 	}
 
-	// Вызов репозитория
 	foundProfiles, err := pss.ProfilesRepo.SearchProfiles(int(req.GetIDUser()), params)
 	if err != nil {
 		return nil, err

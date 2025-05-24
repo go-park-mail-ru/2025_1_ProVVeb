@@ -27,6 +27,7 @@ CREATE TABLE profiles (
     profile_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     firstname TEXT NOT NULL CHECK (LENGTH(firstname) <= 255),
     lastname TEXT NOT NULL CHECK (LENGTH(lastname) <= 255),
+    fullname_translit TEXT CHECK (LENGTH(lastname) <= 255),
     is_male BOOLEAN NOT NULL,
     goal INT NOT NULL,
     birthday DATE NOT NULL,

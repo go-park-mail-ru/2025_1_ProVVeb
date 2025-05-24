@@ -1025,15 +1025,25 @@ WITH filtered_profiles AS (
             FROM jsonb_array_elements($10) AS pref(elem)
             WHERE NOT EXISTS (
                 SELECT 1
-                FROM profile_preferences pp
-                JOIN preferences pr ON pr.preference_id = pp.preference_id
+                FROM profile_parameter pp
+                JOIN parameters pr ON pr.parameter_id = pp.parameter_id
                 WHERE pp.profile_id = p.profile_id
-                  AND pr.preference_description = pref.elem->>'preference_description'
-                  AND pr.preference_value = pref.elem->>'preference_value'
+                  AND pr.parameter_description = pref.elem->>'preference_description'
+                  AND pr.parameter_value = pref.elem->>'preference_value'
             )
           )
           OR jsonb_array_length($10) = 0
       )
+	 AND (
+    $11 = '' OR
+    (
+        similarity((p.firstname || ' ' || p.lastname), $11) > 0.3
+        OR similarity(p.fullname_translit, $11) > 0.3
+        OR to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $11)
+        OR to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $11)
+    )
+)
+
 )
 SELECT
     profile_id AS "IDUser",
@@ -1059,6 +1069,7 @@ func (pr *ProfileRepo) SearchProfiles(cur_user int, params model.SearchProfileRe
 		params.Country,
 		params.City,
 		params.Preferences,
+		params.Input,
 	)
 	if err != nil {
 		return nil, err
