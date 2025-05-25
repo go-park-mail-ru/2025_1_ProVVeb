@@ -16,7 +16,7 @@ type User struct {
 var MinPasswordLength = 8
 var MaxPasswordLength = 64
 var MinLoginLength = 7
-var MaxLoginLength = 15
+var MaxLoginLength = 25
 
 var PageSize = 10
 var MaxFileSize int64 = 10 << 20

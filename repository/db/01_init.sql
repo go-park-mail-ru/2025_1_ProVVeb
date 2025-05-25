@@ -7,7 +7,7 @@ CREATE TABLE complaint_types (
 
 CREATE TABLE notification_types (
     notif_type BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    type_description TEXT NOT NULL CHECK (LENGTH(type_description) <= 255)
+    type_description TEXT NOT NULL UNIQUE CHECK (LENGTH(type_description) <= 255)
 );
 
 CREATE TABLE locations (
@@ -27,7 +27,9 @@ CREATE TABLE profiles (
     profile_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     firstname TEXT NOT NULL CHECK (LENGTH(firstname) <= 255),
     lastname TEXT NOT NULL CHECK (LENGTH(lastname) <= 255),
+    fullname_translit TEXT CHECK (LENGTH(lastname) <= 255),
     is_male BOOLEAN NOT NULL,
+    goal INT NOT NULL,
     birthday DATE NOT NULL,
     height INT CHECK (height >= 50 AND height <= 280),
     description TEXT,
@@ -45,6 +47,7 @@ CREATE TABLE users (
     email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255)
     CHECK (email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
     phone TEXT UNIQUE CHECK (LENGTH(phone) <= 20),
+    CHECK (phone ~ '^\+\d{10,15}$'),
     password TEXT NOT NULL CHECK (LENGTH(password) >= 8 AND LENGTH(password) <= 255), 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +100,23 @@ CREATE TABLE profile_preferences (
     PRIMARY KEY (profile_id, preference_id),
     FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (preference_id) REFERENCES preferences(preference_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+CREATE TABLE parameters (
+    parameter_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    parameter_type INT NOT NULL,
+    parameter_description TEXT NOT NULL CHECK (LENGTH(parameter_description) <= 255),
+    parameter_value TEXT NOT NULL CHECK (LENGTH(parameter_value) <= 255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE profile_parameter (
+    profile_id BIGINT NOT NULL,
+    parameter_id BIGINT NOT NULL,
+    PRIMARY KEY (profile_id, parameter_id),
+    FOREIGN KEY (profile_id) REFERENCES profiles(profile_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE likes (

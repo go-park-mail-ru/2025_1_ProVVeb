@@ -23,6 +23,7 @@ func main() {
 		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
 		return
 	}
+	defer postgresClient.CloseRepo()
 	defer profiles.ClosePostgresConnection(postgresClient.DB)
 
 	staticClient, err := profiles.NewStaticRepo()

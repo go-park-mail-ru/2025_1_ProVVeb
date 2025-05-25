@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+	"github.com/go-redis/redis/v8"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -51,7 +53,10 @@ type ProfilesHandler struct {
 	UpdateProfileUC       usecase.ProfileUpdate
 	UpdateProfileImagesUC usecase.StaticUpload
 	SearchProfileUC       usecase.SearchProfiles
-	Logger                *logger.LogrusLogger
+
+	AddNotificationUC usecase.AddNotification
+
+	Logger *logger.LogrusLogger
 }
 
 type QueryHandler struct {
@@ -76,7 +81,21 @@ type MessageHandler struct {
 	GetMessagesFromCacheUC usecase.GetMessagesFromCache
 	UpdateMessageStatusUC  usecase.UpdateMessageStatus
 
+	AddNotificationUC usecase.AddNotification
+
+	Subscriber *redis.Client
+
 	Logger *logger.LogrusLogger
+}
+
+type NotificationsHandler struct {
+	GetNotificationsUC         usecase.GetNotifications
+	UpdateNotificationStatusUC usecase.UpdateNotificationStatus
+	DeleteNotificationUC       usecase.DeleteNotification
+
+	GetCurrentNotificationsUC usecase.GetCurrentNotifications
+	Subscriber                *redis.Client
+	Logger                    *logger.LogrusLogger
 }
 
 var upgrader = websocket.Upgrader{
@@ -85,15 +104,14 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
+func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
 	mh.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("request started")
-	
+
 	userIDRaw := r.Context().Value(userIDKey)
-	messageNotificationsFetched.Inc()
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
 		mh.Logger.WithFields(&logrus.Fields{
@@ -113,47 +131,131 @@ func (mh *MessageHandler) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.Close()
 
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	notifications, err := mh.GetNotificationsUC.GetNotifications(int(profileId))
+	if err != nil {
+		mh.Logger.Error("Failed to load initial notifications: ", err)
+		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial notifications"})
+		return
+	}
+	conn.WriteJSON(map[string]interface{}{"type": "init_notifications", "notifications": notifications})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	channelName := fmt.Sprintf("user:%d notifications", profileId)
+	fmt.Println(channelName)
+	pubsub := mh.Subscriber.Subscribe(ctx, channelName)
+	defer pubsub.Close()
 
 	done := make(chan struct{})
 
 	go func() {
 		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				mh.Logger.Info("WebSocket closed by client")
-				close(done)
+			select {
+			case <-done:
 				return
+			case <-pubsub.Channel():
+				newNotifications, err := mh.GetCurrentNotificationsUC.GetCurrentNotifications(int(profileId))
+				if err != nil {
+					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
+					continue
+				}
+				if len(newNotifications) > 0 {
+					conn.WriteJSON(map[string]interface{}{"type": "new_notifications", "notifications": newNotifications})
+				}
 			}
 		}
 	}()
 
 	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			chats, err := mh.GetChatsUC.GetChats(int(profileId))
-			if err != nil {
-				mh.Logger.Error("Failed to get chats: ", err)
-				conn.WriteJSON(map[string]interface{}{"error": "Failed to load chat notifications"})
-				continue
-			}
+		_, msgData, err := conn.ReadMessage()
+		if err != nil {
+			mh.Logger.Error("Error reading message from WebSocket: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
+			close(done)
+			break
+		}
 
-			var unreadChats []model.Chat
-			for _, chat := range chats {
-				if chat.IsRead && !chat.IsSelf {
-					unreadChats = append(unreadChats, chat)
+		var wsMessage model.WSMessage
+		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
+			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
+			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
+			continue
+		}
+
+		switch wsMessage.Type {
+		case "sendFlowers":
+			messageReceived.WithLabelValues().Inc()
+			var payload model.FlowersPayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal payload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
+				break
+			}
+			go func(payload model.FlowersPayload) {
+				notif := model.NotificationSend{
+					NotifType: "flowers",
+					Content:   fmt.Sprintf("User %d sent you flowers!", profileId),
+					Read:      0,
 				}
-			}
+				data, _ := json.Marshal(notif)
+				channel := fmt.Sprintf("user:%d notifications", payload.UserID)
+				err := mh.Subscriber.Publish(context.Background(), channel, data).Err()
+				if err != nil {
+					mh.Logger.Error("Failed to publish flowers notification: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to notify"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "SentFlowersTo", "user": payload.UserID})
 
-			if len(unreadChats) > 0 {
-				conn.WriteJSON(map[string]interface{}{
-					"type":  "chat_notifications",
-					"chats": unreadChats,
-				})
+				redisKey := fmt.Sprintf("CACHE:user:%dnotifications", payload.UserID)
+
+				jsonNotif, err := json.Marshal(notif)
+				if err != nil {
+					return
+				}
+
+				pipe := mh.Subscriber.TxPipeline()
+				pipe.LPush(context.Background(), redisKey, jsonNotif)
+				pipe.Expire(context.Background(), redisKey, 30*time.Minute)
+				_, _ = pipe.Exec(context.Background())
+
+			}(payload)
+
+		case "delete":
+			messageReceived.WithLabelValues().Inc()
+			var payload model.DeleteNotifPayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"})
+				break
 			}
+			go func(payload model.DeleteNotifPayload) {
+				err := mh.DeleteNotificationUC.DeleteNotifications(payload.NotifID, int(profileId))
+				if err != nil {
+					mh.Logger.Error("Failed to update message status: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
+			}(payload)
+
+		case "read":
+			messageReceived.WithLabelValues().Inc()
+			go func() {
+				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId))
+				if err != nil {
+					mh.Logger.Error("Failed to update message status: ", err)
+					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
+					return
+				}
+				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
+			}()
+
+		default:
+			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
+			conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"})
 		}
 	}
 }
@@ -209,8 +311,13 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
 
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	channelName := fmt.Sprintf("user:%d chat:%d messages", profileId, chatID)
+	pubsub := mh.Subscriber.Subscribe(ctx, channelName)
+	defer pubsub.Close()
+
 	done := make(chan struct{})
 
 	go func() {
@@ -218,8 +325,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-done:
 				return
-			case <-ticker.C:
-
+			case <-pubsub.Channel():
 				newMessages, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
@@ -262,6 +368,25 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
 				break
 			}
+			recieverID := first
+			if payload.UserID == first {
+				recieverID = second
+			}
+
+			notif := model.NotificationSend{
+				NotifType: "message",
+				Content:   fmt.Sprintf("User %d sent you a message!", payload.UserID),
+				Read:      0,
+			}
+
+			err := mh.AddNotificationUC.AddNotification(recieverID, notif)
+			if err != nil {
+				fmt.Println(err)
+				mh.Logger.Error("Failed to save notification: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Failed to notify"})
+				return
+			}
+
 			go func(payload model.CreatePayload) {
 				messageID, err := mh.CreateMessagesUC.CreateMessages(payload.ChatID, payload.UserID, payload.Content)
 				if err != nil {
@@ -339,8 +464,6 @@ func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing CreateChat request")
-
-	messageChatsCreated.WithLabelValues().Inc()
 
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
@@ -442,9 +565,6 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("start processing DeleteChat request")
 
-	roomType := mux.Vars(r)["room_type"]
-	messageChatsDeleted.WithLabelValues(roomType).Inc()
-
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -458,11 +578,11 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type CreateChatRequest struct {
+	type DeleteChatRequest struct {
 		FristID  int `json:"firstID"`
 		SecondID int `json:"secondID"`
 	}
-	var req CreateChatRequest
+	var req DeleteChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
 		return
@@ -767,6 +887,38 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if like_id == -1 {
+		recieverID := likeTo
+
+		notif := model.NotificationSend{
+			NotifType: "match",
+			Content:   fmt.Sprintf("You have matched with user %d!", likeFrom),
+			Read:      0,
+		}
+		fmt.Println(notif)
+
+		err := ph.AddNotificationUC.AddNotification(recieverID, notif)
+		if err != nil {
+			ph.Logger.Error("Failed to save notification: ", err)
+			return
+		}
+
+		recieverID = likeFrom
+
+		notif = model.NotificationSend{
+			NotifType: "match",
+			Content:   fmt.Sprintf("You have natched with user %d!", likeTo),
+			Read:      0,
+		}
+		fmt.Println(notif)
+
+		err = ph.AddNotificationUC.AddNotification(recieverID, notif)
+		if err != nil {
+			ph.Logger.Error("Failed to save notification: ", err)
+			return
+		}
+	}
+
 	ph.Logger.WithFields(&logrus.Fields{
 		"like_id":   like_id,
 		"like_from": likeFrom,
@@ -1003,19 +1155,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	input.Login = sanitizer.Sanitize(input.Login)
 	input.Password = sanitizer.Sanitize(input.Password)
 
-	if !sh.LoginUC.ValidateLogin(input.Login) || !sh.LoginUC.ValidatePassword(input.Password) {
-		sh.Logger.WithFields(&logrus.Fields{
-			"login": input.Login,
-			"error": "invalid login or password format",
-		}).Warn("validation failed")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid login or password"},
-		)
-		loginAttempts.WithLabelValues("false").Inc()
-		return
-	}
-
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		http.Error(w, "Cannot parse IP", http.StatusInternalServerError)
@@ -1042,6 +1181,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
+
 	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"login": input.Login,
@@ -1074,22 +1214,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-
-	if err := sh.LoginUC.StoreSession(r.Context(), session); err != nil {
-		sh.Logger.WithFields(&logrus.Fields{
-			"session_id": session.SessionId,
-			"user_id":    session.UserId,
-			"error":      err.Error(),
-		}).Error("failed to store session")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Failed to store session"},
-		)
-		loginAttempts.WithLabelValues("false").Inc()
-		return
-	}
-
-	fmt.Println(cookie)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookie.Name,

@@ -2,12 +2,10 @@ package usecase
 
 import (
 	"context"
-	"strings"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	profilespb "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/utils"
 )
 
 type SearchProfiles struct {
@@ -28,14 +26,29 @@ func NewSearchProfilesUseCase(
 		logger:          logger,
 	}, nil
 }
-
 func (gp *SearchProfiles) GetSearchProfiles(forUserId int, params model.SearchProfileRequest) ([]model.FoundProfile, error) {
 	gp.logger.Info("GetProfilesForUserUseCase")
 
-	req := &profilespb.GetProfilesRequest{
-		ForUserId: int32(forUserId),
+	req := &profilespb.SearchProfileRequest{
+		IDUser:     int32(forUserId),
+		Input:      params.Input,
+		IsMale:     params.IsMale,
+		AgeMin:     int32(params.AgeMin),
+		AgeMax:     int32(params.AgeMax),
+		HeightMin:  int32(params.HeightMin),
+		HeightMax:  int32(params.HeightMax),
+		Goal:       int32(params.Goal),
+		Parametres: make([]*profilespb.Preference, len(params.Preferences)), // нужно преобразовать
 	}
-	resp, err := gp.ProfilesService.GetProfiles(context.Background(), req)
+
+	for i, p := range params.Preferences {
+		req.Parametres[i] = &profilespb.Preference{
+			Description: p.Description,
+			Value:       p.Value,
+		}
+	}
+
+	resp, err := gp.ProfilesService.SearchProfile(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -43,55 +56,16 @@ func (gp *SearchProfiles) GetSearchProfiles(forUserId int, params model.SearchPr
 	var profs []model.FoundProfile
 
 	for _, match := range resp.Profiles {
-		if int(match.ProfileId) == forUserId {
+		if int(match.IDUser) == forUserId {
 			continue
-		}
-
-		if params.IsMale != "Any" {
-			if (params.IsMale == "Male" && !match.IsMale) || (params.IsMale == "Female" && match.IsMale) {
-				continue
-			}
-		}
-
-		age := utils.CalculateAge(match.Birthday.AsTime())
-		if params.AgeMin > 0 && age < params.AgeMin {
-			continue
-		}
-		if params.AgeMax > 0 && age > params.AgeMax {
-			continue
-		}
-
-		if params.HeightMin > 0 && int(match.Height) < params.HeightMin {
-			continue
-		}
-		if params.HeightMax > 0 && int(match.Height) > params.HeightMax {
-			continue
-		}
-
-		locParts := strings.Split(match.Location, "@")
-		clean := func(s string) string {
-			return strings.ToLower(strings.ReplaceAll(s, " ", ""))
-		}
-		if params.Country != "" && (len(locParts) < 1 || clean(locParts[0]) != clean(params.Country)) {
-			continue
-		}
-		if params.City != "" && (len(locParts) < 2 || clean(locParts[1]) != clean(params.City)) {
-			continue
-		}
-
-		fullname := match.FirstName + " " + match.LastName
-		if params.Input != "" {
-			target := strings.ToLower(fullname)
-			if !strings.HasPrefix(strings.ToLower(target), strings.ToLower(params.Input)) {
-				continue
-			}
 		}
 
 		profs = append(profs, model.FoundProfile{
-			IDUser:   int(match.ProfileId),
-			FirstImg: match.Photos[0],
-			Fullname: fullname,
-			Age:      age,
+			IDUser:   int(match.IDUser),
+			FirstImg: match.FirstImg,
+			Fullname: match.Fullname,
+			Age:      int(match.Age),
+			Goal:     int(match.Goal),
 		})
 	}
 

@@ -23,7 +23,7 @@ func NewSessionService(repo *SessionRepo) *SessionServiceServerImpl {
 
 func (s *SessionServiceServerImpl) CreateSession(ctx context.Context, req *sessionpb.CreateSessionRequest) (*sessionpb.SessionResponse, error) {
 	session := s.Repo.CreateSession(int(req.GetUserId()))
-	if err := s.Repo.StoreSession(session.SessionId, "session_data", time.Duration(session.Expires)); err != nil {
+	if err := s.Repo.StoreSession(session.UserId, session.SessionId, "session_data", time.Duration(session.Expires)); err != nil {
 		return nil, fmt.Errorf("error storing session: %v", err)
 	}
 	expiresDuration := durationpb.New(12 * time.Hour)
@@ -85,7 +85,7 @@ func (s *SessionServiceServerImpl) DeleteAttempts(ctx context.Context, req *sess
 func (s *SessionServiceServerImpl) StoreSession(ctx context.Context, req *sessionpb.StoreSessionRequest) (*emptypb.Empty, error) {
 	ttl := req.Ttl.AsDuration()
 
-	err := s.Repo.StoreSession(req.SessionId, req.Data, ttl)
+	err := s.Repo.StoreSession(0, req.Data, req.SessionId, ttl)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to store session: %v", err)
 	}
