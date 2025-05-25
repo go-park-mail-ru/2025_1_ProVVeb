@@ -5,8 +5,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Grey31415
       POSTGRES_DB: dev
-    ports:
-      - "8020:5432"
+    # ports:
+    #   - "8020:5432"
+    expose: 
+      - "8020"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/repository/db:/docker-entrypoint-initdb.d
@@ -19,8 +21,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "8010:6379"
+    expose:
+      - "8010"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -45,9 +47,9 @@ services:
 
   backend:
     build: ./backend
-    ports:
-      - "8099:8099"
-      - "8080:8080"
+    expose:
+      - "8099"
+      - "8080"
     restart: always
     volumes:
       - ./backend:/app
@@ -67,26 +69,26 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
-    build: ./frontend
-    ports:
-      - "8000:8000"
-    restart: always
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
+  # frontend:
+  #   build: ./frontend
+  #   expose:
+  #     - "8000"
+  #   restart: always
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - NODE_ENV=development
+  #     - CHOKIDAR_USEPOLLING=true
+  #   depends_on:
+  #     - backend
   
   query_micro:
     build:
       context: ./backend
       dockerfile: query_micro/Dockerfile
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     restart: always
     volumes:
       - ./backend:/backend
@@ -106,8 +108,8 @@ services:
     build:
       context: ./backend
       dockerfile: auth_micro/Dockerfile
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     restart: always
     volumes:
       - ./backend:/backend
@@ -131,8 +133,8 @@ services:
     build:
       context: ./backend
       dockerfile: profiles_micro/Dockerfile
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     restart: always
     volumes:
       - ./backend:/backend
@@ -152,8 +154,8 @@ services:
     build:
       context: ./backend
       dockerfile: users_micro/Dockerfile
-    ports:
-      - "8085:8085"
+    expose:
+      - "8085"
     restart: always
     volumes:
       - ./backend:/backend
@@ -171,8 +173,8 @@ services:
 
   prometheus:
     image: prom/prometheus
-    ports:
-      - "8097:9090"
+    expose:
+      - "8097"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command:
@@ -180,14 +182,28 @@ services:
   
   grafana:
     image: grafana/grafana
-    ports:
-      - "8098:3000"
+    expose:
+      - "8098"
     volumes:
       - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - prometheus
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d  # Конфиги Nginx
+      - ./nginx/certs:/etc/nginx/certs    # Сертификаты HTTPS
+      - ./frontend/dist:/usr/share/nginx/html/frontend
+    depends_on:
+      - backend
+      - grafana
+    restart: always
 
 volumes:
   postgres_data:
@@ -198,3 +214,8 @@ volumes:
     driver: local
   grafana-data:
     driver: local
+
+networks:
+  default:
+    name: app_network
+    driver: bridge
