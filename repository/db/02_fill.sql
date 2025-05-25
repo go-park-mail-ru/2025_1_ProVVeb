@@ -6,11 +6,9 @@ INSERT INTO complaint_types (type_description) VALUES
 ('Оскорбительный язык');
 
 INSERT INTO notification_types (type_description) VALUES 
-('Новое сообщение'),
-('Новый лайк'),
-('Новый матч'),
-('Истечение подписки'),
-('Просмотр профиля');
+('message'),
+('match'),
+('s');
 
 INSERT INTO locations (country, city, district) VALUES 
 ('США', 'Нью-Йорк', 'Манхэттен'),
@@ -176,12 +174,7 @@ INSERT INTO complaints (complaint_by, complaint_on, complaint_type, complaint_te
 INSERT INTO blacklist (user_id) VALUES 
 (5);
 
-INSERT INTO notifications (user_id, notification_type, content) VALUES 
-(1, 1, 'Новое сообщение от пользователя 2'),
-(2, 2, 'Пользователь 1 поставил вам лайк'),
-(3, 3, 'Пользователь 4 поставил вам лайк'),
-(4, 4, 'Ваша подписка истекает через 3 дня'),
-(5, 5, 'Ваш профиль был просмотрен пользователем 1');
+
 
 INSERT INTO profile_ratings (profile_id, rated_profile_id, rating_score, comment) VALUES 
 (1, 2, 5, 'Отличный человек!'),

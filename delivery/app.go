@@ -80,6 +80,12 @@ func Run() {
 		return
 	}
 
+	notifClient, err := repository.NewNotificationsRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize notificatins repo: %v\n", err)
+		return
+	}
+
 	complaintClient, err := repository.NewComplaintRepo()
 	if err != nil {
 		fmt.Printf("Failed to initialize complaint repo: %v\n", err)
@@ -112,13 +118,13 @@ func Run() {
 		return
 	}
 
-	messageHandler, err := NewMessageHandler(chatClient, chatClient.Client, logger)
+	messageHandler, err := NewMessageHandler(chatClient, notifClient, chatClient.Client, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profilesCon, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
@@ -127,6 +133,12 @@ func Run() {
 	complaintHandler, err := NewComplaintHandler(complaintClient, usersCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with complaintHandler: %v", err))
+		return
+	}
+
+	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with notificationHandler: %v", err))
 		return
 	}
 
@@ -192,10 +204,10 @@ func Run() {
 	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
 
 	notificationsSubrouter := r.PathPrefix("/notifications").Subrouter()
-	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	// notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
 	notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	notificationsSubrouter.HandleFunc("", messageHandler.GetNotifications).Methods("GET")
+	notificationsSubrouter.HandleFunc("", notificationHandler.GetNotifications).Methods("GET")
 
 	ComplaintSubrouter := r.PathPrefix("/complaints").Subrouter()
 	ComplaintSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
@@ -312,6 +324,7 @@ func NewQueryHandler(
 
 func NewMessageHandler(
 	messageRepo repository.ChatRepository,
+	notifrepo repository.NotificationsRepository,
 	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*MessageHandler, error) {
@@ -357,6 +370,11 @@ func NewMessageHandler(
 		return nil, err
 	}
 
+	AddNotification, err := usecase.NewAddNotificationUseCase(notifrepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &MessageHandler{
 		GetParticipantsUC:      *getParticipantsUC,
 		GetChatsUC:             *getChatsUC,
@@ -367,6 +385,7 @@ func NewMessageHandler(
 		CreateMessagesUC:       *createMessageUC,
 		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
 		UpdateMessageStatusUC:  *updateMessageStatusUC,
+		AddNotificationUC:      *AddNotification,
 		Subscriber:             Subscriber,
 		Logger:                 logger,
 	}, nil
@@ -374,6 +393,7 @@ func NewMessageHandler(
 
 func NewProfilesHandler(
 	conn *grpc.ClientConn,
+	notifrepo repository.NotificationsRepository,
 	logger *logger.LogrusLogger,
 ) (*ProfilesHandler, error) {
 	client := profilespb.NewProfilesServiceClient(conn)
@@ -423,6 +443,11 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	AddNotification, err := usecase.NewAddNotificationUseCase(notifrepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -432,8 +457,10 @@ func NewProfilesHandler(
 		SetProfilesLikeUC:     *SetProfilesLike,
 		UpdateProfileUC:       *UpdateProfile,
 		UpdateProfileImagesUC: *UpdateProfileImages,
-		SearchProfileUC:       *SearchProfile,
-		Logger:                logger,
+
+		AddNotificationUC: *AddNotification,
+		SearchProfileUC:   *SearchProfile,
+		Logger:            logger,
 	}, nil
 }
 
@@ -512,4 +539,40 @@ func NewUsersHandler(
 		GetParamsUC:  *GetUserParamsUC,
 		Logger:       logger,
 	}, nil
+}
+
+func NewNotificationHandler(
+	notifRepo repository.NotificationsRepository,
+	Subscriber *redis.Client,
+	logger *logger.LogrusLogger,
+) (*NotificationsHandler, error) {
+	GetNotifications, err := usecase.NewGetNotificationsUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	UpdateNotifications, err := usecase.NewUpdateNotificationStatusUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteNotifications, err := usecase.NewDeleteNotificationUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetCurrentNotification, err := usecase.NewGetCurrentNotificationsUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &NotificationsHandler{
+		GetNotificationsUC:         *GetNotifications,
+		UpdateNotificationStatusUC: *UpdateNotifications,
+		DeleteNotificationUC:       *DeleteNotifications,
+		GetCurrentNotificationsUC:  *GetCurrentNotification,
+		Subscriber:                 Subscriber,
+		Logger:                     logger,
+	}, nil
+
 }

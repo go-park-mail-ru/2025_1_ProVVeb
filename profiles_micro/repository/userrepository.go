@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -872,7 +873,7 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 	if err == nil {
 		return 0, nil
 	}
-	if err != sql.ErrNoRows {
+	if err != pgx.ErrNoRows {
 		return 0, fmt.Errorf("error checking existing like: %w", err)
 	}
 	err = pr.DB.QueryRow(
@@ -899,7 +900,7 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 		if err != nil {
 			return likeID, fmt.Errorf("error creating match: %w", err)
 		}
-
+		likeID = -1
 	}
 
 	return likeID, nil
@@ -959,7 +960,7 @@ func (pr *ProfileRepo) DeleteProfile(userId int) error {
 	var profileId int
 	err := pr.DB.QueryRow(context.Background(), FindUserProfileQuery, userId).Scan(&profileId)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return model.ErrProfileNotFound
 		}
 		return model.ErrInvalidProfile

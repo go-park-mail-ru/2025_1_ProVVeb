@@ -7,7 +7,7 @@ CREATE TABLE complaint_types (
 
 CREATE TABLE notification_types (
     notif_type BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    type_description TEXT NOT NULL CHECK (LENGTH(type_description) <= 255)
+    type_description TEXT NOT NULL UNIQUE CHECK (LENGTH(type_description) <= 255)
 );
 
 CREATE TABLE locations (

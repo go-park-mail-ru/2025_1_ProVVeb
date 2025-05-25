@@ -179,6 +179,14 @@ type ChatNotificationsPayload struct {
 	ChatID int `json:"chat_id"`
 }
 
+type DeleteNotifPayload struct {
+	NotifID int `json:"notif_id"`
+}
+
+type FlowersPayload struct {
+	UserID int `json:"user_id"`
+}
+
 type ComplaintWithLogins struct {
 	ComplaintID   int64      `json:"complaint_id"`
 	ComplaintBy   string     `json:"complaint_by"`
@@ -210,4 +218,16 @@ type FoundProfile struct {
 	Fullname string `json:"fullname"`
 	Age      int    `json:"age"`
 	Goal     int    `yaml:"goal" json:"goal"`
+}
+
+type Notification struct {
+	Type    string      `json:"type"`
+	Payload interface{} `json:"payload"`
+}
+
+type NotificationSend struct {
+	NotificationID int    `yaml:"notificationID" json:"notificationID"`
+	Read           int    `yaml:"read" json:"read"`
+	NotifType      string `yaml:"type" json:"type"`
+	Content        string `yaml:"content" json:"content"`
 }
