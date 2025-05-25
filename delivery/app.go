@@ -217,7 +217,13 @@ func Run() {
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000", "http://localhost"},
+		AllowedOrigins: []string{
+			"http://213.219.214.83:8000",
+			"http://localhost:8000",
+			"http://localhost",
+			"http://beameye.ru:8000",
+			"http://beameye.ru",
+		},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
 		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
