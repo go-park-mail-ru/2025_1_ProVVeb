@@ -199,6 +199,7 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d  # Конфиги Nginx
       - ./nginx/certs:/etc/nginx/certs    # Сертификаты HTTPS
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./frontend/dist:/usr/share/nginx/html/frontend
     depends_on:
       - backend
