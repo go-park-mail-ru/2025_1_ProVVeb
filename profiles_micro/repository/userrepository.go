@@ -170,7 +170,9 @@ SELECT
     pr.preference_description,
     pr.preference_value,
     param.parameter_description,
-    param.parameter_value
+    param.parameter_value,
+	CASE WHEN sbs.sub_id IS NOT NULL THEN TRUE ELSE FALSE END AS premium_status,
+    sbs.border
 FROM base_profile bp
 LEFT JOIN locations l ON bp.location_id = l.location_id
 LEFT JOIN "static" s ON bp.profile_id = s.profile_id
@@ -181,8 +183,7 @@ LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id
 LEFT JOIN profile_parameter pp2 ON pp2.profile_id = bp.profile_id
 LEFT JOIN parameters param ON pp2.parameter_id = param.parameter_id
 LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id;
-
-
+LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id AND sbs.expires_at > NOW()
 `
 
 func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -197,6 +198,9 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 
 	var goal sql.NullInt64
 	var paramDesc, paramValue sql.NullString
+
+	var premiumStatus sql.NullBool
+	var premiumBorder sql.NullInt64
 
 	ctx := context.Background()
 	rows, err := pr.DB.Query(ctx, GetProfileByIdQuery, profileId)
@@ -226,6 +230,8 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 			&preferenceValue,
 			&paramDesc,
 			&paramValue,
+			&premiumStatus,
+			&premiumBorder,
 		); err != nil {
 			return profile, err
 		}
@@ -270,6 +276,12 @@ func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
 		}
 		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
 			profile.Photos = append(profile.Photos, photo.String)
+		}
+		if premiumStatus.Valid && premiumStatus.Bool {
+			profile.Premium.Status = true
+			if premiumBorder.Valid {
+				profile.Premium.Border = int(premiumBorder.Int64)
+			}
 		}
 	}
 
@@ -357,7 +369,9 @@ SELECT
     pr.preference_description,
     pr.preference_value,
     param.parameter_description,
-    param.parameter_value
+    param.parameter_value,
+	CASE WHEN sbs.sub_id IS NOT NULL THEN TRUE ELSE FALSE END AS premium_status,
+    sbs.border
 FROM filtered_profiles fp
 JOIN profiles p ON p.profile_id = fp.profile_id
 LEFT JOIN locations l 
@@ -376,6 +390,7 @@ LEFT JOIN profile_parameter pp2
     ON pp2.profile_id = p.profile_id
 LEFT JOIN parameters param 
     ON param.parameter_id = pp2.parameter_id
+LEFT JOIN subscriptions sbs ON sbs.user_id = p.profile_id AND sbs.expires_at > NOW()
 ORDER BY p.profile_id;
 `
 
@@ -422,6 +437,8 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 			preferenceDesc                sql.NullString
 			preferenceValue               sql.NullString
 			parameterDesc, parameterValue sql.NullString
+			premiumStatus                 sql.NullBool
+			premiumBorder                 sql.NullInt64
 		)
 
 		if err := rows.Scan(
@@ -442,6 +459,8 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 			&preferenceValue,
 			&parameterDesc,
 			&parameterValue,
+			&premiumStatus,
+			&premiumBorder,
 		); err != nil {
 			return nil, err
 		}
@@ -505,6 +524,13 @@ func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, erro
 
 		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
 			profile.Photos = append(profile.Photos, photo.String)
+		}
+
+		if premiumStatus.Valid && premiumStatus.Bool {
+			profile.Premium.Status = true
+			if premiumBorder.Valid {
+				profile.Premium.Border = int(premiumBorder.Int64)
+			}
 		}
 	}
 
@@ -886,6 +912,37 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 
 	if err != nil {
 		return 0, fmt.Errorf("error inserting like: %w", err)
+	}
+
+	if status == 3 {
+		err = pr.DB.QueryRow(context.Background(), CheckLikeExistsQuery, to, from).Scan(&existingID, &existing_status)
+		if err == pgx.ErrNoRows {
+			_, err = pr.DB.Exec(
+				context.Background(),
+				CreateLikeQuery,
+				to,
+				from,
+				1,
+			)
+			if err != nil {
+				return likeID, fmt.Errorf("error inserting reverse like: %w", err)
+			}
+		} else if err != nil {
+			return likeID, fmt.Errorf("error checking reverse like: %w", err)
+		}
+
+		_, err = pr.DB.Exec(
+			context.Background(),
+			CreateMatchQuery,
+			from,
+			to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error creating match: %w", err)
+		}
+
+		likeID = -1
+		return likeID, nil
 	}
 
 	var reverseStatus int

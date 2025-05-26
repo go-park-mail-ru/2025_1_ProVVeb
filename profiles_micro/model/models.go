@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var PageSize = 30
+var PageSize = 2
 var SearchLimit = 100
 
 type Preference struct {
@@ -28,6 +28,10 @@ type Profile struct {
 	Preferences []Preference `yaml:"preferences" json:"preferences"`
 	Parameters  []Preference `yaml:"parameters" json:"parameters"`
 	Photos      []string     `yaml:"photos" json:"photos"`
+	Premium     struct {
+		Status bool `yaml:"Status" json:"Status"`
+		Border int  `yaml:"Border" json:"Border"`
+	}
 }
 
 type SearchProfileRequest struct {

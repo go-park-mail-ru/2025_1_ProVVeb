@@ -73,6 +73,10 @@ func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
 		Preferences: prefs,
 		Parameters:  params,
 		Photos:      res.Profile.Photos,
+		Premium: model.Premium{
+			Status: res.Profile.Premium.Status,
+			Border: int32(res.Profile.Premium.Border),
+		},
 	}
 
 	gp.logger.WithFields(&logrus.Fields{

@@ -54,6 +54,12 @@ func (pss *ProfileServiceServer) GetProfile(ctx context.Context, req *profiles.G
 		Photos:      profile.Photos,
 		LikedBy:     likedBy,
 	}
+	if profile.Premium.Status {
+		prof.Premium = &profiles.Premium{
+			Status: profile.Premium.Status,
+			Border: int32(profile.Premium.Border),
+		}
+	}
 
 	return &profiles.GetProfileResponse{Profile: prof}, err
 

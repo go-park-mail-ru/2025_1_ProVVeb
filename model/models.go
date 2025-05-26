@@ -11,12 +11,13 @@ var MaxPasswordLength = 64
 var MinLoginLength = 7
 var MaxLoginLength = 25
 
-var PageSize = 10
 var MaxFileSize int64 = 10 << 20
 
 const Megabyte int = 1 << 23
 const MaxQuerySizeStr int = 5
 const MaxQuerySizePhoto int = 15 * 6
+
+var MaxProfileViewsWithoutSub = 5
 
 var Key string = "Hello"
 
@@ -93,6 +94,12 @@ type Profile struct {
 	Preferences []Preference `yaml:"preferences" json:"preferences"`
 	Parameters  []Preference `yaml:"parameters" json:"parameters"`
 	Photos      []string     `yaml:"photos" json:"photos"`
+	Premium     Premium      `yaml:"Premium" json:"Premium"`
+}
+
+type Premium struct {
+	Status bool  `yaml:"Status" json:"Status"`
+	Border int32 `yaml:"Border" json:"Border"`
 }
 
 type Session struct {
@@ -230,4 +237,11 @@ type NotificationSend struct {
 	Read           int    `yaml:"read" json:"read"`
 	NotifType      string `yaml:"type" json:"type"`
 	Content        string `yaml:"content" json:"content"`
+}
+
+type QueryStats struct {
+	TotalAnswers int     `yaml:"TotalAnswers" json:"TotalAnswers"`
+	AverageScore float64 `yaml:"AverageScore" json:"AverageScore"`
+	MinScore     int     `yaml:"MinScore" json:"MinScore"`
+	MaxScore     int     `yaml:"MaxScore" json:"MaxScore"`
 }

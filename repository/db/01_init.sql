@@ -147,8 +147,9 @@ CREATE TABLE subscriptions (
     user_id BIGINT NOT NULL,
     sub_type BIGINT NOT NULL,
     transaction_data TEXT,
+    border INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP,
+    expires_at TIMESTAMPTZ,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (sub_type) REFERENCES subscription_types(sub_type) ON DELETE CASCADE ON UPDATE CASCADE
 );

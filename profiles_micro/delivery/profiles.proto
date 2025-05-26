@@ -25,7 +25,6 @@ message Preference {
     string description = 1;
     string value = 2;
 }
-
 message Profile {
     int32 profile_id = 1;
     string first_name = 2;
@@ -41,6 +40,13 @@ message Profile {
     repeated Preference parametres = 12;
     repeated string photos = 13;
     int32 goal = 14;
+
+    Premium premium = 15; 
+}
+
+message Premium {
+    bool status = 1;
+    int32 border = 2;
 }
 
 message GetProfileRequest {

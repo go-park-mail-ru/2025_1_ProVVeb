@@ -28,6 +28,8 @@ type UserRepository interface {
 	Compare(hashedPassword, login, password string) bool
 	GetAdmin(userID int) (bool, error)
 
+	GetPremium(userID int) (bool, int, *time.Time, error)
+
 	CloseRepo() error
 }
 
@@ -118,6 +120,30 @@ func ClosePostgresConnection(pool *pgxpool.Pool) error {
 		pool.Close()
 	}
 	return nil
+}
+
+const GetPremiumQuery = `SELECT sub_type, expires_at
+FROM subscriptions
+WHERE user_id = $1 AND expires_at IS NOT NULL
+ORDER BY expires_at DESC
+LIMIT 1;`
+
+func (r *UserRepo) GetPremium(userID int) (bool, int, *time.Time, error) {
+	var subType int
+	var expiresAt *time.Time
+
+	err := r.DB.QueryRow(context.Background(), GetPremiumQuery, userID).Scan(&subType, &expiresAt)
+	if err == pgx.ErrNoRows {
+		return false, 0, nil, nil
+	}
+	if err != nil {
+		return false, 0, nil, err
+	}
+	if expiresAt == nil {
+		return false, subType, nil, nil
+	}
+
+	return true, subType, expiresAt, nil
 }
 
 const GetUserByLoginQuery = `
