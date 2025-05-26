@@ -222,6 +222,8 @@ volumes:
     driver: local
   midio_data:
     driver: local
+  grafana-data:
+    driver: local
 
 networks:
   default:
