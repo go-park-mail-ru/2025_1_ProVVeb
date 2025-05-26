@@ -90,7 +90,6 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, sessionHandler 
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
-			fmt.Println(is_premium)
 
 			sess := &repository.Session{
 				ID:     sessionID,

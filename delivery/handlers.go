@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -320,13 +321,37 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	other := first
+	if profileId == uint32(first) {
+		other = second
+	}
+
 	messages, err := mh.GetMessagesUC.GetMessages(chatID)
 	if err != nil {
 		mh.Logger.Error("Failed to load initial messages: ", err)
 		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial messages"})
 		return
 	}
-	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": messages})
+	new_messages_first, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, first)
+	if err != nil {
+		mh.Logger.Error("Failed to load initial messages: ", err)
+		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial messages"})
+		return
+	}
+	new_messages_second, err := mh.GetMessagesFromCacheUC.GetMessages(chatID, second)
+	if err != nil {
+		mh.Logger.Error("Failed to load initial messages: ", err)
+		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial messages"})
+		return
+	}
+
+	allMessages := append(new_messages_first, new_messages_second...)
+	allMessages = append(allMessages, messages...)
+	sort.Slice(allMessages, func(i, j int) bool {
+		return allMessages[i].CreatedAt.Before(allMessages[j].CreatedAt)
+	})
+
+	conn.WriteJSON(map[string]interface{}{"type": "init_messages", "messages": allMessages})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -459,7 +484,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			go func(payload model.ReadPayload) {
-				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(profileId))
+				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(other))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
