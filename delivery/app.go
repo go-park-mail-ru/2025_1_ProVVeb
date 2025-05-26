@@ -220,8 +220,8 @@ func Run() {
 	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
 
 	notificationsSubrouter := r.PathPrefix("/notifications").Subrouter()
-	// notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
-	// notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
+	notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	notificationsSubrouter.HandleFunc("", notificationHandler.GetNotifications).Methods("GET")
 
