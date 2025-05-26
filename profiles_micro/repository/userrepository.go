@@ -1112,6 +1112,8 @@ WITH filtered_profiles AS (
         OR similarity(p.fullname_translit, $11) > 0.3
         OR to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $11)
         OR to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $11)
+		OR LOWER(p.firstname) LIKE LOWER($11 || '%')
+		OR LOWER(p.lastname) LIKE LOWER($11 || '%')
     )
 )
 
