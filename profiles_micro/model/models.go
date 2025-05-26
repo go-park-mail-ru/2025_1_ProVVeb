@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var PageSize = 2
+var PageSize = 10
 var SearchLimit = 100
 
 type Preference struct {

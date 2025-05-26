@@ -51,7 +51,7 @@ INSERT INTO subscriptions (user_id, sub_type, expires_at)
 VALUES (
     $1,
     2,
-    NOW() + make_interval(days := 30 * $2)
+    NOW() + make_interval(days := 3 + 30 * $2)
 );
 `
 

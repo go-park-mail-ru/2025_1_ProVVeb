@@ -182,8 +182,8 @@ LEFT JOIN profile_preferences pp ON pp.profile_id = bp.profile_id
 LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id
 LEFT JOIN profile_parameter pp2 ON pp2.profile_id = bp.profile_id
 LEFT JOIN parameters param ON pp2.parameter_id = param.parameter_id
-LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id;
-LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id AND sbs.expires_at > NOW()
+LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id
+LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id AND sbs.expires_at > NOW();
 `
 
 func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
