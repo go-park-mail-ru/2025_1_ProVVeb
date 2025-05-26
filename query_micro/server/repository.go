@@ -182,6 +182,8 @@ WHERE q.is_active = TRUE
         similarity(p.fullname_translit, $2) > 0.3 OR
         to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $2) OR
         to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $2)
+		OR LOWER(p.firstname) LIKE LOWER($2 || '%')
+		OR LOWER(p.lastname) LIKE LOWER($2 || '%')
   )
 `
 

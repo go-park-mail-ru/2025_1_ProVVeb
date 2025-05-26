@@ -321,11 +321,6 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	other := first
-	if profileId == uint32(first) {
-		other = second
-	}
-
 	messages, err := mh.GetMessagesUC.GetMessages(chatID)
 	if err != nil {
 		mh.Logger.Error("Failed to load initial messages: ", err)
@@ -345,8 +340,21 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allMessages := append(new_messages_first, new_messages_second...)
-	allMessages = append(allMessages, messages...)
+	msgMap := make(map[int]model.Message)
+
+	for _, m := range messages {
+		msgMap[m.MessageID] = m
+	}
+	for _, m := range append(new_messages_first, new_messages_second...) {
+		if _, exists := msgMap[m.MessageID]; !exists {
+			msgMap[m.MessageID] = m
+		}
+	}
+	var allMessages []model.Message
+	for _, m := range msgMap {
+		allMessages = append(allMessages, m)
+	}
+
 	sort.Slice(allMessages, func(i, j int) bool {
 		return allMessages[i].CreatedAt.Before(allMessages[j].CreatedAt)
 	})
@@ -484,7 +492,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			go func(payload model.ReadPayload) {
-				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(other))
+				err := mh.UpdateMessageStatusUC.UpdateMessageStatus(payload.ChatID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})

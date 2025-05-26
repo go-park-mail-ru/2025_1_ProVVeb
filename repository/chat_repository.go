@@ -504,7 +504,7 @@ func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Messag
 
 	var filtered []model.Message
 	for _, m := range messages {
-		if m.Status == 1 {
+		if m.Status == 1 || m.Status == -1 {
 			filtered = append(filtered, m)
 		}
 	}
