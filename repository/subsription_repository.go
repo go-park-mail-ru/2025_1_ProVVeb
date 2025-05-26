@@ -12,6 +12,7 @@ import (
 
 type SubsriptionRepository interface {
 	CreateSub(userID int, subType int, data string) error
+	UpdateBorder(userID int, new_border int) error
 }
 
 type SubRepo struct {
@@ -67,6 +68,21 @@ func (sr *SubRepo) CreateSub(userID int, subType int, data string) error {
 	_, err := sr.DB.ExecContext(context.Background(), CreateSubQuery, userID, subType, data)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
+	}
+	return nil
+}
+
+const UpdateBorderQuery = `
+UPDATE subscriptions
+		SET border = $1
+		WHERE user_id = $2;
+
+`
+
+func (sr *SubRepo) UpdateBorder(userID int, new_border int) error {
+	_, err := sr.DB.ExecContext(context.Background(), UpdateBorderQuery, new_border, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update border: %w", err)
 	}
 	return nil
 }

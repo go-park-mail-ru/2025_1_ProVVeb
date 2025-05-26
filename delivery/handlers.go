@@ -31,8 +31,10 @@ type SessionHandler struct {
 }
 
 type SubHandler struct {
-	AddSubUC usecase.AddSubscription
-	Logger   *logger.LogrusLogger
+	AddSubUC       usecase.AddSubscription
+	UpdateBorderUC usecase.UpdateBorder
+
+	Logger *logger.LogrusLogger
 }
 
 type UserHandler struct {
@@ -2511,4 +2513,68 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Subsr created"})
+}
+
+func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("SetLike request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	IsPremiumRaw := r.Context().Value(isPremiumKey)
+	IsPremium, _ := IsPremiumRaw.(bool)
+
+	var input struct {
+		NewBorder int `json:"new_border"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to decode like request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
+		return
+	}
+
+	if !IsPremium {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"new_border": input.NewBorder,
+		}).Warn("no premium")
+
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You cannot update border with no subscription"})
+		return
+	}
+
+	err := sh.UpdateBorderUC.UpdateBorder(int(profileId), input.NewBorder)
+	if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"new_border": input.NewBorder,
+			"error":      err.Error(),
+		}).Error("failed to set like")
+
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		return
+	}
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Changed"})
 }
