@@ -58,6 +58,12 @@ func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
 		likedBy = append(likedBy, int(like))
 	}
 
+	premium := model.Premium{}
+	if res.Profile.Premium != nil {
+		premium.Status = res.Profile.Premium.Status
+		premium.Border = int32(res.Profile.Premium.Border)
+	}
+
 	var profile model.Profile = model.Profile{
 		ProfileId:   int(res.Profile.ProfileId),
 		FirstName:   res.Profile.FirstName,
@@ -73,10 +79,7 @@ func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
 		Preferences: prefs,
 		Parameters:  params,
 		Photos:      res.Profile.Photos,
-		Premium: model.Premium{
-			Status: res.Profile.Premium.Status,
-			Border: int32(res.Profile.Premium.Border),
-		},
+		Premium:     premium,
 	}
 
 	gp.logger.WithFields(&logrus.Fields{
