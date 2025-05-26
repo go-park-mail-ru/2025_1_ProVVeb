@@ -611,7 +611,7 @@ SET
 	description = $5,
 	location_id = $6,
 	birthday = $7,    
-	goal = $8         
+	goal = $8,
 	updated_at = CURRENT_TIMESTAMP
 WHERE profile_id = $9;
 
