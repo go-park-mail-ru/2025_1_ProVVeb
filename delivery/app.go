@@ -232,7 +232,7 @@ func Run() {
 	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
 
-	subscriptionSubrouter := r.PathPrefix("/subsription").Subrouter()
+	subscriptionSubrouter := r.PathPrefix("/subscription").Subrouter()
 	subscriptionSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	subscriptionSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
