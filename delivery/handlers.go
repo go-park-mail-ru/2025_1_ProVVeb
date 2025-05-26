@@ -2482,15 +2482,32 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Invalid form", http.StatusBadRequest)
+	var label string
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		var req struct {
+			Label string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+			return
+		}
+		label = req.Label
+	} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid form"})
+			return
+		}
+
+		label = r.FormValue("label")
+	} else {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid content type"})
 		return
 	}
 
-	label := r.FormValue("label")
 	sub_id, err := strconv.Atoi(label)
 	if err != nil {
-		http.Error(w, "Invalid label format", http.StatusBadRequest)
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid label format"})
 		return
 	}
 
