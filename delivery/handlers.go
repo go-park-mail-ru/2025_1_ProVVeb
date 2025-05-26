@@ -799,7 +799,7 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(profiles) == 0 {
-		MakeResponse(w, http.StatusNotFound,
+		MakeResponse(w, http.StatusAccepted,
 			map[string]string{"message": "There are no profiles"},
 		)
 		return
