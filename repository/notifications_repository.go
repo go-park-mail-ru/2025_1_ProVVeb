@@ -112,12 +112,46 @@ WHERE n.notification_type = nt.notif_type
   AND nt.type_description = $2;
 `
 
-func (nr *NotificationsRepo) MarkNotifications(userID int, nofit_type string) error {
-	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID, nofit_type)
+func (nr *NotificationsRepo) MarkNotifications(userID int, notifType string) error {
+	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID, notifType)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	redisKey := fmt.Sprintf("CACHE:user:%dnotifications", userID)
+	fmt.Println(redisKey)
+
+	items, err := nr.Client.LRange(nr.Ctx, redisKey, 0, 99).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil
+		}
+		return err
+	}
+
+	notifications := make([]string, 0, len(items))
+	for _, item := range items {
+		var notif model.NotificationSend
+		if err := json.Unmarshal([]byte(item), &notif); err != nil {
+			continue
+		}
+		if notif.NotifType == notifType {
+			notif.Read = 1
+		}
+		updated, err := json.Marshal(notif)
+		if err != nil {
+			continue
+		}
+		notifications = append(notifications, string(updated))
+	}
+
+	pipe := nr.Client.TxPipeline()
+	pipe.Del(nr.Ctx, redisKey)
+	if len(notifications) > 0 {
+		pipe.RPush(nr.Ctx, redisKey, notifications)
+	}
+	_, err = pipe.Exec(nr.Ctx)
+	return err
 }
 
 const DeleteNotification = `
