@@ -51,7 +51,7 @@ const CreateSubQuery = `
 INSERT INTO subscriptions (user_id, sub_type, expires_at, transaction_data)
 VALUES (
     $1,
-    2,
+    $2,
     NOW() + make_interval(days := 3 + 30 * $2),
     $3
 )
