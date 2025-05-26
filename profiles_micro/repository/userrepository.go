@@ -883,7 +883,12 @@ const (
 	CreateLikeQuery = `
 	INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
 	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+	ON CONFLICT (profile_id, liked_profile_id)
+	DO UPDATE SET
+    	status = EXCLUDED.status,
+    	created_at = CURRENT_TIMESTAMP
 	RETURNING like_id;
+
 	`
 
 	CreateMatchQuery = `

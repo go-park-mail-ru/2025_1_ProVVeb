@@ -253,16 +253,22 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			}(payload)
 
 		case "read":
+			var payload model.ReadNotifPayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal payload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
+				break
+			}
 			messageReceived.WithLabelValues().Inc()
-			go func() {
-				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId))
+			go func(payload model.ReadNotifPayload) {
+				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId), payload.NotifType)
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
 					return
 				}
 				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
-			}()
+			}(payload)
 
 		default:
 			mh.Logger.Warn("Unknown action: ", wsMessage.Type)

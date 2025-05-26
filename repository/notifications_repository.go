@@ -15,7 +15,7 @@ import (
 
 type NotificationsRepository interface {
 	GetNotifications(userID int) ([]model.NotificationSend, error)
-	MarkNotifications(userID int) error
+	MarkNotifications(userID int, nofit_type string) error
 	DeleteNotifications(notification_id int, userID int) error
 
 	GetCurrentNotifications(userID int) ([]model.NotificationSend, error)
@@ -104,12 +104,15 @@ func (nr *NotificationsRepo) GetNotifications(userID int) ([]model.NotificationS
 }
 
 const UpdateNotifications = `
-UPDATE notifications
+UPDATE notifications n
 SET read_at = CURRENT_TIMESTAMP
-WHERE user_id = $1;
+FROM notification_types nt
+WHERE n.notification_type = nt.notif_type
+  AND n.user_id = $1
+  AND nt.type_description = $2;
 `
 
-func (nr *NotificationsRepo) MarkNotifications(userID int) error {
+func (nr *NotificationsRepo) MarkNotifications(userID int, nofit_type string) error {
 	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID)
 	if err != nil {
 		return err
