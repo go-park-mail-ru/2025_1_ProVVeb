@@ -178,7 +178,7 @@ CREATE TABLE blacklist (
 
 CREATE TABLE notifications (
     notification_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
     notification_type BIGINT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
