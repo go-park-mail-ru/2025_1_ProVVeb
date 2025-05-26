@@ -82,9 +82,9 @@ func (nr *NotificationsRepo) GetNotifications(userID int) ([]model.NotificationS
 
 	var notifications []model.NotificationSend
 	var CreatedAt time.Time
-	var ReadAt sql.NullTime
 	for rows.Next() {
 		var notif model.NotificationSend
+		var ReadAt sql.NullTime
 		if err := rows.Scan(&notif.NotificationID, &notif.NotifType, &notif.Content, &CreatedAt, &ReadAt); err != nil {
 			return nil, err
 		}

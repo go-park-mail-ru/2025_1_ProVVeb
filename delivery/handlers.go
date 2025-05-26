@@ -29,10 +29,16 @@ type SessionHandler struct {
 	Logger         *logger.LogrusLogger
 }
 
+type SubHandler struct {
+	AddSubUC usecase.AddSubscription
+	Logger   *logger.LogrusLogger
+}
+
 type UserHandler struct {
 	SignupUC     usecase.UserSignUp
 	DeleteUserUC usecase.DeleteUser
 	GetParamsUC  usecase.UserGetParams
+	GetPremiumUC usecase.GetPremium
 	Logger       *logger.LogrusLogger
 }
 
@@ -55,6 +61,7 @@ type ProfilesHandler struct {
 	SearchProfileUC       usecase.SearchProfiles
 
 	AddNotificationUC usecase.AddNotification
+	Subscriber        *redis.Client
 
 	Logger *logger.LogrusLogger
 }
@@ -64,9 +71,11 @@ type QueryHandler struct {
 	StoreUserAnswerUC    usecase.StoreUserAnswer
 	GetAnswersForUserUC  usecase.GetAnswersForUser
 	GetAnswersForQueryUC usecase.GetAnswersForQuery
-
-	GetAdminUC usecase.GetAdmin
-	Logger     *logger.LogrusLogger
+	FindQueryUC          usecase.FindQuery
+	DeleteQueryUC        usecase.DeleteAnswer
+	GetStatisticsUC      usecase.GetStatistics
+	GetAdminUC           usecase.GetAdmin
+	Logger               *logger.LogrusLogger
 }
 
 type MessageHandler struct {
@@ -143,7 +152,6 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 	defer cancel()
 
 	channelName := fmt.Sprintf("user:%d notifications", profileId)
-	fmt.Println(channelName)
 	pubsub := mh.Subscriber.Subscribe(ctx, channelName)
 	defer pubsub.Close()
 
@@ -690,7 +698,6 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		"request_id": r.Header.Get("request_id"),
 	}).Info("GetMatches request started")
 
-	matchesRetrieved.WithLabelValues("get matches").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
 	if !ok {
@@ -818,6 +825,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	IsPremiumRaw := r.Context().Value(isPremiumKey)
+	IsPremium, _ := IsPremiumRaw.(bool)
+
 	var input struct {
 		LikeFrom int `json:"likeFrom"`
 		LikeTo   int `json:"likeTo"`
@@ -853,6 +863,16 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		}).Warn("attempt to like oneself")
 
 		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
+		return
+	}
+
+	if (!IsPremium) && (status == 3) {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"like_from":  likeFrom,
+		}).Warn("no premium")
+
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You cannot use superlike with no subscription"})
 		return
 	}
 
@@ -895,7 +915,6 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			Content:   fmt.Sprintf("You have matched with user %d!", likeFrom),
 			Read:      0,
 		}
-		fmt.Println(notif)
 
 		err := ph.AddNotificationUC.AddNotification(recieverID, notif)
 		if err != nil {
@@ -910,13 +929,54 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			Content:   fmt.Sprintf("You have natched with user %d!", likeTo),
 			Read:      0,
 		}
-		fmt.Println(notif)
 
 		err = ph.AddNotificationUC.AddNotification(recieverID, notif)
 		if err != nil {
 			ph.Logger.Error("Failed to save notification: ", err)
 			return
 		}
+	}
+
+	redisKey := fmt.Sprintf("cached_profiles:%d", profileId)
+
+	cachedData, err := ph.Subscriber.Get(context.Background(), redisKey).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return
+		}
+		ph.Logger.WithError(err).Error("failed to get cached profiles")
+		return
+	}
+
+	var profiles []model.Profile
+	if err := json.Unmarshal([]byte(cachedData), &profiles); err != nil {
+		ph.Logger.WithError(err).Error("failed to unmarshal cached profiles")
+		return
+	}
+
+	filtered := make([]model.Profile, 0, len(profiles))
+	for _, p := range profiles {
+		if p.ProfileId != likeTo {
+			filtered = append(filtered, p)
+		}
+	}
+	if len(filtered) == 0 {
+		err = ph.Subscriber.Del(context.Background(), redisKey).Err()
+		if err != nil {
+			ph.Logger.WithError(err).Error("failed to update cached profiles in redis")
+		}
+		return
+	}
+
+	newData, err := json.Marshal(filtered)
+	if err != nil {
+		ph.Logger.WithError(err).Error("failed to marshal updated profiles")
+		return
+	}
+
+	err = ph.Subscriber.Set(context.Background(), redisKey, newData, 30*time.Minute).Err()
+	if err != nil {
+		ph.Logger.WithError(err).Error("failed to update cached profiles in redis")
 	}
 
 	ph.Logger.WithFields(&logrus.Fields{
@@ -1657,6 +1717,10 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 	profilesListRetrieved.WithLabelValues("get profiles").Inc()
 	userIDRaw := r.Context().Value(userIDKey)
 	profileId, ok := userIDRaw.(uint32)
+
+	IsPremiumRaw := r.Context().Value(isPremiumKey)
+	IsPremium, _ := IsPremiumRaw.(bool)
+
 	if !ok {
 		ph.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
@@ -1672,6 +1736,52 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		"requester_id": profileId,
 	}).Debug("attempting to get profiles list")
 
+	redisKey := fmt.Sprintf("cached_profiles:%d", profileId)
+
+	cached, err := ph.Subscriber.Exists(context.Background(), redisKey).Result()
+	if err != nil {
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Redis error"})
+		return
+	}
+	if cached > 0 {
+		cachedData, err := ph.Subscriber.Get(context.Background(), redisKey).Result()
+		if err == nil {
+			var cachedProfiles []model.Profile
+			if err := json.Unmarshal([]byte(cachedData), &cachedProfiles); err == nil {
+				MakeResponse(w, http.StatusOK, cachedProfiles)
+				return
+			}
+		}
+	}
+
+	if !IsPremium {
+		viewKey := fmt.Sprintf("profile_view_limit:%d", profileId)
+		countStr, err := ph.Subscriber.Get(context.Background(), viewKey).Result()
+		if err != nil && err != redis.Nil {
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Redis error"})
+			return
+		}
+
+		viewCount := 0
+		if countStr != "" {
+			viewCount, _ = strconv.Atoi(countStr)
+		}
+
+		if viewCount >= model.MaxProfileViewsWithoutSub {
+			MakeResponse(w, http.StatusAccepted,
+				map[string]string{"message": "Thats it"},
+			)
+			return
+		}
+
+		pipe := ph.Subscriber.TxPipeline()
+		pipe.Incr(context.Background(), viewKey)
+		if viewCount == 0 {
+			pipe.Expire(context.Background(), viewKey, 12*time.Hour)
+		}
+		_, _ = pipe.Exec(context.Background())
+	}
+
 	profiles, err := ph.GetProfilesUC.GetProfiles(int(profileId))
 	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
@@ -1683,6 +1793,11 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
 		)
 		return
+	}
+
+	data, err := json.Marshal(profiles)
+	if err == nil {
+		_ = ph.Subscriber.Set(context.Background(), redisKey, data, 30*time.Minute).Err()
 	}
 
 	ph.Logger.WithFields(&logrus.Fields{
@@ -1912,6 +2027,253 @@ func (qh *QueryHandler) GetAnswersForUser(w http.ResponseWriter, r *http.Request
 	MakeResponse(w, http.StatusOK, answers)
 }
 
+func (qh *QueryHandler) FindQuery(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var answer struct {
+		Name     string `json:"name"`
+		Query_id int    `json:"query_id"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&answer)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+	answers, err := qh.FindQueryUC.FindQuery(answer.Name, answer.Query_id)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("answers for query retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, answers)
+}
+
+func (qh *QueryHandler) DeleteQuery(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var answer struct {
+		Query_id int `json:"query_id"`
+		User_id  int `json:"user_id"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&answer)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	err = qh.DeleteQueryUC.DeleteAnswer(answer.User_id, answer.Query_id)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("answers for query retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Deleted successful"})
+}
+
+func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
+	qh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var answer struct {
+		Query_id int `json:"query_id"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&answer)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_id)
+	if err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		)
+		return
+	}
+
+	qh.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("answers for query retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, stats)
+}
+
 func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Request) {
 	qh.Logger.WithFields(&logrus.Fields{
 		"method":     r.Method,
@@ -2094,4 +2456,42 @@ func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request
 	}).Info("complaints retrieved successfully")
 
 	MakeResponse(w, http.StatusOK, complaints)
+}
+
+func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("CreateComplaint request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var AddSubscription struct {
+		Subscription_Type int `json:"sub_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&AddSubscription); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+		return
+	}
+
+	if err := sh.AddSubUC.CreateSub(int(user_id), AddSubscription.Subscription_Type); err != nil {
+		fmt.Println(err)
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		return
+	}
+
+	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Subsr created"})
 }

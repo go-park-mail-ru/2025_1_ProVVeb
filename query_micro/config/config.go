@@ -45,3 +45,10 @@ type UsersForQuery struct {
 	Answer      string `yaml:"answer" json:"answer"`
 	Score       int    `yaml:"score" json:"score"`
 }
+
+type QueryStats struct {
+	TotalAnswers int64
+	AverageScore float64
+	MinScore     int
+	MaxScore     int
+}

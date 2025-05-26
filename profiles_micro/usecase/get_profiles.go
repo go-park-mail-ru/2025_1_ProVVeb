@@ -43,6 +43,7 @@ func (pss *ProfileServiceServer) GetProfiles(
 				Value:       preference.Value,
 			})
 		}
+
 		profs = append(profs, &profiles.Profile{
 			ProfileId:   int32(profile.ProfileId),
 			FirstName:   profile.FirstName,
@@ -58,6 +59,10 @@ func (pss *ProfileServiceServer) GetProfiles(
 			Parametres:  params,
 			Photos:      profile.Photos,
 			LikedBy:     likedBy,
+			Premium: &profiles.Premium{
+				Status: profile.Premium.Status,
+				Border: int32(profile.Premium.Border),
+			},
 		})
 	}
 

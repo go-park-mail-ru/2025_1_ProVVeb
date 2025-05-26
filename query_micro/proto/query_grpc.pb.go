@@ -23,6 +23,9 @@ type QueryServiceClient interface {
 	SendResp(ctx context.Context, in *SendRespRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetForUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*QueryResponseList, error)
 	GetForQuery(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ForQueryResponseList, error)
+	FindQuery(ctx context.Context, in *FindQueryRequest, opts ...grpc.CallOption) (*FindQueryResponseList, error)
+	DeleteAnswer(ctx context.Context, in *DeleteAnswerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetQueryStats(ctx context.Context, in *QueryStatsRequest, opts ...grpc.CallOption) (*QueryStatsResponse, error)
 }
 
 type queryServiceClient struct {
@@ -69,6 +72,33 @@ func (c *queryServiceClient) GetForQuery(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
+func (c *queryServiceClient) FindQuery(ctx context.Context, in *FindQueryRequest, opts ...grpc.CallOption) (*FindQueryResponseList, error) {
+	out := new(FindQueryResponseList)
+	err := c.cc.Invoke(ctx, "/query.QueryService/FindQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryServiceClient) DeleteAnswer(ctx context.Context, in *DeleteAnswerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/query.QueryService/DeleteAnswer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryServiceClient) GetQueryStats(ctx context.Context, in *QueryStatsRequest, opts ...grpc.CallOption) (*QueryStatsResponse, error) {
+	out := new(QueryStatsResponse)
+	err := c.cc.Invoke(ctx, "/query.QueryService/GetQueryStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServiceServer is the server API for QueryService service.
 // All implementations must embed UnimplementedQueryServiceServer
 // for forward compatibility
@@ -77,6 +107,9 @@ type QueryServiceServer interface {
 	SendResp(context.Context, *SendRespRequest) (*emptypb.Empty, error)
 	GetForUser(context.Context, *GetUserRequest) (*QueryResponseList, error)
 	GetForQuery(context.Context, *emptypb.Empty) (*ForQueryResponseList, error)
+	FindQuery(context.Context, *FindQueryRequest) (*FindQueryResponseList, error)
+	DeleteAnswer(context.Context, *DeleteAnswerRequest) (*emptypb.Empty, error)
+	GetQueryStats(context.Context, *QueryStatsRequest) (*QueryStatsResponse, error)
 	mustEmbedUnimplementedQueryServiceServer()
 }
 
@@ -95,6 +128,15 @@ func (UnimplementedQueryServiceServer) GetForUser(context.Context, *GetUserReque
 }
 func (UnimplementedQueryServiceServer) GetForQuery(context.Context, *emptypb.Empty) (*ForQueryResponseList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetForQuery not implemented")
+}
+func (UnimplementedQueryServiceServer) FindQuery(context.Context, *FindQueryRequest) (*FindQueryResponseList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindQuery not implemented")
+}
+func (UnimplementedQueryServiceServer) DeleteAnswer(context.Context, *DeleteAnswerRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAnswer not implemented")
+}
+func (UnimplementedQueryServiceServer) GetQueryStats(context.Context, *QueryStatsRequest) (*QueryStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetQueryStats not implemented")
 }
 func (UnimplementedQueryServiceServer) mustEmbedUnimplementedQueryServiceServer() {}
 
@@ -181,6 +223,60 @@ func _QueryService_GetForQuery_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _QueryService_FindQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServiceServer).FindQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/query.QueryService/FindQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServiceServer).FindQuery(ctx, req.(*FindQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _QueryService_DeleteAnswer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAnswerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServiceServer).DeleteAnswer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/query.QueryService/DeleteAnswer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServiceServer).DeleteAnswer(ctx, req.(*DeleteAnswerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _QueryService_GetQueryStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServiceServer).GetQueryStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/query.QueryService/GetQueryStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServiceServer).GetQueryStats(ctx, req.(*QueryStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // QueryService_ServiceDesc is the grpc.ServiceDesc for QueryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -203,6 +299,18 @@ var QueryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetForQuery",
 			Handler:    _QueryService_GetForQuery_Handler,
+		},
+		{
+			MethodName: "FindQuery",
+			Handler:    _QueryService_FindQuery_Handler,
+		},
+		{
+			MethodName: "DeleteAnswer",
+			Handler:    _QueryService_DeleteAnswer_Handler,
+		},
+		{
+			MethodName: "GetQueryStats",
+			Handler:    _QueryService_GetQueryStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

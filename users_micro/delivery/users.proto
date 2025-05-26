@@ -13,8 +13,25 @@ service UsersService {
     rpc UserExists(UserExistsRequest) returns (UserExistsResponse);
     rpc ValidateLogin(ValidateLoginRequest) returns (google.protobuf.Empty);
     rpc ValidatePassword(ValidatePasswordRequest) returns (google.protobuf.Empty);
+    
+    rpc GetPremium(GetPremiumRequest) returns (GetPremiumResponse);
+    rpc SetPremium(SetPremiumRequest) returns (google.protobuf.Empty);
 
     rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse);
+}
+
+message GetPremiumResponse {
+    int32 user_id = 1;
+    bool is_subsribe = 2;
+    int32 type = 3;
+}
+
+message SetPremiumRequest {
+    int32 user_id = 1;
+}
+
+message GetPremiumRequest {
+    int32 user_id = 1;
 }
 
 message GetUserByLoginRequest {

@@ -157,12 +157,13 @@ INSERT INTO profile_parameter (profile_id, parameter_id) VALUES
 (10, 4), (10, 6), (10, 8), (10, 10), (10, 12);
 
 
-INSERT INTO subscriptions (user_id, sub_type, transaction_data) VALUES 
-(1, 1, 'Подписка базовая'),
-(2, 2, 'Подписка премиум'),
-(3, 3, 'Подписка золотая'),
-(4, 4, 'Подписка платиновая'),
-(5, 1, 'Подписка базовая');
+
+INSERT INTO subscriptions (user_id, sub_type, transaction_data, expires_at) VALUES
+(1, 1, 'Подписка базовая',   CURRENT_TIMESTAMP + INTERVAL '30 days'),
+(2, 2, 'Подписка премиум',   CURRENT_TIMESTAMP + INTERVAL '90 days'), 
+(3, 3, 'Подписка золотая',   CURRENT_TIMESTAMP + INTERVAL '180 days'),  
+(4, 4, 'Подписка платиновая',CURRENT_TIMESTAMP + INTERVAL '365 days'),  
+(5, 1, 'Подписка базовая',   CURRENT_TIMESTAMP + INTERVAL '30 days');   
 
 INSERT INTO complaints (complaint_by, complaint_on, complaint_type, complaint_text, status) VALUES 
 (1, 2, 1, 'Неприемлемое поведение', 1),
