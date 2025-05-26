@@ -113,7 +113,7 @@ WHERE n.notification_type = nt.notif_type
 `
 
 func (nr *NotificationsRepo) MarkNotifications(userID int, nofit_type string) error {
-	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID)
+	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID, nofit_type)
 	if err != nil {
 		return err
 	}
