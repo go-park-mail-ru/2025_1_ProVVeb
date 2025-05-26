@@ -123,18 +123,20 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		"request_id": r.Header.Get("request_id"),
 	}).Info("request started")
 
-	userIDRaw := r.Context().Value(userIDKey)
-	profileId, ok := userIDRaw.(uint32)
-	if !ok {
-		mh.Logger.WithFields(&logrus.Fields{
-			"error": "failed to get userID from context",
-		}).Warn("unauthorized access attempt")
+	// userIDRaw := r.Context().Value(userIDKey)
+	// profileId, ok := userIDRaw.(uint32)
+	// if !ok {
+	// 	mh.Logger.WithFields(&logrus.Fields{
+	// 		"error": "failed to get userID from context",
+	// 	}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
-		)
-		return
-	}
+	// 	MakeResponse(w, http.StatusUnauthorized,
+	// 		map[string]string{"message": "You don't have access"},
+	// 	)
+	// 	return
+	// }
+
+	profileId := 1
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

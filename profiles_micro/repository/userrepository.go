@@ -895,18 +895,14 @@ const (
 	INSERT INTO matches (profile_id, matched_profile_id, created_at)
 	VALUES ($1, $2, CURRENT_TIMESTAMP)
 	`
+	DeleteMatchQuery = `DELETE FROM matches WHERE 
+				(profile_id = $1 AND matched_profile_id = $2) OR 
+				(profile_id = $2 AND matched_profile_id = $1)`
 )
 
 func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err error) {
 	var existingID int
 	var existing_status int
-	err = pr.DB.QueryRow(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID, &existing_status)
-	if err == nil {
-		return 0, nil
-	}
-	if err != pgx.ErrNoRows {
-		return 0, fmt.Errorf("error checking existing like: %w", err)
-	}
 	err = pr.DB.QueryRow(
 		context.Background(),
 		CreateLikeQuery,
@@ -965,6 +961,17 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 		likeID = -1
 	}
 
+	if status == 2 {
+		_, err = pr.DB.Exec(
+			context.Background(),
+			DeleteMatchQuery,
+			from, to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error deleting match on dislike: %w", err)
+		}
+	}
+
 	return likeID, nil
 }
 
@@ -992,6 +999,7 @@ func (pr *ProfileRepo) StoreInterests(profileID int, interests []string) error {
 		if err != nil {
 			return err
 		}
+
 	}
 
 	return tx.Commit(ctx)
