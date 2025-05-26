@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
@@ -2479,15 +2480,31 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var AddSubscription struct {
-		Subscription_Type int `json:"sub_type"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&AddSubscription); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
 
-	if err := sh.AddSubUC.CreateSub(int(user_id), AddSubscription.Subscription_Type); err != nil {
+	label := r.FormValue("label")
+	sub_id, err := strconv.Atoi(label)
+	if err != nil {
+		http.Error(w, "Invalid label format", http.StatusBadRequest)
+		return
+	}
+
+	var builder strings.Builder
+	for key, values := range r.Form {
+		if key == "label" {
+			continue
+		}
+		for _, v := range values {
+			builder.WriteString(fmt.Sprintf("%s=%s; ", key, v))
+		}
+	}
+
+	combined := builder.String()
+
+	if err := sh.AddSubUC.CreateSub(int(user_id), sub_id, combined); err != nil {
 		fmt.Println(err)
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return

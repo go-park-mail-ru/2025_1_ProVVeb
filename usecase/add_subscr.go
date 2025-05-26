@@ -17,9 +17,9 @@ func NewAddSubscriptionUseCase(subRepo repository.SubsriptionRepository, logger 
 	return &AddSubscription{subRepo: subRepo, logger: logger}, nil
 }
 
-func (uc *AddSubscription) CreateSub(userID int, sub_type int) error {
+func (uc *AddSubscription) CreateSub(userID int, sub_type int, data string) error {
 	uc.logger.Info("CreateSub", "userId", userID, "sub_type", sub_type)
-	err := uc.subRepo.CreateSub(userID, sub_type)
+	err := uc.subRepo.CreateSub(userID, sub_type, data)
 	if err != nil {
 		uc.logger.Error("CreateSub", "userId", userID, "error", err)
 	} else {
