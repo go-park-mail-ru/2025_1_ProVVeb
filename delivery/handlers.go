@@ -1772,7 +1772,7 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 		if viewCount >= model.MaxProfileViewsWithoutSub {
 			MakeResponse(w, http.StatusAccepted,
-				map[string]string{"message": "Thats it"},
+				map[string]string{"message": "Иди потрогай траву"},
 			)
 			return
 		}
