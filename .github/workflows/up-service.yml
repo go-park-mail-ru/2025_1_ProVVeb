@@ -12,6 +12,8 @@ jobs:
       run: |
         pwd
         ls
+    - name: test2
+      run: |
         make test
   lint:
     runs-on: ubuntu-latest
