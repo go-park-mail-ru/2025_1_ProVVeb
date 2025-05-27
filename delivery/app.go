@@ -130,7 +130,7 @@ func Run() {
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, notifClient.Client, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, usersCon, notifClient.Client, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
@@ -469,10 +469,12 @@ func NewMessageHandler(
 func NewProfilesHandler(
 	conn *grpc.ClientConn,
 	notifrepo repository.NotificationsRepository,
+	admin_conn *grpc.ClientConn,
 	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*ProfilesHandler, error) {
 	client := profilespb.NewProfilesServiceClient(conn)
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
 	DeleteImage, err := usecase.NewDeleteStaticUseCase(client, logger)
 	if err != nil {
@@ -524,6 +526,11 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	GetAdmin, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -536,6 +543,7 @@ func NewProfilesHandler(
 		Subscriber:            Subscriber,
 		AddNotificationUC:     *AddNotification,
 		SearchProfileUC:       *SearchProfile,
+		GetAdminUC:            *GetAdmin,
 		Logger:                logger,
 	}, nil
 }

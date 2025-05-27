@@ -97,6 +97,25 @@ type Profile struct {
 	Premium     Premium      `yaml:"Premium" json:"Premium"`
 }
 
+type ProfileIsAdmin struct {
+	ProfileId   int          `yaml:"profileId" json:"profileId"`
+	FirstName   string       `yaml:"firstName" json:"firstName"`
+	LastName    string       `yaml:"lastName" json:"lastName"`
+	IsMale      bool         `yaml:"isMale" json:"isMale"`
+	Goal        int          `yaml:"goal" json:"goal"`
+	Height      int          `yaml:"height" json:"height"`
+	Birthday    time.Time    `yaml:"birthday" json:"birthday"`
+	Description string       `yaml:"description" json:"description"`
+	Location    string       `yaml:"location" json:"location"`
+	Interests   []string     `yaml:"interests" json:"interests"`
+	LikedBy     []int        `yaml:"likedBy" json:"likedBy"`
+	Preferences []Preference `yaml:"preferences" json:"preferences"`
+	Parameters  []Preference `yaml:"parameters" json:"parameters"`
+	Photos      []string     `yaml:"photos" json:"photos"`
+	Premium     Premium      `yaml:"Premium" json:"Premium"`
+	IsAdmin     bool         `yaml:"isAdmin" json:"isAdmin"`
+}
+
 type Premium struct {
 	Status bool  `yaml:"Status" json:"Status"`
 	Border int32 `yaml:"Border" json:"Border"`

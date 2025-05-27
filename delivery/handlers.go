@@ -73,6 +73,8 @@ type ProfilesHandler struct {
 	AddNotificationUC usecase.AddNotification
 	Subscriber        *redis.Client
 
+	GetAdminUC usecase.GetAdmin
+
 	Logger *logger.LogrusLogger
 }
 
@@ -1751,7 +1753,41 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		"profile_id": profileId,
 	}).Info("profile retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, profile)
+	is_admin, err := ph.GetAdminUC.GetAdmin(int(profileId))
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"user_id": profileId,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	var profileIsAdmin model.ProfileIsAdmin
+
+	profileIsAdmin = model.ProfileIsAdmin{
+		ProfileId:   profile.ProfileId,
+		FirstName:   profile.FirstName,
+		LastName:    profile.LastName,
+		IsMale:      profile.IsMale,
+		Goal:        profile.Goal,
+		Height:      profile.Height,
+		Birthday:    profile.Birthday,
+		Description: profile.Description,
+		Location:    profile.Location,
+		Interests:   profile.Interests,
+		LikedBy:     profile.LikedBy,
+		Preferences: profile.Preferences,
+		Parameters:  profile.Parameters,
+		Photos:      profile.Photos,
+		Premium:     profile.Premium,
+		IsAdmin:     is_admin,
+	}
+
+	MakeResponse(w, http.StatusOK, profileIsAdmin)
 }
 
 func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
@@ -2652,9 +2688,7 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
 	if !ok {
-		ch.Logger.WithFields(&logrus.Fields{
-			"error": "missing or invalid userID in context",
-		}).Warn("unauthorized query access attempt")
+		ch.Logger.Warn("unauthorized query access attempt")
 
 		MakeResponse(w, http.StatusUnauthorized,
 			map[string]string{"message": "You don't have access"},
@@ -2662,73 +2696,66 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ch.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("attempting to get complaints")
-
 	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
 	if err != nil {
-		ch.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to get complaints")
-
 		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
-		)
-		return
-	}
-
-	var input struct {
-		Compaint_by    int    `json:"complaint_by"`
-		Name_by        string `json:"name_by"`
-		Complaint_on   int    `json:"complaint_on"`
-		Name_on        string `json:"name_on"`
-		Complaint_type string `json:"complaint_type"`
-		Status         int    `json:"status"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		ch.Logger.WithFields(&logrus.Fields{
-			"input": input,
-			"error": err.Error(),
-		}).Warn("failed to decode like request body")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
+			map[string]string{"message": "Error getting admin permissions"},
 		)
 		return
 	}
 
 	if !is_admin {
 		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+			map[string]string{"message": "You don't have permissions"},
 		)
+		return
+	}
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		ch.Logger.Warn("invalid JSON in complaint filter")
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+		return
+	}
+
+	if len(raw) == 0 {
+		complaints, err := ch.GetComplaintsUC.GetAllComplaints()
+		if err != nil {
+			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error getting complaints"})
+			return
+		}
+		MakeResponse(w, http.StatusOK, complaints)
+		return
+	}
+
+	// Парсим в input, если JSON непустой
+	var input struct {
+		Complaint_by   int    `json:"complaint_by"`
+		Name_by        string `json:"name_by"`
+		Complaint_on   int    `json:"complaint_on"`
+		Name_on        string `json:"name_on"`
+		Complaint_type string `json:"complaint_type"`
+		Status         int    `json:"status"`
+	}
+	rawBytes, _ := json.Marshal(raw)
+	if err := json.Unmarshal(rawBytes, &input); err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid complaint filter"})
 		return
 	}
 
 	complaints, err := ch.FindCompaintUC.FindComplaint(
-		input.Compaint_by,
+		input.Complaint_by,
 		input.Name_by,
 		input.Complaint_on,
 		input.Name_on,
 		input.Complaint_type,
-		input.Status)
+		input.Status,
+	)
 	if err != nil {
-		ch.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to get complaints")
-
 		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting complaint: %v", err)},
+			map[string]string{"message": fmt.Sprintf("Error getting complaints: %v", err)},
 		)
 		return
 	}
-
-	ch.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("complaints found successfully")
 
 	MakeResponse(w, http.StatusOK, complaints)
 }
