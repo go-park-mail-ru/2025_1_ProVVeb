@@ -1,0 +1,54 @@
+name: Up Beameye Service
+run-name: ${{ github.actor }} is deploying Beameye Service
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: test
+      run: |
+        make test
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: lint
+      run: |
+        make lint
+  build:
+    if: github.ref == 'refs/heads/main'
+    needs: [ test, lint ]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "postgre", "beameye" ]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: login to docker hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: build and push ${{ matrix.image }}
+      run: |
+        docker build -t forus809/${{ matrix.image }}:latest -f ./backend/${{ matrix.image }}/Dockerfile .
+        docker push forus809/${{ matrix.image }}:latest
+      with:
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        annotations: ${{ steps.mets.outputs.annotations }}
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    steps:
+    - name: deploy our beautiful app
+      run: |
+        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
+        cd ./beameye
+        docker-compose pull # проверить
+        docker-compose up 
