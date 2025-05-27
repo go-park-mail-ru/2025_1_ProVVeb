@@ -97,6 +97,8 @@ test_injection:
 	@echo "Закончили тесты"
 	@echo "Лови запись тестов"
 
+good:
+	@echo "good"
 
 test:
 	# @echo "Делаем моки..."
