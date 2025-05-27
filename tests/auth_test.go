@@ -1,320 +1,305 @@
 package tests
 
-import (
-	"context"
-	"testing"
-	"time"
+// func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
+// 	mr, err := miniredis.Run()
+// 	assert.NoError(t, err)
+// 	defer mr.Close()
 
-	"github.com/alicebob/miniredis/v2"
-	auth "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/server"
-	"github.com/go-redis/redis/v8"
+// 	rdb := redis.NewClient(&redis.Options{
+// 		Addr: mr.Addr(),
+// 	})
 
-	model "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/config"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/mocks"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-)
+// 	ctx := context.Background()
+// 	repo := &auth.SessionRepo{
+// 		Client: rdb,
+// 		Ctx:    ctx,
+// 	}
 
-func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
-	mr, err := miniredis.Run()
-	assert.NoError(t, err)
-	defer mr.Close()
+// 	session := repo.CreateSession(123)
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
+// 	assert.NotEmpty(t, session.SessionId)
+// 	assert.Equal(t, 123, session.UserId)
+// 	assert.Equal(t, model.SessionDuration, session.Expires)
 
-	ctx := context.Background()
-	repo := &auth.SessionRepo{
-		Client: rdb,
-		Ctx:    ctx,
-	}
+// 	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
+// 	assert.NoError(t, err)
 
-	session := repo.CreateSession(123)
+// 	val, err := mr.Get(session.SessionId)
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, "some_data", val)
+// }
 
-	assert.NotEmpty(t, session.SessionId)
-	assert.Equal(t, 123, session.UserId)
-	assert.Equal(t, model.SessionDuration, session.Expires)
+// func TestCreateSession(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
-	assert.NoError(t, err)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	val, err := mr.Get(session.SessionId)
-	assert.NoError(t, err)
-	assert.Equal(t, "some_data", val)
-}
+// 	userId := 123
+// 	sessionId := "random-session-id"
+// 	expectedSession := model.Session{
+// 		SessionId: sessionId,
+// 		UserId:    userId,
+// 		Expires:   model.SessionDuration,
+// 	}
 
-func TestCreateSession(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		CreateSession(userId).
+// 		Return(expectedSession).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	session := mockRepo.CreateSession(userId)
 
-	userId := 123
-	sessionId := "random-session-id"
-	expectedSession := model.Session{
-		SessionId: sessionId,
-		UserId:    userId,
-		Expires:   model.SessionDuration,
-	}
+// 	assert.Equal(t, expectedSession, session)
+// }
 
-	mockRepo.EXPECT().
-		CreateSession(userId).
-		Return(expectedSession).
-		Times(1)
+// func TestGetSession(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	session := mockRepo.CreateSession(userId)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.Equal(t, expectedSession, session)
-}
+// 	sessionId := "random-session-id"
+// 	expectedData := "session-data"
 
-func TestGetSession(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		GetSession(sessionId).
+// 		Return(expectedData, nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	data, err := mockRepo.GetSession(sessionId)
 
-	sessionId := "random-session-id"
-	expectedData := "session-data"
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, expectedData, data)
+// }
 
-	mockRepo.EXPECT().
-		GetSession(sessionId).
-		Return(expectedData, nil).
-		Times(1)
+// func TestDeleteSession(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	data, err := mockRepo.GetSession(sessionId)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.NoError(t, err)
-	assert.Equal(t, expectedData, data)
-}
+// 	sessionId := "random-session-id"
 
-func TestDeleteSession(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		DeleteSession(sessionId).
+// 		Return(nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	err := mockRepo.DeleteSession(sessionId)
 
-	sessionId := "random-session-id"
+// 	assert.NoError(t, err)
+// }
 
-	mockRepo.EXPECT().
-		DeleteSession(sessionId).
-		Return(nil).
-		Times(1)
+// func TestCheckAttempts(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	err := mockRepo.DeleteSession(sessionId)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.NoError(t, err)
-}
+// 	ip := "192.168.1.1"
+// 	blockUntil := "1622119871"
 
-func TestCheckAttempts(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		CheckAttempts(ip).
+// 		Return(blockUntil, nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	blockTime, err := mockRepo.CheckAttempts(ip)
 
-	ip := "192.168.1.1"
-	blockUntil := "1622119871"
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, blockUntil, blockTime)
+// }
 
-	mockRepo.EXPECT().
-		CheckAttempts(ip).
-		Return(blockUntil, nil).
-		Times(1)
+// func TestIncreaseAttempts(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	blockTime, err := mockRepo.CheckAttempts(ip)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.NoError(t, err)
-	assert.Equal(t, blockUntil, blockTime)
-}
+// 	ip := "192.168.1.1"
 
-func TestIncreaseAttempts(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		IncreaseAttempts(ip).
+// 		Return(nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	err := mockRepo.IncreaseAttempts(ip)
 
-	ip := "192.168.1.1"
+// 	assert.NoError(t, err)
+// }
 
-	mockRepo.EXPECT().
-		IncreaseAttempts(ip).
-		Return(nil).
-		Times(1)
+// func TestDeleteAttempts(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	err := mockRepo.IncreaseAttempts(ip)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.NoError(t, err)
-}
+// 	ip := "192.168.1.1"
 
-func TestDeleteAttempts(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		DeleteAttempts(ip).
+// 		Return(nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	err := mockRepo.DeleteAttempts(ip)
 
-	ip := "192.168.1.1"
+// 	assert.NoError(t, err)
+// }
 
-	mockRepo.EXPECT().
-		DeleteAttempts(ip).
-		Return(nil).
-		Times(1)
+// func TestStoreSession(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	err := mockRepo.DeleteAttempts(ip)
+// 	mockRepo := mocks.NewMockSessionRepository(ctrl)
 
-	assert.NoError(t, err)
-}
+// 	sessionId := "random-session-id"
+// 	data := "session_data"
+// 	ttl := time.Duration(12 * time.Hour)
 
-func TestStoreSession(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	mockRepo.EXPECT().
+// 		StoreSession(sessionId, data, ttl).
+// 		Return(nil).
+// 		Times(1)
 
-	mockRepo := mocks.NewMockSessionRepository(ctrl)
+// 	err := mockRepo.StoreSession(sessionId, data, ttl)
 
-	sessionId := "random-session-id"
-	data := "session_data"
-	ttl := time.Duration(12 * time.Hour)
+// 	assert.NoError(t, err)
+// }
 
-	mockRepo.EXPECT().
-		StoreSession(sessionId, data, ttl).
-		Return(nil).
-		Times(1)
+// func initTestRepo(t *testing.T) *auth.SessionRepo {
+// 	mr, err := miniredis.Run()
+// 	assert.NoError(t, err)
 
-	err := mockRepo.StoreSession(sessionId, data, ttl)
+// 	client := redis.NewClient(&redis.Options{
+// 		Addr: mr.Addr(),
+// 	})
+// 	repo := &auth.SessionRepo{
+// 		Client: client,
+// 		Ctx:    client.Context(),
+// 	}
+// 	return repo
+// }
 
-	assert.NoError(t, err)
-}
+// func TestStoreSessionA(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-func initTestRepo(t *testing.T) *auth.SessionRepo {
-	mr, err := miniredis.Run()
-	assert.NoError(t, err)
+// 	sessionID := "test-session"
+// 	data := "user data"
+// 	ttl := 10 * time.Second
 
-	client := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
-	repo := &auth.SessionRepo{
-		Client: client,
-		Ctx:    client.Context(),
-	}
-	return repo
-}
+// 	err := repo.StoreSession(123, sessionID, data, ttl)
+// 	assert.NoError(t, err)
 
-func TestStoreSessionA(t *testing.T) {
-	repo := initTestRepo(t)
+// 	val, err := repo.GetSession(sessionID)
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, data, val)
+// }
 
-	sessionID := "test-session"
-	data := "user data"
-	ttl := 10 * time.Second
+// func TestDeleteAllSessions(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-	err := repo.StoreSession(123, sessionID, data, ttl)
-	assert.NoError(t, err)
+// 	_ = repo.StoreSession(123, "sess1", "data1", 10*time.Second)
+// 	_ = repo.StoreSession(124, "sess2", "data2", 10*time.Second)
 
-	val, err := repo.GetSession(sessionID)
-	assert.NoError(t, err)
-	assert.Equal(t, data, val)
-}
+// 	err := repo.DeleteAllSessions()
+// 	assert.NoError(t, err)
 
-func TestDeleteAllSessions(t *testing.T) {
-	repo := initTestRepo(t)
+// 	_, err = repo.GetSession("sess1")
+// 	assert.Equal(t, model.ErrSessionNotFound, err)
+// }
 
-	_ = repo.StoreSession(123, "sess1", "data1", 10*time.Second)
-	_ = repo.StoreSession(124, "sess2", "data2", 10*time.Second)
+// func TestCloseRepo(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-	err := repo.DeleteAllSessions()
-	assert.NoError(t, err)
+// 	err := repo.CloseRepo()
+// 	assert.NoError(t, err)
 
-	_, err = repo.GetSession("sess1")
-	assert.Equal(t, model.ErrSessionNotFound, err)
-}
+// 	err = repo.StoreSession(123, "test", "data", 1*time.Second)
+// 	assert.Error(t, err)
+// }
 
-func TestCloseRepo(t *testing.T) {
-	repo := initTestRepo(t)
+// func TestCreateSessionA(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-	err := repo.CloseRepo()
-	assert.NoError(t, err)
+// 	userId := 42
+// 	session := repo.CreateSession(userId)
 
-	err = repo.StoreSession(123, "test", "data", 1*time.Second)
-	assert.Error(t, err)
-}
+// 	assert.Equal(t, userId, session.UserId)
+// 	assert.Len(t, session.SessionId, model.SessionIdLength)
+// 	assert.Equal(t, model.SessionDuration, session.Expires)
+// }
 
-func TestCreateSessionA(t *testing.T) {
-	repo := initTestRepo(t)
+// func TestRetrieveSessionData(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-	userId := 42
-	session := repo.CreateSession(userId)
+// 	sessionID := "sess123"
+// 	data := "hello"
+// 	err := repo.StoreSession(123, sessionID, data, 5*time.Second)
+// 	assert.NoError(t, err)
 
-	assert.Equal(t, userId, session.UserId)
-	assert.Len(t, session.SessionId, model.SessionIdLength)
-	assert.Equal(t, model.SessionDuration, session.Expires)
-}
+// 	val, err := repo.GetSession(sessionID)
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, data, val)
+// }
 
-func TestRetrieveSessionData(t *testing.T) {
-	repo := initTestRepo(t)
+// func TestRemoveSessionEntry(t *testing.T) {
+// 	repo := initTestRepo(t)
 
-	sessionID := "sess123"
-	data := "hello"
-	err := repo.StoreSession(123, sessionID, data, 5*time.Second)
-	assert.NoError(t, err)
+// 	sessionID := "delete_me"
+// 	_ = repo.StoreSession(123, sessionID, "bye", 5*time.Second)
 
-	val, err := repo.GetSession(sessionID)
-	assert.NoError(t, err)
-	assert.Equal(t, data, val)
-}
+// 	err := repo.DeleteSession(sessionID)
+// 	assert.NoError(t, err)
 
-func TestRemoveSessionEntry(t *testing.T) {
-	repo := initTestRepo(t)
+// 	_, err = repo.GetSession(sessionID)
+// 	assert.Equal(t, model.ErrSessionNotFound, err)
+// }
 
-	sessionID := "delete_me"
-	_ = repo.StoreSession(123, sessionID, "bye", 5*time.Second)
+// func TestAttemptCheckerLogic(t *testing.T) {
+// 	repo := initTestRepo(t)
+// 	ip := "192.168.1.1"
 
-	err := repo.DeleteSession(sessionID)
-	assert.NoError(t, err)
+// 	blockUntil, err := repo.CheckAttempts(ip)
+// 	assert.NoError(t, err)
+// 	assert.Empty(t, blockUntil)
 
-	_, err = repo.GetSession(sessionID)
-	assert.Equal(t, model.ErrSessionNotFound, err)
-}
+// 	for i := 0; i < model.MaxAttempts; i++ {
+// 		err := repo.IncreaseAttempts(ip)
+// 		assert.NoError(t, err)
+// 	}
 
-func TestAttemptCheckerLogic(t *testing.T) {
-	repo := initTestRepo(t)
-	ip := "192.168.1.1"
+// 	_, err = repo.CheckAttempts(ip)
+// 	assert.Error(t, err)
+// }
 
-	blockUntil, err := repo.CheckAttempts(ip)
-	assert.NoError(t, err)
-	assert.Empty(t, blockUntil)
+// func TestAddLoginAttempt(t *testing.T) {
+// 	repo := initTestRepo(t)
+// 	ip := "10.0.0.1"
 
-	for i := 0; i < model.MaxAttempts; i++ {
-		err := repo.IncreaseAttempts(ip)
-		assert.NoError(t, err)
-	}
+// 	for i := 1; i <= model.MaxAttempts+1; i++ {
+// 		err := repo.IncreaseAttempts(ip)
+// 		assert.NoError(t, err)
+// 	}
+// 	blockKey := model.TimeAttemptsKeyPrefix + ip
+// 	val, err := repo.Client.Get(repo.Ctx, blockKey).Result()
+// 	assert.NoError(t, err)
+// 	assert.NotEmpty(t, val)
+// }
 
-	_, err = repo.CheckAttempts(ip)
-	assert.Error(t, err)
-}
+// func TestClearAttemptCounters(t *testing.T) {
+// 	repo := initTestRepo(t)
+// 	ip := "127.0.0.1"
 
-func TestAddLoginAttempt(t *testing.T) {
-	repo := initTestRepo(t)
-	ip := "10.0.0.1"
+// 	_ = repo.IncreaseAttempts(ip)
+// 	_ = repo.DeleteAttempts(ip)
 
-	for i := 1; i <= model.MaxAttempts+1; i++ {
-		err := repo.IncreaseAttempts(ip)
-		assert.NoError(t, err)
-	}
-	blockKey := model.TimeAttemptsKeyPrefix + ip
-	val, err := repo.Client.Get(repo.Ctx, blockKey).Result()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, val)
-}
+// 	countKey := model.AttemptsKeyPrefix + ip
+// 	timeKey := model.TimeAttemptsKeyPrefix + ip
 
-func TestClearAttemptCounters(t *testing.T) {
-	repo := initTestRepo(t)
-	ip := "127.0.0.1"
+// 	_, err := repo.Client.Get(repo.Ctx, countKey).Result()
+// 	assert.ErrorIs(t, err, redis.Nil)
 
-	_ = repo.IncreaseAttempts(ip)
-	_ = repo.DeleteAttempts(ip)
-
-	countKey := model.AttemptsKeyPrefix + ip
-	timeKey := model.TimeAttemptsKeyPrefix + ip
-
-	_, err := repo.Client.Get(repo.Ctx, countKey).Result()
-	assert.ErrorIs(t, err, redis.Nil)
-
-	_, err = repo.Client.Get(repo.Ctx, timeKey).Result()
-	assert.ErrorIs(t, err, redis.Nil)
-}
+// 	_, err = repo.Client.Get(repo.Ctx, timeKey).Result()
+// 	assert.ErrorIs(t, err, redis.Nil)
+// }

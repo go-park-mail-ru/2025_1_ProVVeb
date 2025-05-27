@@ -101,6 +101,7 @@ test_injection:
 
 
 test:
+	clear
 	# @echo "Делаем моки..."
 	# mockgen -source=auth_micro/server/service.go -destination=mocks/sessiomockgen -source=auth_micro/server/sessionrepository.go -destination=mocks/session_repo_mock.go -package=mocksn_repo_mock.go -package=mocks
 	@echo "Запуск тестов..."
@@ -108,7 +109,7 @@ test:
 	@echo "Обработка покрытия..."
 
 	# Добавляем условие для исключения файлов
-	cat $(COVERAGE_TMP) | grep -vE '/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/user_repository.go|github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/server/service.go|github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/server/service.go|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/static_repository.go|github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/server/postgres_con.go|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/chat_repository.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
+	cat $(COVERAGE_TMP) | grep -vE '/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/model/models_easyjson.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
 
 	go tool cover -func=$(COVERAGE_OUT)
 
