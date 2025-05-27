@@ -1,3 +1,5 @@
+//go:generate easyjson -all  models.go
+
 package model
 
 import (
@@ -63,22 +65,16 @@ var (
 	ErrProfileUpdateUC       = errors.New("failed to update profile")
 	ErrStaticUploadUC        = errors.New("failed to upload static")
 	ErrGetActiveQueriesUC    = errors.New("failed to get active queries")
+	ErrUserGetParamsUC       = errors.New("failed to get user params")
 )
 
-type User struct {
-	UserId   int    `yaml:"id" json:"id"`
-	Login    string `yaml:"login" json:"login"`
-	Password string `yaml:"password" json:"password"`
-	Email    string `yaml:"email" json:"email"`
-	Phone    string `yaml:"phone" json:"phone"`
-	Status   int    `yaml:"status" json:"status"`
-}
-
+//easyjson:json
 type Preference struct {
 	Description string `yaml:"preference_description" json:"preference_description"`
 	Value       string `yaml:"preference_value" json:"preference_value"`
 }
 
+//easyjson:json
 type Profile struct {
 	ProfileId   int          `yaml:"profileId" json:"profileId"`
 	FirstName   string       `yaml:"firstName" json:"firstName"`
@@ -97,6 +93,7 @@ type Profile struct {
 	Premium     Premium      `yaml:"Premium" json:"Premium"`
 }
 
+//easyjson:json
 type ProfileIsAdmin struct {
 	ProfileId   int          `yaml:"profileId" json:"profileId"`
 	FirstName   string       `yaml:"firstName" json:"firstName"`
@@ -116,17 +113,20 @@ type ProfileIsAdmin struct {
 	IsAdmin     bool         `yaml:"isAdmin" json:"isAdmin"`
 }
 
+//easyjson:json
 type Premium struct {
 	Status bool  `yaml:"Status" json:"Status"`
 	Border int32 `yaml:"Border" json:"Border"`
 }
 
+//easyjson:json
 type Session struct {
 	SessionId string        `yaml:"sessionId" json:"sessionId"`
 	UserId    int           `yaml:"userId" json:"userId"`
 	Expires   time.Duration `yaml:"expires" json:"expires"`
 }
 
+//easyjson:json
 type Cookie struct {
 	Name     string    `yaml:"name" json:"name"`
 	Value    string    `yaml:"value" json:"value"`
@@ -136,6 +136,7 @@ type Cookie struct {
 	Path     string    `yaml:"path" json:"path"`
 }
 
+//easyjson:json
 type Query struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
@@ -143,6 +144,7 @@ type Query struct {
 	MaxScore    int    `yaml:"maxScore" json:"maxScore"`
 }
 
+//easyjson:json
 type QueryForUser struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
@@ -152,6 +154,7 @@ type QueryForUser struct {
 	Answer      string `yaml:"answer" json:"answer"`
 }
 
+//easyjson:json
 type UsersForQuery struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
@@ -162,6 +165,7 @@ type UsersForQuery struct {
 	Score       int    `yaml:"score" json:"score"`
 }
 
+//easyjson:json
 type AnswersForQuery struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
@@ -173,6 +177,7 @@ type AnswersForQuery struct {
 	UserId      int    `yaml:"userId" json:"userId"`
 }
 
+//easyjson:json
 type Chat struct {
 	ProfileId          int    `yaml:"profileId" json:"profileId"`
 	ChatId             int    `yaml:"chatId" json:"chatId"`
@@ -184,6 +189,7 @@ type Chat struct {
 	IsSelf             bool   `yaml:"isSelf" json:"isSelf"`
 }
 
+//easyjson:json
 type Message struct {
 	MessageID int       `yaml:"messageid" json:"messageid"`
 	SenderID  int       `yaml:"senderid" json:"senderid"`
@@ -192,42 +198,51 @@ type Message struct {
 	CreatedAt time.Time `yaml:"createdAt" json:"createdAt"`
 }
 
+//easyjson:json
 type WSMessage struct {
 	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
+//easyjson:json
 type CreatePayload struct {
 	ChatID  int    `json:"chat_id"`
 	UserID  int    `json:"user_id"`
 	Content string `json:"content"`
 }
 
+//easyjson:json
 type DeletePayload struct {
 	ChatID    int `json:"chat_id"`
 	MessageID int `json:"message_id"`
 }
 
+//easyjson:json
 type ReadPayload struct {
 	ChatID int `json:"chat_id"`
 }
 
+//easyjson:json
 type ChatNotificationsPayload struct {
 	ChatID int `json:"chat_id"`
 }
 
+//easyjson:json
 type DeleteNotifPayload struct {
 	NotifID int `json:"notif_id"`
 }
 
+//easyjson:json
 type FlowersPayload struct {
 	UserID int `json:"user_id"`
 }
 
+//easyjson:json
 type ReadNotifPayload struct {
 	NotifType string `json:"notif_type"`
 }
 
+//easyjson:json
 type ComplaintWithLogins struct {
 	ComplaintID   int64      `json:"complaint_id"`
 	ComplaintBy   string     `json:"complaint_by"`
@@ -240,6 +255,7 @@ type ComplaintWithLogins struct {
 	ClosedAt      *time.Time `json:"closed_at"`
 }
 
+//easyjson:json
 type ComplaintStats struct {
 	Total          int       `json:"total_complaints"`
 	Rejected       int       `json:"rejected"`
@@ -252,6 +268,7 @@ type ComplaintStats struct {
 	LastComplaint  time.Time `json:"last_complaint"`
 }
 
+//easyjson:json
 type SearchProfileRequest struct {
 	Input       string       `json:"input"`
 	IsMale      string       `json:"isMale"`
@@ -265,6 +282,7 @@ type SearchProfileRequest struct {
 	City        string       `json:"city"`
 }
 
+//easyjson:json
 type FoundProfile struct {
 	IDUser   int    `json:"idUser"`
 	FirstImg string `json:"firstImgSrc"`
@@ -273,11 +291,13 @@ type FoundProfile struct {
 	Goal     int    `yaml:"goal" json:"goal"`
 }
 
+//easyjson:json
 type Notification struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
 }
 
+//easyjson:json
 type NotificationSend struct {
 	NotificationID int    `yaml:"notificationID" json:"notificationID"`
 	Read           int    `yaml:"read" json:"read"`
@@ -285,9 +305,194 @@ type NotificationSend struct {
 	Content        string `yaml:"content" json:"content"`
 }
 
+//easyjson:json
 type QueryStats struct {
 	TotalAnswers int     `yaml:"TotalAnswers" json:"TotalAnswers"`
 	AverageScore float64 `yaml:"AverageScore" json:"AverageScore"`
 	MinScore     int     `yaml:"MinScore" json:"MinScore"`
 	MaxScore     int     `yaml:"MaxScore" json:"MaxScore"`
+}
+
+//easyjson:json
+type CreateChatRequest struct {
+	FristID  int `json:"firstID"`
+	SecondID int `json:"secondID"`
+}
+
+//easyjson:json
+type DeleteChatRequest struct {
+	FristID  int `json:"firstID"`
+	SecondID int `json:"secondID"`
+}
+
+//easyjson:json
+type SetLike struct {
+	LikeFrom int `json:"likeFrom"`
+	LikeTo   int `json:"likeTo"`
+	Status   int `json:"status"`
+}
+
+//easyjson:json
+type LoginRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+//easyjson:json
+type SignUpRequest struct {
+	User    User    `json:"user"`
+	Profile Profile `json:"profile"`
+}
+
+//easyjson:json
+type HandleComplaint struct {
+	Complaint_id int `json:"complaint_id"`
+	NewStatus    int `json:"new_status"`
+}
+
+//easyjson:json
+type DeleteComlaint struct {
+	Complaint_id int `json:"complaint_id"`
+}
+
+//easyjson:json
+type FindComplaint struct {
+	Complaint_by   int    `json:"complaint_by"`
+	Name_by        string `json:"name_by"`
+	Complaint_on   int    `json:"complaint_on"`
+	Name_on        string `json:"name_on"`
+	Complaint_type string `json:"complaint_type"`
+	Status         int    `json:"status"`
+}
+
+//easyjson:json
+type TimeConstraints struct {
+	TimeFrom time.Time `json:"time_from"`
+	TimeTo   time.Time `json:"time_to"`
+}
+
+//easyjson:json
+type RawTimeConstraints struct {
+	TimeFrom *string `json:"time_from"`
+	TimeTo   *string `json:"time_to"`
+}
+
+//easyjson:json
+type ChangeBorderRequest struct {
+	NewBorder int `json:"new_border"`
+}
+
+//easyjson:json
+type AddSubRequet struct {
+	Label string `json:"label"`
+}
+
+//easyjson:json
+type CreateComplaintRequest struct {
+	Complaint_type string `json:"firstID"`
+	Complaint_text string `json:"complaint_text"`
+	Complaint_on   string `json:"complaint_on"`
+}
+
+//easyjson:json
+type GetAnswerStatistics struct {
+	Query_id int `json:"query_id"`
+}
+
+//easyjson:json
+type DeleteQueryRequest struct {
+	Query_id int `json:"query_id"`
+	User_id  int `json:"user_id"`
+}
+
+//easyjson:json
+type FindQueryRequest struct {
+	Name     string `json:"name"`
+	Query_id int    `json:"query_id"`
+}
+
+//easyjson:json
+type SessionCheckResponse struct {
+	Message   string `json:"message"`
+	InSession bool   `json:"inSession"`
+}
+
+//easyjson:json
+type SessionCheckSuccessResponse struct {
+	Message   string `json:"message"`
+	InSession bool   `json:"inSession"`
+	UserId    int    `json:"id"`
+}
+
+//easyjson:json
+type ErrorResponse struct {
+	Message string `json:"message"`
+}
+
+//easyjson:json
+type ComplaintsResponse struct {
+	Complaints []ComplaintWithLogins `json:"complaints"`
+}
+
+//easyjson:json
+type LoginResponse struct {
+	Message string `json:"message"`
+	UserID  int    `json:"user_id"`
+}
+
+//easyjson:json
+type UploadResponse struct {
+	Message       string   `json:"message"`
+	FailedUploads []string `json:"failed_uploads"`
+}
+
+//easyjson:json
+type ProfileResponse struct {
+	Profiles []Profile `json:"profiles"`
+}
+
+//easyjson:json
+type FoundProfileResponse struct {
+	Profiles []FoundProfile `json:"profiles"`
+}
+
+//easyjson:json
+type ChatsResponse struct {
+	Chats []Chat `json:"chats"`
+}
+
+//easyjson:json
+type AnswersResponse struct {
+	Answers []UsersForQuery `json:"answers"`
+}
+
+//easyjson:json
+type AnswersForResponse struct {
+	Answers []AnswersForQuery `json:"answers"`
+}
+
+//easyjson:json
+type QueryResponse struct {
+	Queries []QueryForUser `json:"queryis"`
+}
+
+//easyjson:json
+type QuerResponse struct {
+	Queries []Query `json:"queryis"`
+}
+
+//easyjson:json
+type User struct {
+	UserId   int    `yaml:"id" json:"id"`
+	Login    string `yaml:"login" json:"login"`
+	Password string `yaml:"password" json:"password"`
+	Email    string `yaml:"email" json:"email"`
+	Phone    string `yaml:"phone" json:"phone"`
+	Status   int    `yaml:"status" json:"status"`
+}
+
+type UserAnswer struct {
+	Name   string `json:"name"`
+	Score  int32  `json:"score"`
+	Answer string `json:"answer"`
 }

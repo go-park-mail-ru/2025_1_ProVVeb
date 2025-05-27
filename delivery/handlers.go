@@ -17,6 +17,8 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/go-redis/redis/v8"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -139,16 +141,17 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
-		return
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to establish WebSocket connection"},
+		)
 	}
 	defer conn.Close()
 
@@ -198,7 +201,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		}
 
 		var wsMessage model.WSMessage
-		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
+		if err := easyjson.Unmarshal(msgData, &wsMessage); err != nil {
 			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
 			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
 			continue
@@ -208,7 +211,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		case "sendFlowers":
 			messageReceived.WithLabelValues().Inc()
 			var payload model.FlowersPayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal payload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
 				break
@@ -246,7 +249,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		case "delete":
 			messageReceived.WithLabelValues().Inc()
 			var payload model.DeleteNotifPayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"})
 				break
@@ -263,7 +266,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 
 		case "read":
 			var payload model.ReadNotifPayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal payload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
 				break
@@ -290,13 +293,17 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chatIDStr, ok := vars["chat_id"]
 	if !ok {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Missing chat_id in URL"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Missing chat_id in URL"},
+		)
 		return
 	}
 
 	chatID, err := strconv.Atoi(chatIDStr)
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid chat_id format"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid chat_id format"},
+		)
 		return
 	}
 
@@ -307,25 +314,34 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
+
 		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to establish WebSocket connection"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to establish WebSocket connection"},
+		)
 		return
 	}
 	defer conn.Close()
 
 	first, second, err := mh.GetParticipantsUC.GetChatParticipants(chatID)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to get chat participants"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to get chat participants"},
+		)
 		return
 	}
 
 	if profileId != uint32(first) && profileId != uint32(second) {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
 		return
 	}
 
@@ -407,7 +423,7 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var wsMessage model.WSMessage
-		if err := json.Unmarshal(msgData, &wsMessage); err != nil {
+		if err := easyjson.Unmarshal(msgData, &wsMessage); err != nil {
 			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
 			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
 			continue
@@ -417,13 +433,15 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		case "create":
 			messageSent.WithLabelValues().Inc()
 			var payload model.CreatePayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal CreatePayload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid create payload"})
 				break
 			}
 			if ((payload.UserID != first) && (payload.UserID != second)) || (payload.ChatID != chatID) {
-				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				MakeEasyJSONResponse(w, http.StatusUnauthorized,
+					&model.ErrorResponse{Message: "You don't have access"},
+				)
 				break
 			}
 			recieverID := first
@@ -458,13 +476,15 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		case "delete":
 			messageSent.WithLabelValues().Inc()
 			var payload model.DeletePayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal DeletePayload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid delete payload"})
 				break
 			}
 			if payload.ChatID != chatID {
-				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				MakeEasyJSONResponse(w, http.StatusUnauthorized,
+					&model.ErrorResponse{Message: "You don't have access"},
+				)
 				break
 			}
 			go func(payload model.DeletePayload) {
@@ -490,13 +510,15 @@ func (mh *MessageHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		case "read":
 			messageReceived.WithLabelValues().Inc()
 			var payload model.ReadPayload
-			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
 				conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"})
 				break
 			}
 			if payload.ChatID != chatID {
-				MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access to this chat"})
+				MakeEasyJSONResponse(w, http.StatusUnauthorized,
+					&model.ErrorResponse{Message: "You don't have access"},
+				)
 				break
 			}
 			go func(payload model.ReadPayload) {
@@ -530,23 +552,32 @@ func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	type CreateChatRequest struct {
-		FristID  int `json:"firstID"`
-		SecondID int `json:"secondID"`
-	}
-	var req CreateChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid request body"},
+		)
 		return
 	}
+
+	var req model.CreateChatRequest
+	if err := req.UnmarshalJSON(body); err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
+		return
+	}
+
 	if (req.FristID != int(profileId)) && (req.SecondID != int(profileId)) {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "Unauthorized"},
+		)
 		return
 	}
 
@@ -558,8 +589,8 @@ func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 			"error":    err.Error(),
 		}).Error("failed to create chat")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error creating chat: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error creating chat: %v", err)},
 		)
 		return
 	}
@@ -569,7 +600,9 @@ func (mh *MessageHandler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		"chatID":     chatID,
 	}).Info("successfully created chat")
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Chat created"})
+	MakeEasyJSONResponse(w, http.StatusCreated,
+		&model.ErrorResponse{Message: "Chat created"},
+	)
 
 }
 
@@ -588,8 +621,8 @@ func (mh *MessageHandler) GetChats(w http.ResponseWriter, r *http.Request) {
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -601,9 +634,10 @@ func (mh *MessageHandler) GetChats(w http.ResponseWriter, r *http.Request) {
 			"error":      err.Error(),
 		}).Error("failed to get chats")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting chats: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting chats: %v", err)},
 		)
+
 		return
 	}
 
@@ -612,8 +646,7 @@ func (mh *MessageHandler) GetChats(w http.ResponseWriter, r *http.Request) {
 		"chats_count": len(chats),
 	}).Info("successfully retrieved chats")
 
-	MakeResponse(w, http.StatusOK, chats)
-
+	MakeEasyJSONResponse(w, http.StatusOK, model.ChatsResponse{Chats: chats})
 }
 
 func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
@@ -630,27 +663,36 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	type DeleteChatRequest struct {
-		FristID  int `json:"firstID"`
-		SecondID int `json:"secondID"`
-	}
-	var req DeleteChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
-		return
-	}
-	if (req.FristID != int(profileId)) && (req.SecondID != int(profileId)) {
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid request body"},
+		)
 		return
 	}
 
-	err := mh.DeleteChatUC.DeleteChat(req.FristID, req.SecondID)
+	var req model.DeleteChatRequest
+	if err := req.UnmarshalJSON(body); err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
+		return
+	}
+
+	if (req.FristID != int(profileId)) && (req.SecondID != int(profileId)) {
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "Unauthorized"},
+		)
+		return
+	}
+
+	err = mh.DeleteChatUC.DeleteChat(req.FristID, req.SecondID)
 	if err != nil {
 		mh.Logger.WithFields(&logrus.Fields{
 			"FirstID":  req.FristID,
@@ -658,8 +700,8 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 			"error":    err.Error(),
 		}).Error("failed to delete chat")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error creating chat: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error creating chat: %v", err)},
 		)
 		return
 	}
@@ -668,7 +710,9 @@ func (mh *MessageHandler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 		"profile_id": profileId,
 	}).Info("successfully deleted chat")
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Chat deleted"})
+	MakeEasyJSONResponse(w, http.StatusCreated,
+		&model.ErrorResponse{Message: "Chat deleted"},
+	)
 }
 
 func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -686,21 +730,34 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 			"error": "failed to get userID from context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"error":      err.Error(),
+			"profile_id": profileId,
+		}).Warn("failed to read request body")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid request body"},
 		)
 		return
 	}
 
 	var profile model.Profile
-	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+	if err := profile.UnmarshalJSON(body); err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"error":      err.Error(),
 			"profile_id": profileId,
-		}).Warn("failed to decode request body")
+		}).Warn("failed to unmarshal profile")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
 		)
 		return
 	}
@@ -714,8 +771,8 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 			"error":      err.Error(),
 		}).Error("failed to get profile from database")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
 		)
 		return
 	}
@@ -728,8 +785,8 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 			"profile_data": profile,
 		}).Error("failed to update profile")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error updating profile: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error updating profile: %v", err)},
 		)
 		return
 	}
@@ -738,7 +795,9 @@ func (ph *ProfilesHandler) UpdateProfile(w http.ResponseWriter, r *http.Request)
 		"profile_id": profileId,
 	}).Info("profile updated successfully")
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Updated"},
+	)
 }
 
 func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
@@ -755,8 +814,8 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -772,8 +831,8 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 			"error":      err.Error(),
 		}).Error("failed to get matches")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
 		)
 		return
 	}
@@ -783,7 +842,7 @@ func (ph *ProfilesHandler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		"matches_count": len(profiles),
 	}).Info("successfully retrieved matches")
 
-	MakeResponse(w, http.StatusOK, profiles)
+	MakeEasyJSONResponse(w, http.StatusOK, model.ProfileResponse{Profiles: profiles})
 }
 
 func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
@@ -802,8 +861,8 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized profiles access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -814,18 +873,30 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 
 	var input model.SearchProfileRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
 			"error":      err.Error(),
-		}).Warn("failed to decode like request body")
+		}).Warn("failed to read request body")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid request body"},
 		)
 		return
 	}
 
+	if err := input.UnmarshalJSON(body); err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to unmarshal search profile request")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
+		return
+	}
 	profiles, err := ph.SearchProfileUC.GetSearchProfiles(int(profileId), input)
 	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
@@ -833,15 +904,15 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 			"error":        err.Error(),
 		}).Error("failed to get profiles list")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
 		)
 		return
 	}
 
 	if len(profiles) == 0 {
-		MakeResponse(w, http.StatusAccepted,
-			map[string]string{"message": "There are no profiles"},
+		MakeEasyJSONResponse(w, http.StatusAccepted,
+			&model.ErrorResponse{Message: "There are no profiles"},
 		)
 		return
 	}
@@ -851,7 +922,7 @@ func (ph *ProfilesHandler) SearchProfiles(w http.ResponseWriter, r *http.Request
 		"profiles_count": len(profiles),
 	}).Info("profiles list retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, profiles)
+	MakeEasyJSONResponse(w, http.StatusOK, model.FoundProfileResponse{Profiles: profiles})
 }
 
 func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
@@ -869,8 +940,8 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -878,21 +949,23 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 	IsPremiumRaw := r.Context().Value(isPremiumKey)
 	IsPremium, _ := IsPremiumRaw.(bool)
 
-	var input struct {
-		LikeFrom int `json:"likeFrom"`
-		LikeTo   int `json:"likeTo"`
-		Status   int `json:"status"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
 			"error":      err.Error(),
-		}).Warn("failed to decode like request body")
+		}).Warn("failed to read like request body")
+		MakeEasyJSONResponse(w, http.StatusBadRequest, &model.ErrorResponse{Message: "Invalid request body"})
+		return
+	}
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
-		)
+	var input model.SetLike
+	if err := input.UnmarshalJSON(body); err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to unmarshal like request body")
+		MakeEasyJSONResponse(w, http.StatusBadRequest, &model.ErrorResponse{Message: "Invalid JSON"})
 		return
 	}
 
@@ -912,7 +985,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"profile_id": profileId,
 		}).Warn("attempt to like oneself")
 
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Please don't like yourself"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Please don't like yourself"},
+		)
 		return
 	}
 
@@ -922,7 +997,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"like_from":  likeFrom,
 		}).Warn("no premium")
 
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You cannot use superlike with no subscription"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "You cannot use superlike with no subscription"},
+		)
 		return
 	}
 
@@ -932,7 +1009,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"like_from":  likeFrom,
 		}).Warn("unauthorized like attempt")
 
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You are unauthorized to like this user"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "You are unauthorized to like this user"},
+		)
 		return
 	}
 
@@ -943,7 +1022,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"like_to":   likeTo,
 		}).Info("duplicate like detected")
 
-		MakeResponse(w, http.StatusConflict, map[string]string{"message": "Already liked"})
+		MakeEasyJSONResponse(w, http.StatusConflict,
+			&model.ErrorResponse{Message: "Already liked"},
+		)
 		return
 	}
 	if err != nil {
@@ -953,7 +1034,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 			"error":     err.Error(),
 		}).Error("failed to set like")
 
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting like: %v", err)},
+		)
 		return
 	}
 
@@ -1036,7 +1119,9 @@ func (ph *ProfilesHandler) SetLike(w http.ResponseWriter, r *http.Request) {
 		"status":    status,
 	}).Info("like successfully processed")
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Liked"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Liked"},
+	)
 }
 
 func CreateCookies(session model.Session) (*model.Cookie, error) {
@@ -1075,8 +1160,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized upload attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -1093,8 +1178,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			"error":   err.Error(),
 		}).Warn("failed to parse multipart form")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Invalid multipart form: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Invalid multipart form: %v", err)},
 		)
 		return
 	}
@@ -1107,8 +1192,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			"user_id": user_id,
 		}).Warn("no files in 'images' field")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "No files in 'images' field"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "No files in 'images' field"},
 		)
 		return
 	}
@@ -1218,9 +1303,9 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 			}).Error("all files failed to upload")
 		}
 
-		MakeResponse(w, http.StatusInternalServerError, map[string]interface{}{
-			"message":        "Some uploads failed",
-			"failed_uploads": failedUploads,
+		MakeEasyJSONResponse(w, http.StatusInternalServerError, &model.UploadResponse{
+			Message:       "Some uploads failed",
+			FailedUploads: failedUploads,
 		})
 		return
 	}
@@ -1230,9 +1315,9 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		"uploaded_files": successUploads,
 	}).Info("all files uploaded successfully")
 
-	MakeResponse(w, http.StatusOK, map[string]interface{}{
-		"message":        "All files uploaded",
-		"uploaded_files": successUploads,
+	MakeEasyJSONResponse(w, http.StatusOK, &model.UploadResponse{
+		Message:       "All files uploaded",
+		FailedUploads: successUploads,
 	})
 }
 
@@ -1245,18 +1330,28 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}).Info("Login request started")
 
 	sanitizer := bluemonday.UGCPolicy()
-	var input struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
+	var input model.LoginRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Warn("failed to read login request body")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Failed to read request body"},
+		)
+		loginAttempts.WithLabelValues("false").Inc()
+		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := input.UnmarshalJSON(body); err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"error": err.Error(),
 		}).Warn("failed to decode login request body")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
 		)
 		loginAttempts.WithLabelValues("false").Inc()
 		return
@@ -1265,6 +1360,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	input.Login = sanitizer.Sanitize(input.Login)
 	input.Password = sanitizer.Sanitize(input.Password)
 
+	// дальше без изменений...
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		http.Error(w, "Cannot parse IP", http.StatusInternalServerError)
@@ -1278,7 +1374,9 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 			"error": "too many login attempts",
 		}).Warn("login attempts limit exceeded")
 
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": fmt.Sprintf("you have been temporary blocked, please try again at %s %v", blockTime, err)})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("you have been temporary blocked, please try again at %s %v", blockTime, err)},
+		)
 		loginAttempts.WithLabelValues("false").Inc()
 		return
 	}
@@ -1300,8 +1398,9 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		}).Warn("failed to create session")
 
 		sh.LoginUC.IncreaseAttempts(r.Context(), ip)
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("%v", err)},
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("%v", err)},
 		)
 		loginAttempts.WithLabelValues("false").Inc()
 		return
@@ -1319,8 +1418,8 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 			"error":   err.Error(),
 		}).Error("failed to create session cookie")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Failed to create cookie"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Failed to create cookie"},
 		)
 		return
 	}
@@ -1363,21 +1462,27 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}).Info("login completed successfully")
 
 	loginAttempts.WithLabelValues("true").Inc()
-	MakeResponse(w, http.StatusOK, map[string]interface{}{
-		"message": "Logged in",
-		"user_id": session.UserId,
+	MakeEasyJSONResponse(w, http.StatusOK, &model.LoginResponse{
+		Message: "Logged in",
+		UserID:  session.UserId,
 	})
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	type SignUpRequest struct {
-		User    model.User    `json:"user"`
-		Profile model.Profile `json:"profile"`
+	var req model.SignUpRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Failed to read request body"},
+		)
+		return
 	}
 
-	var req SignUpRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+	if err := req.UnmarshalJSON(body); err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
 		return
 	}
 
@@ -1385,27 +1490,37 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	profile := req.Profile
 
 	if uh.SignupUC.ValidateLogin(user.Login) != nil || uh.SignupUC.ValidatePassword(user.Password) != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid login or password"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid login or password"},
+		)
 		return
 	}
 
 	if uh.SignupUC.UserExists(user.Login) {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "User already exists"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "User already exists"},
+		)
 		return
 	}
 
 	profileId, err := uh.SignupUC.SaveUserProfile(profile)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user profile"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to save user profile"},
+		)
 		return
 	}
 
 	if _, err := uh.SignupUC.SaveUserData(profileId, user); err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to save user data"},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "User created"})
+	MakeEasyJSONResponse(w, http.StatusCreated,
+		&model.ErrorResponse{Message: "User created"},
+	)
 }
 
 func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
@@ -1424,75 +1539,61 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 			"error": "no session cookie found",
 		}).Debug("session check failed - no cookies")
 
-		response := struct {
-			Message   string `json:"message"`
-			InSession bool   `json:"inSession"`
-		}{
+		response := model.SessionCheckResponse{
 			Message:   "No cookies got",
 			InSession: false,
 		}
-		sessionChecks.WithLabelValues("inactive").Inc()
-		MakeResponse(w, http.StatusOK, response)
+		MakeEasyJSONResponse(w, http.StatusOK, response)
+
 		return
 	} else if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"error": err.Error(),
 		}).Warn("failed to get session cookie")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid cookie"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid cookie"},
 		)
-		sessionChecks.WithLabelValues("inactive").Inc()
 		return
 	}
 
 	userId, err := sh.CheckSessionUC.CheckSession(session.Value)
 	if err != nil {
-		if err == model.ErrSessionNotFound {
+		status := http.StatusInternalServerError
+		message := "unknown session error"
+
+		switch err {
+		case model.ErrSessionNotFound:
+			message = "session not found"
 			sh.Logger.WithFields(&logrus.Fields{
 				"session_id": session.Value,
 				"error":      err.Error(),
-			}).Warn("session not found")
+			}).Warn(message)
 
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "session not found"},
-			)
-			sessionChecks.WithLabelValues("inactive").Inc()
-			return
-		}
-		if err == model.ErrGetSession {
+		case model.ErrGetSession:
+			message = "error getting session"
 			sh.Logger.WithFields(&logrus.Fields{
 				"session_id": session.Value,
 				"error":      err.Error(),
-			}).Error("failed to get session")
+			}).Error(message)
 
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "error getting session"},
-			)
-			sessionChecks.WithLabelValues("inactive").Inc()
-			return
-		}
-		if err == model.ErrInvalidSessionId {
+		case model.ErrInvalidSessionId:
+			message = "error invalid session id"
 			sh.Logger.WithFields(&logrus.Fields{
 				"session_id": session.Value,
 				"error":      err.Error(),
-			}).Warn("invalid session id")
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "error invalid session id"},
-			)
-			sessionChecks.WithLabelValues("inactive").Inc()
-			return
+			}).Warn(message)
+
+		default:
+			sh.Logger.WithFields(&logrus.Fields{
+				"session_id": session.Value,
+				"error":      err.Error(),
+			}).Error(message)
 		}
 
-		sh.Logger.WithFields(&logrus.Fields{
-			"session_id": session.Value,
-			"error":      err.Error(),
-		}).Error("unknown session check error")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "unknown session error"},
+		MakeEasyJSONResponse(w, status,
+			&model.ErrorResponse{Message: message},
 		)
-		sessionChecks.WithLabelValues("inactive").Inc()
 		return
 	}
 
@@ -1501,18 +1602,14 @@ func (sh *SessionHandler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		"session_id": session.Value,
 	}).Info("session check successful")
 
-	response := struct {
-		Message   string `json:"message"`
-		InSession bool   `json:"inSession"`
-		UserId    int    `json:"id"`
-	}{
+	response := model.SessionCheckSuccessResponse{
 		Message:   "Logged in",
 		InSession: true,
 		UserId:    userId,
 	}
 
 	sessionChecks.WithLabelValues("active").Inc()
-	MakeResponse(w, http.StatusOK, response)
+	MakeEasyJSONResponse(w, http.StatusOK, response)
 }
 
 func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
@@ -1529,8 +1626,8 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			"error": "session cookie not found",
 		}).Warn("logout attempt without session cookie")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "No cookies got"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "No cookies got"},
 		)
 		return
 	} else if err != nil {
@@ -1538,8 +1635,8 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			"error": err.Error(),
 		}).Error("failed to get session cookie")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid cookie"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid cookie"},
 		)
 		return
 	}
@@ -1555,9 +1652,10 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 				"error":      err.Error(),
 			}).Warn("session not found during logout")
 
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "session not found"},
+			MakeEasyJSONResponse(w, http.StatusInternalServerError,
+				&model.ErrorResponse{Message: "session not found"},
 			)
+
 			logoutAttempts.WithLabelValues("false").Inc()
 			return
 		}
@@ -1567,8 +1665,8 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 				"error":      err.Error(),
 			}).Error("failed to get session during logout")
 
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "error getting session"},
+			MakeEasyJSONResponse(w, http.StatusInternalServerError,
+				&model.ErrorResponse{Message: "error getting session"},
 			)
 			logoutAttempts.WithLabelValues("false").Inc()
 			return
@@ -1579,8 +1677,8 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 				"error":      err.Error(),
 			}).Error("failed to delete session")
 
-			MakeResponse(w, http.StatusInternalServerError,
-				map[string]string{"message": "error deleting session"},
+			MakeEasyJSONResponse(w, http.StatusInternalServerError,
+				&model.ErrorResponse{Message: "error deleting session"},
 			)
 			logoutAttempts.WithLabelValues("false").Inc()
 			return
@@ -1591,8 +1689,8 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 			"error":      err.Error(),
 		}).Error("unknown logout error")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "unknown logout error"},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "unknown logout error"},
 		)
 		logoutAttempts.WithLabelValues("false").Inc()
 		return
@@ -1622,7 +1720,10 @@ func (sh *SessionHandler) LogoutUser(w http.ResponseWriter, r *http.Request) {
 	}).Info("user logged out successfully")
 
 	logoutAttempts.WithLabelValues("true").Inc()
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Logged out"})
+
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Logged out"},
+	)
 }
 
 func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -1648,8 +1749,8 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			"error":       err.Error(),
 		}).Warn("invalid user ID format")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid user id"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid user id"},
 		)
 		return
 	}
@@ -1664,8 +1765,8 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			"error":   err.Error(),
 		}).Error("failed to delete user")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Error deleting user"},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Error deleting user"},
 		)
 		return
 	}
@@ -1674,8 +1775,8 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		"user_id": userId,
 	}).Info("user deleted successfully")
 
-	MakeResponse(w, http.StatusOK,
-		map[string]string{"message": fmt.Sprintf("User with ID %d deleted", userId)},
+	MakeEasyJSONResponse(w, http.StatusInternalServerError,
+		&model.ErrorResponse{Message: fmt.Sprintf("User with ID %d deleted", userId)},
 	)
 }
 
@@ -1692,7 +1793,9 @@ func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
 		uh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Info("unauthorized profile access attempt")
-		MakeResponse(w, http.StatusUnauthorized, map[string]string{"message": "You don't have access"})
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
 		return
 	}
 
@@ -1702,12 +1805,14 @@ func (uh *UserHandler) GetUserParams(w http.ResponseWriter, r *http.Request) {
 	uh.Logger.Info("Error getting user: ", err)
 
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting user: %v", err)})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting user: %v", err)},
+		)
 		return
 	}
 
 	uh.Logger.Info("user params received successfully")
-	MakeResponse(w, http.StatusOK, user)
+	MakeEasyJSONResponse(w, http.StatusOK, user)
 }
 
 func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -1726,8 +1831,8 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized profile access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -1743,8 +1848,8 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 			"error":      err.Error(),
 		}).Error("failed to get profile")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting profile: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
 		)
 		return
 	}
@@ -1760,8 +1865,8 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 			"error":   err.Error(),
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions for query: %v", err)},
 		)
 		return
 	}
@@ -1785,7 +1890,7 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:     is_admin,
 	}
 
-	MakeResponse(w, http.StatusOK, profileIsAdmin)
+	MakeEasyJSONResponse(w, http.StatusOK, profileIsAdmin)
 }
 
 func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
@@ -1808,8 +1913,8 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized profiles access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -1822,7 +1927,9 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 	cached, err := ph.Subscriber.Exists(context.Background(), redisKey).Result()
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Redis error"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Redis error"},
+		)
 		return
 	}
 	if cached > 0 {
@@ -1830,7 +1937,7 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			var cachedProfiles []model.Profile
 			if err := json.Unmarshal([]byte(cachedData), &cachedProfiles); err == nil {
-				MakeResponse(w, http.StatusOK, cachedProfiles)
+				MakeEasyJSONResponse(w, http.StatusOK, model.ProfileResponse{Profiles: cachedProfiles})
 				return
 			}
 		}
@@ -1840,7 +1947,9 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		viewKey := fmt.Sprintf("profile_view_limit:%d", profileId)
 		countStr, err := ph.Subscriber.Get(context.Background(), viewKey).Result()
 		if err != nil && err != redis.Nil {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Redis error"})
+			MakeEasyJSONResponse(w, http.StatusInternalServerError,
+				&model.ErrorResponse{Message: "Redis error"},
+			)
 			return
 		}
 
@@ -1850,8 +1959,8 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if viewCount >= model.MaxProfileViewsWithoutSub {
-			MakeResponse(w, http.StatusAccepted,
-				map[string]string{"message": "Иди потрогай траву"},
+			MakeEasyJSONResponse(w, http.StatusAccepted,
+				&model.ErrorResponse{Message: "Go touch grass"},
 			)
 			return
 		}
@@ -1871,8 +1980,8 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 			"error":        err.Error(),
 		}).Error("failed to get profiles list")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error getting profiles: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profiles: %v", err)},
 		)
 		return
 	}
@@ -1887,7 +1996,7 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 		"profiles_count": len(profiles),
 	}).Info("profiles list retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, profiles)
+	MakeEasyJSONResponse(w, http.StatusOK, model.ProfileResponse{Profiles: profiles})
 }
 
 func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
@@ -1915,8 +2024,8 @@ func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized photo deletion attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -1934,8 +2043,8 @@ func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 			"error":    err.Error(),
 		}).Error("failed to delete photo")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error deleting photo: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error deleting photo: %v", err)},
 		)
 		return
 	}
@@ -1945,9 +2054,9 @@ func (ph *ProfilesHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 		"file_url": fileURL,
 	}).Info("photo deleted successfully")
 
-	MakeResponse(w, http.StatusOK, map[string]string{
-		"message": fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id),
-	})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: fmt.Sprintf("Deleted photo %s for user %d", fileURL, user_id)},
+	)
 }
 
 func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request) {
@@ -1965,8 +2074,8 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -1982,8 +2091,8 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 			"error":   err.Error(),
 		}).Error("failed to get active queries")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting active queries: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting active queries: %v", err)},
 		)
 		return
 	}
@@ -1992,7 +2101,7 @@ func (qh *QueryHandler) GetActiveQueries(w http.ResponseWriter, r *http.Request)
 		"user_id": user_id,
 	}).Info("active queries retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, queries)
+	MakeEasyJSONResponse(w, http.StatusOK, model.QuerResponse{Queries: queries})
 }
 
 func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) {
@@ -2004,63 +2113,57 @@ func (qh *QueryHandler) StoreUserAnswer(w http.ResponseWriter, r *http.Request) 
 	}).Info("SendUserAnswer request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var answer struct {
-		Name   string `json:"name"`
-		Score  int32  `json:"score"`
-		Answer string `json:"answer"`
-	}
-
-	err := json.NewDecoder(r.Body).Decode(&answer)
-	if err != nil {
+	var answer model.UserAnswer
+	if err := easyjson.UnmarshalFromReader(r.Body, &answer); err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
 		}).Error("failed to decode answer")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding answer: %v", err)},
 		)
 		return
 	}
 
 	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
+		"user_id": userID,
 		"answer":  answer,
 	}).Info("attempting to store user answer")
 
-	err = qh.StoreUserAnswerUC.StoreUserAnswer(int32(user_id), answer.Name, answer.Score, answer.Answer)
+	err := qh.StoreUserAnswerUC.StoreUserAnswer(int32(userID), answer.Name, answer.Score, answer.Answer)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"answer":  answer,
 			"error":   err.Error(),
 		}).Error("failed to store user answer")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error storing user answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error storing user answer: %v", err)},
 		)
 		return
 	}
 
 	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
+		"user_id": userID,
 		"answer":  answer,
 	}).Info("user answer stored successfully")
 
-	MakeResponse(w, http.StatusOK,
-		map[string]string{"message": "User answer stored successfully"},
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "User answer stored successfully"},
 	)
 }
 
@@ -2073,40 +2176,40 @@ func (qh *QueryHandler) GetAnswersForUser(w http.ResponseWriter, r *http.Request
 	}).Info("GetAnswersForUser request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
 		qh.Logger.WithFields(&logrus.Fields{
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
 	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
+		"user_id": userID,
 	}).Info("attempting to get answers for user")
 
-	answers, err := qh.GetAnswersForUserUC.GetAnswersForUser(int32(user_id))
+	answers, err := qh.GetAnswersForUserUC.GetAnswersForUser(int32(userID))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
 		}).Error("failed to get answers for user")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for user: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting answers for user: %v", err)},
 		)
 		return
 	}
 
 	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
+		"user_id": userID,
 	}).Info("answers for user retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, answers)
+	MakeEasyJSONResponse(w, http.StatusOK, model.QueryResponse{Queries: answers})
 }
 
 func (qh *QueryHandler) FindQuery(w http.ResponseWriter, r *http.Request) {
@@ -2124,26 +2227,21 @@ func (qh *QueryHandler) FindQuery(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var answer struct {
-		Name     string `json:"name"`
-		Query_id int    `json:"query_id"`
-	}
-
-	err := json.NewDecoder(r.Body).Decode(&answer)
-	if err != nil {
+	var req model.FindQueryRequest
+	if err := easyjson.UnmarshalFromReader(r.Body, &req); err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to decode answer")
+		}).Error("failed to decode FindQueryRequest")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding request: %v", err)},
 		)
 		return
 	}
@@ -2159,27 +2257,28 @@ func (qh *QueryHandler) FindQuery(w http.ResponseWriter, r *http.Request) {
 			"error":   err.Error(),
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions for query: %v", err)},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You dont have permissions"},
 		)
 		return
 	}
-	answers, err := qh.FindQueryUC.FindQuery(answer.Name, answer.Query_id)
+
+	answers, err := qh.FindQueryUC.FindQuery(req.Name, req.Query_id)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting answers for query: %v", err)},
 		)
 		return
 	}
@@ -2188,7 +2287,7 @@ func (qh *QueryHandler) FindQuery(w http.ResponseWriter, r *http.Request) {
 		"user_id": user_id,
 	}).Info("answers for query retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, answers)
+	MakeEasyJSONResponse(w, http.StatusOK, model.AnswersForResponse{Answers: answers})
 }
 
 func (qh *QueryHandler) DeleteQuery(w http.ResponseWriter, r *http.Request) {
@@ -2197,81 +2296,67 @@ func (qh *QueryHandler) DeleteQuery(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 		"ip":         r.RemoteAddr,
-	}).Info("GetAnswersForQuery request started")
+	}).Info("DeleteQuery request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
-		qh.Logger.WithFields(&logrus.Fields{
-			"error": "missing or invalid userID in context",
-		}).Warn("unauthorized query access attempt")
+		qh.Logger.Warn("unauthorized query access attempt: missing or invalid userID in context")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var answer struct {
-		Query_id int `json:"query_id"`
-		User_id  int `json:"user_id"`
+	var req model.DeleteQueryRequest
+	if err := easyjson.UnmarshalFromReader(r.Body, &req); err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Error("failed to decode FindQueryRequest")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding request: %v", err)},
+		)
+		return
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&answer)
+	isAdmin, err := qh.GetAdminUC.GetAdmin(int(userID))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
-		}).Error("failed to decode answer")
+		}).Error("failed to get admin permissions")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions: %v", err)},
 		)
 		return
 	}
 
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("attempting to get answers for query")
+	if !isAdmin {
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
+		)
+		return
+	}
 
-	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	err = qh.DeleteQueryUC.DeleteAnswer(req.User_id, req.Query_id)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to delete query answer")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error deleting query answer: %v", err)},
 		)
 		return
 	}
 
-	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
-		)
-		return
-	}
-
-	err = qh.DeleteQueryUC.DeleteAnswer(answer.User_id, answer.Query_id)
-	if err != nil {
-		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to get answers for query")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
-		)
-		return
-	}
-
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("answers for query retrieved successfully")
-
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Deleted successful"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Deleted successfully"},
+	)
 }
 
 func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
@@ -2280,58 +2365,47 @@ func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 		"ip":         r.RemoteAddr,
-	}).Info("GetAnswersForQuery request started")
+	}).Info("GetStatistics request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
-		qh.Logger.WithFields(&logrus.Fields{
-			"error": "missing or invalid userID in context",
-		}).Warn("unauthorized query access attempt")
+		qh.Logger.Warn("unauthorized query access attempt: missing or invalid userID in context")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var answer struct {
-		Query_id int `json:"query_id"`
+	var answer model.GetAnswerStatistics
+	if err := easyjson.UnmarshalFromReader(r.Body, &answer); err != nil {
+		qh.Logger.WithFields(&logrus.Fields{
+			"error": err.Error(),
+		}).Error("failed to decode FindQueryRequest")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding request: %v", err)},
+		)
+		return
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&answer)
+	isAdmin, err := qh.GetAdminUC.GetAdmin(int(userID))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
-		}).Error("failed to decode answer")
+		}).Error("failed to get admin permissions")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions: %v", err)},
 		)
 		return
 	}
 
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("attempting to get answers for query")
-
-	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
-	if err != nil {
-		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to get answers for query")
-
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
-		)
-		return
-	}
-
-	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+	if !isAdmin {
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
 		)
 		return
 	}
@@ -2339,21 +2413,17 @@ func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_id)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
+			"user_id": userID,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to get statistics")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting statistics: %v", err)},
 		)
 		return
 	}
 
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("answers for query retrieved successfully")
-
-	MakeResponse(w, http.StatusOK, stats)
+	MakeEasyJSONResponse(w, http.StatusOK, stats)
 }
 
 func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Request) {
@@ -2365,38 +2435,32 @@ func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Reques
 	}).Info("GetAnswersForQuery request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
-		qh.Logger.WithFields(&logrus.Fields{
-			"error": "missing or invalid userID in context",
-		}).Warn("unauthorized query access attempt")
+		qh.Logger.Warn("unauthorized query access attempt: missing or invalid userID in context")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("attempting to get answers for query")
-
-	is_admin, err := qh.GetAdminUC.GetAdmin(int(user_id))
+	isAdmin, err := qh.GetAdminUC.GetAdmin(int(userID))
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+			"user_id": userID,
+			"error":   err,
+		}).Error("failed to get admin permissions")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions: %v", err)},
 		)
 		return
 	}
 
-	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+	if !isAdmin {
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
 		)
 		return
 	}
@@ -2404,21 +2468,17 @@ func (qh *QueryHandler) GetAnswersForQuery(w http.ResponseWriter, r *http.Reques
 	answers, err := qh.GetAnswersForQueryUC.GetAnswersForQuery()
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
-			"user_id": user_id,
-			"error":   err.Error(),
+			"user_id": userID,
+			"error":   err,
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting answers for query: %v", err)},
 		)
 		return
 	}
 
-	qh.Logger.WithFields(&logrus.Fields{
-		"user_id": user_id,
-	}).Info("answers for query retrieved successfully")
-
-	MakeResponse(w, http.StatusOK, answers)
+	MakeEasyJSONResponse(w, http.StatusOK, model.AnswersResponse{Answers: answers})
 }
 
 func (ch *ComplaintHandler) CreateComplaint(w http.ResponseWriter, r *http.Request) {
@@ -2430,26 +2490,34 @@ func (ch *ComplaintHandler) CreateComplaint(w http.ResponseWriter, r *http.Reque
 	}).Info("CreateComplaint request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
-	user_id, ok := userIDRaw.(uint32)
+	userID, ok := userIDRaw.(uint32)
 	if !ok {
-		ch.Logger.WithFields(&logrus.Fields{
-			"error": "missing or invalid userID in context",
-		}).Warn("unauthorized query access attempt")
+		ch.Logger.Warn("unauthorized query access attempt: missing or invalid userID in context")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	type CreateComplaintRequest struct {
-		Complaint_type string `json:"firstID"`
-		Complaint_text string `json:"complaint_text"`
-		Complaint_on   string `json:"complaint_on"`
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		ch.Logger.WithError(err).Warn("failed to read request body")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid request body"},
+		)
+		return
 	}
-	var req CreateComplaintRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+	defer r.Body.Close()
+
+	var req model.CreateComplaintRequest
+	if err := req.UnmarshalJSON(body); err != nil {
+		ch.Logger.WithError(err).Warn("invalid JSON in request body")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
 		return
 	}
 
@@ -2457,22 +2525,29 @@ func (ch *ComplaintHandler) CreateComplaint(w http.ResponseWriter, r *http.Reque
 	if req.Complaint_on == "" {
 		complOn = 0
 	} else {
-		var err error
 		complOn, err = strconv.Atoi(req.Complaint_on)
 		if err != nil {
-			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid complaint_on value"})
+			ch.Logger.WithError(err).Warn("invalid complaint_on value")
+
+			MakeEasyJSONResponse(w, http.StatusBadRequest,
+				&model.ErrorResponse{Message: "Invalid complaint_on value"},
+			)
 			return
 		}
 	}
 
-	if err := ch.CreateComplateUC.CreateComplaint(int(user_id), complOn, req.Complaint_type, req.Complaint_text); err != nil {
-		fmt.Println(err)
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+	if err := ch.CreateComplateUC.CreateComplaint(int(userID), complOn, req.Complaint_type, req.Complaint_text); err != nil {
+		ch.Logger.WithError(err).Error("failed to create complaint")
+
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to save complaint"},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Complaint created"})
-
+	MakeEasyJSONResponse(w, http.StatusCreated,
+		&model.ErrorResponse{Message: "Complaint created"},
+	)
 }
 
 func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request) {
@@ -2490,8 +2565,8 @@ func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -2507,15 +2582,15 @@ func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request
 			"error":   err.Error(),
 		}).Error("failed to get complaints")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions for query: %v", err)},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: fmt.Sprintf("You dont have permissions: %v", err)},
 		)
 		return
 	}
@@ -2527,8 +2602,8 @@ func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request
 			"error":   err.Error(),
 		}).Error("failed to get complaints")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting complaint: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting complaint: %v", err)},
 		)
 		return
 	}
@@ -2537,7 +2612,7 @@ func (ch *ComplaintHandler) GetComplaints(w http.ResponseWriter, r *http.Request
 		"user_id": user_id,
 	}).Info("complaints retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, complaints)
+	MakeEasyJSONResponse(w, http.StatusOK, model.ComplaintsResponse{Complaints: complaints})
 }
 
 func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
@@ -2555,8 +2630,8 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -2564,29 +2639,45 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 	var label string
 	contentType := r.Header.Get("Content-Type")
 	if strings.Contains(contentType, "application/json") {
-		var req struct {
-			Label string `json:"label"`
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			MakeEasyJSONResponse(w, http.StatusBadRequest,
+				&model.ErrorResponse{Message: "Failed to read request body"},
+			)
+			return
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+
+		var req model.AddSubRequet
+		lexer := jlexer.Lexer{Data: body}
+		req.UnmarshalEasyJSON(&lexer)
+		if lexer.Error() != nil {
+			MakeEasyJSONResponse(w, http.StatusBadRequest,
+				&model.ErrorResponse{Message: "Invalid JSON"},
+			)
 			return
 		}
 		label = req.Label
 	} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 		if err := r.ParseForm(); err != nil {
-			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid form"})
+			MakeEasyJSONResponse(w, http.StatusBadRequest,
+				&model.ErrorResponse{Message: "Invalid form"},
+			)
 			return
 		}
 
 		label = r.FormValue("label")
 	} else {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid content type"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid content type"},
+		)
 		return
 	}
 
 	sub_id, err := strconv.Atoi(label)
 	if err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid label format"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid label format"},
+		)
 		return
 	}
 
@@ -2599,16 +2690,18 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 			builder.WriteString(fmt.Sprintf("%s=%s; ", key, v))
 		}
 	}
-
 	combined := builder.String()
 
 	if err := sh.AddSubUC.CreateSub(int(user_id), sub_id, combined); err != nil {
-		fmt.Println(err)
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Failed to save user data"},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Subsr created"})
+	MakeEasyJSONResponse(w, http.StatusCreated,
+		&model.ErrorResponse{Message: "Subsr created"},
+	)
 }
 
 func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
@@ -2625,8 +2718,8 @@ func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
@@ -2634,18 +2727,30 @@ func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
 	IsPremiumRaw := r.Context().Value(isPremiumKey)
 	IsPremium, _ := IsPremiumRaw.(bool)
 
-	var input struct {
-		NewBorder int `json:"new_border"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
 			"error":      err.Error(),
+		}).Warn("failed to read request body")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Failed to read request body"},
+		)
+		return
+	}
+
+	var input model.ChangeBorderRequest
+	lexer := jlexer.Lexer{Data: body}
+	input.UnmarshalEasyJSON(&lexer)
+	if lexer.Error() != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      lexer.Error().Error(),
 		}).Warn("failed to decode like request body")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": "Invalid JSON data"},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
 		)
 		return
 	}
@@ -2656,11 +2761,13 @@ func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
 			"new_border": input.NewBorder,
 		}).Warn("no premium")
 
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You cannot update border with no subscription"})
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "You cannot update border with no subscription"},
+		)
 		return
 	}
 
-	err := sh.UpdateBorderUC.UpdateBorder(int(profileId), input.NewBorder)
+	err = sh.UpdateBorderUC.UpdateBorder(int(profileId), input.NewBorder)
 	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,
@@ -2668,11 +2775,15 @@ func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
 			"error":      err.Error(),
 		}).Error("failed to set like")
 
-		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error updating border: %v", err)},
+		)
 		return
 	}
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Changed"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Changed"},
+	)
 }
 
 func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request) {
@@ -2688,55 +2799,56 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 	if !ok {
 		ch.Logger.Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
 	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": "Error getting admin permissions"},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: "Error getting admin permissions"},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have permissions"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
 		)
 		return
 	}
-	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
-		ch.Logger.Warn("invalid JSON in complaint filter")
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		ch.Logger.Warn("failed to read request body")
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Failed to read request body"},
+		)
 		return
 	}
 
-	if len(raw) == 0 {
+	if len(body) == 0 {
 		complaints, err := ch.GetComplaintsUC.GetAllComplaints()
 		if err != nil {
-			MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Error getting complaints"})
+			MakeEasyJSONResponse(w, http.StatusInternalServerError,
+				&model.ErrorResponse{Message: "Error getting complaints"},
+			)
 			return
 		}
-		MakeResponse(w, http.StatusOK, complaints)
+		MakeEasyJSONResponse(w, http.StatusOK, model.ComplaintsResponse{Complaints: complaints})
 		return
 	}
 
-	// Парсим в input, если JSON непустой
-	var input struct {
-		Complaint_by   int    `json:"complaint_by"`
-		Name_by        string `json:"name_by"`
-		Complaint_on   int    `json:"complaint_on"`
-		Name_on        string `json:"name_on"`
-		Complaint_type string `json:"complaint_type"`
-		Status         int    `json:"status"`
-	}
-	rawBytes, _ := json.Marshal(raw)
-	if err := json.Unmarshal(rawBytes, &input); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid complaint filter"})
+	var input model.FindComplaint
+
+	lexer := jlexer.Lexer{Data: body}
+	input.UnmarshalEasyJSON(&lexer)
+	if lexer.Error() != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid complaint filter"},
+		)
 		return
 	}
 
@@ -2749,13 +2861,13 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		input.Status,
 	)
 	if err != nil {
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting complaints: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting complaints: %v", err)},
 		)
 		return
 	}
 
-	MakeResponse(w, http.StatusOK, complaints)
+	MakeEasyJSONResponse(w, http.StatusOK, model.ComplaintsResponse{Complaints: complaints})
 }
 
 func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Request) {
@@ -2764,7 +2876,7 @@ func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Reque
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 		"ip":         r.RemoteAddr,
-	}).Info("GetAnswersForQuery request started")
+	}).Info("DeleteComplaint request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
@@ -2773,49 +2885,62 @@ func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Reque
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var input struct {
-		Complaint_id int `json:"complaint_id"`
-	}
-
-	err := json.NewDecoder(r.Body).Decode(&input)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to decode answer")
+		}).Error("failed to read request body")
 
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "failed to read request body"},
+		)
+		return
+	}
+
+	var input model.DeleteComlaint
+
+	// easyjson-декодирование
+	lexer := jlexer.Lexer{Data: body}
+	input.UnmarshalEasyJSON(&lexer)
+	if lexer.Error() != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   lexer.Error(),
+		}).Error("failed to decode complaint delete input")
+
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding complaint delete input: %v", lexer.Error())},
 		)
 		return
 	}
 
 	ch.Logger.WithFields(&logrus.Fields{
 		"user_id": user_id,
-	}).Info("attempting to get answers for query")
+	}).Info("attempting to delete complaint")
 
 	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
 	if err != nil {
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to get admin permissions")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions: %v", err)},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
 		)
 		return
 	}
@@ -2825,10 +2950,10 @@ func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Reque
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to delete complaint")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error deleting complaint: %v", err)},
 		)
 		return
 	}
@@ -2837,7 +2962,9 @@ func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Reque
 		"user_id": user_id,
 	}).Info("complaint deleted successfully")
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Deleted successful"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Deleted successful"},
+	)
 }
 
 func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Request) {
@@ -2846,7 +2973,7 @@ func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Reque
 		"path":       r.URL.Path,
 		"request_id": r.Header.Get("request_id"),
 		"ip":         r.RemoteAddr,
-	}).Info("GetAnswersForQuery request started")
+	}).Info("HandleComplaint request started")
 
 	userIDRaw := r.Context().Value(userIDKey)
 	user_id, ok := userIDRaw.(uint32)
@@ -2855,50 +2982,54 @@ func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Reque
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var input struct {
-		Complaint_id int `json:"complaint_id"`
-		NewStatus    int `json:"new_status"`
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "failed to read request body"},
+		)
+		return
 	}
 
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
+	var input model.HandleComplaint
+	lexer := jlexer.Lexer{Data: body}
+	input.UnmarshalEasyJSON(&lexer)
+	if lexer.Error() != nil {
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
-			"error":   err.Error(),
-		}).Error("failed to decode answer")
-
-		MakeResponse(w, http.StatusBadRequest,
-			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+			"error":   lexer.Error(),
+		}).Error("failed to decode complaint input")
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error decoding complaint input: %v", lexer.Error())},
 		)
 		return
 	}
 
 	ch.Logger.WithFields(&logrus.Fields{
 		"user_id": user_id,
-	}).Info("attempting to get answers for query")
+	}).Info("attempting to handle complaint")
 
 	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
 	if err != nil {
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to get admin permissions")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions: %v", err)},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have permissions"},
 		)
 		return
 	}
@@ -2908,10 +3039,10 @@ func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Reque
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
-		}).Error("failed to get answers for query")
+		}).Error("failed to update complaint")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error updating complaint: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error updating complaint: %v", err)},
 		)
 		return
 	}
@@ -2920,7 +3051,9 @@ func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Reque
 		"user_id": user_id,
 	}).Info("complaint updated successfully")
 
-	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated successful"})
+	MakeEasyJSONResponse(w, http.StatusOK,
+		&model.ErrorResponse{Message: "Updated successful"},
+	)
 }
 
 func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
@@ -2938,28 +3071,28 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 			"error": "missing or invalid userID in context",
 		}).Warn("unauthorized query access attempt")
 
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": "You don't have access"},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
 		)
 		return
 	}
 
-	var time_constraints struct {
-		Time_From time.Time `json:"time_from"`
-		Time_To   time.Time `json:"time_to"`
+	var raw model.RawTimeConstraints
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "failed to read request body"},
+		)
+		return
 	}
-
-	type rawTimeConstraints struct {
-		TimeFrom *string `json:"time_from"`
-		TimeTo   *string `json:"time_to"`
-	}
-
-	var raw rawTimeConstraints
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+	if err := raw.UnmarshalJSON(body); err != nil {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: "Invalid JSON"},
+		)
 		return
 	}
 
+	var constraints model.TimeConstraints
 	var useTimeFrom, useTimeTo bool
 
 	if raw.TimeFrom != nil {
@@ -2968,7 +3101,7 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 			http.Error(w, "invalid time_from format", http.StatusBadRequest)
 			return
 		}
-		time_constraints.Time_From = t
+		constraints.TimeFrom = t
 		useTimeFrom = true
 	}
 
@@ -2978,7 +3111,7 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 			http.Error(w, "invalid time_to format", http.StatusBadRequest)
 			return
 		}
-		time_constraints.Time_To = t
+		constraints.TimeTo = t
 		useTimeTo = true
 	}
 
@@ -2993,29 +3126,30 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 			"error":   err.Error(),
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for complaints: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting admin permissions for complaints: %v", err)},
 		)
 		return
 	}
 
 	if !is_admin {
-		MakeResponse(w, http.StatusUnauthorized,
-			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: fmt.Sprintf("You dont have permissions: %v", err)},
 		)
 		return
 	}
 
-	stats, err := ch.GetStatisticsUC.GetStatistics(useTimeFrom, time_constraints.Time_From, useTimeTo, time_constraints.Time_To)
+	stats, err := ch.GetStatisticsUC.GetStatistics(useTimeFrom, constraints.TimeFrom, useTimeTo, constraints.TimeTo)
 	if err != nil {
 		ch.Logger.WithFields(&logrus.Fields{
 			"user_id": user_id,
 			"error":   err.Error(),
 		}).Error("failed to get answers for query")
 
-		MakeResponse(w, http.StatusInternalServerError,
-			map[string]string{"message": fmt.Sprintf("Error getting statistics for complaints : %v", err)},
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting statistics for complaints : %v", err)},
 		)
+
 		return
 	}
 
@@ -3023,5 +3157,5 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 		"user_id": user_id,
 	}).Info("statistics for complaints retrieved successfully")
 
-	MakeResponse(w, http.StatusOK, stats)
+	MakeEasyJSONResponse(w, http.StatusOK, stats)
 }

@@ -87,6 +87,8 @@ launch:
 	docker compose up --build 
 	@echo "Все"
 
+easyjson:
+	go generate ./...
 
 test_injection:
 	clear 

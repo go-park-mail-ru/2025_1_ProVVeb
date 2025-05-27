@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	userspb "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/model"
 	"github.com/sirupsen/logrus"
 )
 
