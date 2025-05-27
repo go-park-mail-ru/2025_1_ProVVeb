@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -34,8 +35,16 @@ type ProfileRepository interface {
 	CloseRepo()
 }
 
+type PgxPool interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Close()
+}
+
 type ProfileRepo struct {
-	DB     *pgxpool.Pool
+	DB     PgxPool
 	Client *redis.Client
 }
 
@@ -138,7 +147,7 @@ func InitPostgresConnection(cfg DatabaseConfig) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func ClosePostgresConnection(pool *pgxpool.Pool) {
+func ClosePostgresConnection(pool PgxPool) {
 	if pool != nil {
 		pool.Close()
 	}
