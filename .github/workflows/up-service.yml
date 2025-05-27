@@ -10,12 +10,14 @@ jobs:
     steps:
     - name: test
       run: |
+        pwd
         make test
   lint:
     runs-on: ubuntu-latest
     steps:
     - name: lint
       run: |
+        pwd
         make lint
   build:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
@@ -36,7 +38,6 @@ jobs:
       run: |
         docker build -t forus809/${{ matrix.image }}:latest -f ./backend/${{ matrix.image }}/Dockerfile .
         docker push forus809/${{ matrix.image }}:latest
-
   # deploy:
   #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
   #   runs-on: ubuntu-latest
