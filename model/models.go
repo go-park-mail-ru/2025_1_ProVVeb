@@ -210,6 +210,18 @@ type ComplaintWithLogins struct {
 	ClosedAt      *time.Time `json:"closed_at"`
 }
 
+type ComplaintStats struct {
+	Total          int       `json:"total_complaints"`
+	Rejected       int       `json:"rejected"`
+	Pending        int       `json:"pending"`
+	Approved       int       `json:"approved"`
+	Closed         int       `json:"closed"`
+	TotalBy        int       `json:"total_complainants"`
+	TotalOn        int       `json:"total_reported"`
+	FirstComplaint time.Time `json:"first_complaint"`
+	LastComplaint  time.Time `json:"last_complaint"`
+}
+
 type SearchProfileRequest struct {
 	Input       string       `json:"input"`
 	IsMale      string       `json:"isMale"`

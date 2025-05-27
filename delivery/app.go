@@ -231,6 +231,10 @@ func Run() {
 
 	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
+	ComplaintSubrouter.HandleFunc("/find", complaintHandler.FindComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/delete", complaintHandler.DeleteComplaint).Methods("DELETE")
+	ComplaintSubrouter.HandleFunc("/handle", complaintHandler.HandleComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/getStatistics", complaintHandler.GetStatistics).Methods("POST")
 
 	subscriptionSubrouter := r.PathPrefix("/subscription").Subrouter()
 	subscriptionSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
@@ -295,16 +299,40 @@ func NewComplaintHandler(
 		return nil, err
 	}
 
+	FindComplaintUC, err := usecase.NewFindComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteComplaintsUC, err := usecase.NewDeleteComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	HandleComplaintUC, err := usecase.NewHandleComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetStatisticsUC, err := usecase.NewGetStatisticsComplUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ComplaintHandler{
-		GetComplaintsUC:  *GetComplaints,
-		CreateComplateUC: *CreateComplate,
-		GetAdminUC:       *GetAdminUC,
-		Logger:           logger,
+		GetComplaintsUC:    *GetComplaints,
+		CreateComplateUC:   *CreateComplate,
+		FindCompaintUC:     *FindComplaintUC,
+		DeleteComplaintsUC: *DeleteComplaintsUC,
+		HandleComplaintUC:  *HandleComplaintUC,
+		GetStatisticsUC:    *GetStatisticsUC,
+		GetAdminUC:         *GetAdminUC,
+		Logger:             logger,
 	}, nil
 }
 

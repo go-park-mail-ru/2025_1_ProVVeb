@@ -47,10 +47,16 @@ type UserHandler struct {
 }
 
 type ComplaintHandler struct {
-	GetComplaintsUC  usecase.GetComplaint
-	CreateComplateUC usecase.CreateComplaint
-	GetAdminUC       usecase.GetAdmin
-	Logger           *logger.LogrusLogger
+	GetComplaintsUC    usecase.GetComplaint
+	CreateComplateUC   usecase.CreateComplaint
+	FindCompaintUC     usecase.FindComplaint
+	DeleteComplaintsUC usecase.DeleteComplaint
+	HandleComplaintUC  usecase.HandleComplaint
+	GetStatisticsUC    usecase.GetStatisticsCompl
+
+	GetAdminUC usecase.GetAdmin
+
+	Logger *logger.LogrusLogger
 }
 
 type ProfilesHandler struct {
@@ -2633,4 +2639,364 @@ func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	MakeResponse(w, http.StatusOK, map[string]string{"message": "Changed"})
+}
+
+func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetComplaints request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get complaints")
+
+	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get complaints")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	var input struct {
+		Compaint_by    int    `json:"complaint_by"`
+		Name_by        string `json:"name_by"`
+		Complaint_on   int    `json:"complaint_on"`
+		Name_on        string `json:"name_on"`
+		Complaint_type string `json:"complaint_type"`
+		Status         int    `json:"status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"input": input,
+			"error": err.Error(),
+		}).Warn("failed to decode like request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	complaints, err := ch.FindCompaintUC.FindComplaint(
+		input.Compaint_by,
+		input.Name_by,
+		input.Complaint_on,
+		input.Name_on,
+		input.Complaint_type,
+		input.Status)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get complaints")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting complaint: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("complaints found successfully")
+
+	MakeResponse(w, http.StatusOK, complaints)
+}
+
+func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var input struct {
+		Complaint_id int `json:"complaint_id"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	err = ch.DeleteComplaintsUC.DeleteComplaint(input.Complaint_id)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting answers for query: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("complaint deleted successfully")
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Deleted successful"})
+}
+
+func (ch *ComplaintHandler) HandleComplaint(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var input struct {
+		Complaint_id int `json:"complaint_id"`
+		NewStatus    int `json:"new_status"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to decode answer")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": fmt.Sprintf("Error decoding answer: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get answers for query")
+
+	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for query: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	err = ch.HandleComplaintUC.HandleComplaint(input.Complaint_id, input.NewStatus)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error updating complaint: %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("complaint updated successfully")
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Updated successful"})
+}
+
+func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetAnswersForQuery request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	user_id, ok := userIDRaw.(uint32)
+	if !ok {
+		ch.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized query access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	var time_constraints struct {
+		Time_From time.Time `json:"time_from"`
+		Time_To   time.Time `json:"time_to"`
+	}
+
+	type rawTimeConstraints struct {
+		TimeFrom *string `json:"time_from"`
+		TimeTo   *string `json:"time_to"`
+	}
+
+	var raw rawTimeConstraints
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	var useTimeFrom, useTimeTo bool
+
+	if raw.TimeFrom != nil {
+		t, err := time.Parse(time.RFC3339, *raw.TimeFrom)
+		if err != nil {
+			http.Error(w, "invalid time_from format", http.StatusBadRequest)
+			return
+		}
+		time_constraints.Time_From = t
+		useTimeFrom = true
+	}
+
+	if raw.TimeTo != nil {
+		t, err := time.Parse(time.RFC3339, *raw.TimeTo)
+		if err != nil {
+			http.Error(w, "invalid time_to format", http.StatusBadRequest)
+			return
+		}
+		time_constraints.Time_To = t
+		useTimeTo = true
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("attempting to get statistics for complaints")
+
+	is_admin, err := ch.GetAdminUC.GetAdmin(int(user_id))
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting admin permissions for complaints: %v", err)},
+		)
+		return
+	}
+
+	if !is_admin {
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": fmt.Sprintf("You dont have permissions: %v", err)},
+		)
+		return
+	}
+
+	stats, err := ch.GetStatisticsUC.GetStatistics(useTimeFrom, time_constraints.Time_From, useTimeTo, time_constraints.Time_To)
+	if err != nil {
+		ch.Logger.WithFields(&logrus.Fields{
+			"user_id": user_id,
+			"error":   err.Error(),
+		}).Error("failed to get answers for query")
+
+		MakeResponse(w, http.StatusInternalServerError,
+			map[string]string{"message": fmt.Sprintf("Error getting statistics for complaints : %v", err)},
+		)
+		return
+	}
+
+	ch.Logger.WithFields(&logrus.Fields{
+		"user_id": user_id,
+	}).Info("statistics for complaints retrieved successfully")
+
+	MakeResponse(w, http.StatusOK, stats)
 }
