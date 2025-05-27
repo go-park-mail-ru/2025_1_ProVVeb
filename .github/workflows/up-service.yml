@@ -16,9 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: lint
-      run: |
-        make lint
+    # - name: lint
+    #   run: |
+    #     make lint
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.1
   build:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     needs: [ test, lint ]
