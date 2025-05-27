@@ -10,7 +10,9 @@ jobs:
     steps:
     - name: test
       run: |
-        pwd \ ls
+        pwd
+        touch smth
+        ls
     - name: test2
       run: |
         make test
