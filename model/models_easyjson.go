@@ -3784,8 +3784,8 @@ func easyjsonD2b7633eDecodeGithubComGoParkMailRu20251ProVVebModel38(in *jlexer.L
 			continue
 		}
 		switch key {
-		case "query_id":
-			out.Query_id = int(in.Int())
+		case "query_name":
+			out.Query_name = string(in.String())
 		case "user_id":
 			out.User_id = int(in.Int())
 		default:
@@ -3803,9 +3803,9 @@ func easyjsonD2b7633eEncodeGithubComGoParkMailRu20251ProVVebModel38(out *jwriter
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"query_id\":"
+		const prefix string = ",\"query_name\":"
 		out.RawString(prefix[1:])
-		out.Int(int(in.Query_id))
+		out.String(string(in.Query_name))
 	}
 	{
 		const prefix string = ",\"user_id\":"

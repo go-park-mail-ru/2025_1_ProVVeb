@@ -156,27 +156,21 @@ WITH filtered_complaints AS (
     JOIN users cb ON cb.user_id = c.complaint_by
     JOIN users co ON co.user_id = c.complaint_on
     JOIN complaint_types ct ON ct.comp_type = c.complaint_type
-    LEFT JOIN profiles pb ON pb.profile_id = cb.user_id
-    LEFT JOIN profiles po ON po.profile_id = co.user_id
     WHERE
         ($1 = 0 OR c.complaint_by = $1)
       AND ($2 = 0 OR c.complaint_on = $2)
       AND ($3 = '' OR LOWER(ct.type_description) = LOWER($3))
-      AND ($4 = -1 OR c.status = $4)
+      AND ($4 = 0 OR c.status = $4)
       AND (
-          $5 = '' OR
-          (
-              similarity((pb.firstname || ' ' || pb.lastname), $5) > 0.3
-              OR LOWER(pb.firstname) LIKE LOWER($5 || '%')
-              OR LOWER(pb.lastname) LIKE LOWER($5 || '%')
+          $5 = '' OR (
+              similarity(cb.login, $5) > 0.3
+              OR LOWER(cb.login) LIKE LOWER($5 || '%')
           )
       )
       AND (
-          $6 = '' OR
-          (
-              similarity((po.firstname || ' ' || po.lastname), $6) > 0.3
-              OR LOWER(po.firstname) LIKE LOWER($6 || '%')
-              OR LOWER(po.lastname) LIKE LOWER($6 || '%')
+          $6 = '' OR (
+              similarity(co.login, $6) > 0.3
+              OR LOWER(co.login) LIKE LOWER($6 || '%')
           )
       )
 )
@@ -192,6 +186,7 @@ SELECT
     closed_at
 FROM filtered_complaints
 ORDER BY created_at DESC;
+
 `
 
 func (cr *ComplaintRepo) FindComplaint(

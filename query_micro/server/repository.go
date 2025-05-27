@@ -170,7 +170,7 @@ SELECT
     u.login,
     ua.answer,
     ua.score,
-	ua.user_id
+    ua.user_id
 FROM user_answer ua
 JOIN queries q ON ua.query_id = q.query_id
 JOIN users u ON ua.user_id = u.user_id
@@ -179,13 +179,10 @@ WHERE q.is_active = TRUE
   AND ($1::BIGINT = 0 OR q.query_id = $1)
   AND (
         $2 = '' OR
-        similarity((p.firstname || ' ' || p.lastname), $2) > 0.3 OR
-        similarity(p.fullname_translit, $2) > 0.3 OR
-        to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $2) OR
-        to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $2)
-		OR LOWER(p.firstname) LIKE LOWER($2 || '%')
-		OR LOWER(p.lastname) LIKE LOWER($2 || '%')
+        similarity(u.login, $2) > 0.3 OR
+        LOWER(u.login) LIKE LOWER($2 || '%')
   )
+
 `
 
 func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.AnswersForQuery, error) {
@@ -215,12 +212,16 @@ func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.AnswersForQue
 	return result, nil
 }
 
-const DeleteAnswerQuery = `DELETE FROM user_answer
-WHERE query_id = $1 AND user_id = $2;
+const DeleteAnswerQuery = `
+DELETE FROM user_answer
+USING queries
+WHERE user_answer.query_id = queries.query_id
+  AND queries.name = $1
+  AND user_answer.user_id = $2;
 `
 
-func (qr *QueryRepo) DeleteAnswer(query_id int, user_id int) error {
-	_, err := qr.DB.ExecContext(context.Background(), DeleteAnswerQuery, query_id, user_id)
+func (qr *QueryRepo) DeleteAnswer(query_name string, user_id int) error {
+	_, err := qr.DB.ExecContext(context.Background(), DeleteAnswerQuery, query_name, user_id)
 	if err != nil {
 		return model.ErrDeleteUser
 	}

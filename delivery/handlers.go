@@ -1360,7 +1360,6 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	input.Login = sanitizer.Sanitize(input.Login)
 	input.Password = sanitizer.Sanitize(input.Password)
 
-	// дальше без изменений...
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		http.Error(w, "Cannot parse IP", http.StatusInternalServerError)
@@ -2341,7 +2340,7 @@ func (qh *QueryHandler) DeleteQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = qh.DeleteQueryUC.DeleteAnswer(req.User_id, req.Query_id)
+	err = qh.DeleteQueryUC.DeleteAnswer(req.User_id, req.Query_name)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": userID,
@@ -2906,7 +2905,6 @@ func (ch *ComplaintHandler) DeleteComplaint(w http.ResponseWriter, r *http.Reque
 
 	var input model.DeleteComlaint
 
-	// easyjson-декодирование
 	lexer := jlexer.Lexer{Data: body}
 	input.UnmarshalEasyJSON(&lexer)
 	if lexer.Error() != nil {

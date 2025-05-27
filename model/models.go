@@ -401,8 +401,8 @@ type GetAnswerStatistics struct {
 
 //easyjson:json
 type DeleteQueryRequest struct {
-	Query_id int `json:"query_id"`
-	User_id  int `json:"user_id"`
+	Query_name string `json:"query_name"`
+	User_id    int    `json:"user_id"`
 }
 
 //easyjson:json

@@ -19,7 +19,7 @@ service QueryService {
 
 
 message DeleteAnswerRequest {
-    int64 query_id = 1;
+    string query_name = 1;
     int64 user_id = 2;
   }
   

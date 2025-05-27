@@ -120,7 +120,7 @@ func (s *QueryServiceServerImpl) FindQuery(ctx context.Context, req *querypb.Fin
 }
 
 func (s *QueryServiceServerImpl) DeleteAnswer(ctx context.Context, req *querypb.DeleteAnswerRequest) (*emptypb.Empty, error) {
-	err := s.Repo.DeleteAnswer(int(req.QueryId), int(req.UserId))
+	err := s.Repo.DeleteAnswer(req.QueryName, int(req.UserId))
 	if err != nil {
 		return nil, fmt.Errorf("error sending response: %v", err)
 	}
