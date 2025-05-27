@@ -99,7 +99,6 @@ test_injection:
 
 
 test:
-	clear
 	@echo "Делаем моки..."
 	mockgen -source=auth_micro/server/service.go -destination=mocks/sessiomockgen -source=auth_micro/server/sessionrepository.go -destination=mocks/session_repo_mock.go -package=mocksn_repo_mock.go -package=mocks
 	@echo "Запуск тестов..."
