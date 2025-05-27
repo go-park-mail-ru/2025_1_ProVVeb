@@ -9,8 +9,8 @@ import (
 	auth "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/server"
 	"github.com/go-redis/redis/v8"
 
+	model "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/config"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/mocks"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,7 +36,7 @@ func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
 	assert.Equal(t, 123, session.UserId)
 	assert.Equal(t, model.SessionDuration, session.Expires)
 
-	err = repo.StoreSession(session.SessionId, "some_data", session.Expires)
+	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
 	assert.NoError(t, err)
 
 	val, err := mr.Get(session.SessionId)
@@ -203,7 +203,7 @@ func TestStoreSessionA(t *testing.T) {
 	data := "user data"
 	ttl := 10 * time.Second
 
-	err := repo.StoreSession(sessionID, data, ttl)
+	err := repo.StoreSession(123, sessionID, data, ttl)
 	assert.NoError(t, err)
 
 	val, err := repo.GetSession(sessionID)
@@ -214,8 +214,8 @@ func TestStoreSessionA(t *testing.T) {
 func TestDeleteAllSessions(t *testing.T) {
 	repo := initTestRepo(t)
 
-	_ = repo.StoreSession("sess1", "data1", 10*time.Second)
-	_ = repo.StoreSession("sess2", "data2", 10*time.Second)
+	_ = repo.StoreSession(123, "sess1", "data1", 10*time.Second)
+	_ = repo.StoreSession(124, "sess2", "data2", 10*time.Second)
 
 	err := repo.DeleteAllSessions()
 	assert.NoError(t, err)
@@ -230,7 +230,7 @@ func TestCloseRepo(t *testing.T) {
 	err := repo.CloseRepo()
 	assert.NoError(t, err)
 
-	err = repo.StoreSession("test", "data", 1*time.Second)
+	err = repo.StoreSession(123, "test", "data", 1*time.Second)
 	assert.Error(t, err)
 }
 
@@ -250,7 +250,7 @@ func TestRetrieveSessionData(t *testing.T) {
 
 	sessionID := "sess123"
 	data := "hello"
-	err := repo.StoreSession(sessionID, data, 5*time.Second)
+	err := repo.StoreSession(123, sessionID, data, 5*time.Second)
 	assert.NoError(t, err)
 
 	val, err := repo.GetSession(sessionID)
@@ -262,7 +262,7 @@ func TestRemoveSessionEntry(t *testing.T) {
 	repo := initTestRepo(t)
 
 	sessionID := "delete_me"
-	_ = repo.StoreSession(sessionID, "bye", 5*time.Second)
+	_ = repo.StoreSession(123, sessionID, "bye", 5*time.Second)
 
 	err := repo.DeleteSession(sessionID)
 	assert.NoError(t, err)
