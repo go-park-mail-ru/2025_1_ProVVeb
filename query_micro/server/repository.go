@@ -169,7 +169,8 @@ SELECT
     q.max_score,
     u.login,
     ua.answer,
-    ua.score
+    ua.score,
+	ua.user_id
 FROM user_answer ua
 JOIN queries q ON ua.query_id = q.query_id
 JOIN users u ON ua.user_id = u.user_id
@@ -187,16 +188,16 @@ WHERE q.is_active = TRUE
   )
 `
 
-func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.UsersForQuery, error) {
+func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.AnswersForQuery, error) {
 	rows, err := qr.DB.QueryContext(context.Background(), FindQuery, queryID, name)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var result []config.UsersForQuery
+	var result []config.AnswersForQuery
 	for rows.Next() {
-		var row config.UsersForQuery
+		var row config.AnswersForQuery
 		if err := rows.Scan(
 			&row.Name,
 			&row.Description,
@@ -205,6 +206,7 @@ func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.UsersForQuery
 			&row.Login,
 			&row.Answer,
 			&row.Score,
+			&row.UserId,
 		); err != nil {
 			return nil, err
 		}

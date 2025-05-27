@@ -1766,9 +1766,7 @@ func (ph *ProfilesHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var profileIsAdmin model.ProfileIsAdmin
-
-	profileIsAdmin = model.ProfileIsAdmin{
+	profileIsAdmin := model.ProfileIsAdmin{
 		ProfileId:   profile.ProfileId,
 		FirstName:   profile.FirstName,
 		LastName:    profile.LastName,

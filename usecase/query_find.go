@@ -24,7 +24,7 @@ func NewFindQueryUseCase(
 	return &FindQuery{QueryService: queryService, logger: logger}, nil
 }
 
-func (g *FindQuery) FindQuery(Name string, query_id int) ([]model.UsersForQuery, error) {
+func (g *FindQuery) FindQuery(Name string, query_id int) ([]model.AnswersForQuery, error) {
 	g.logger.Info("GetAnswersForQuery")
 	req := &querypb.FindQueryRequest{
 		Name:    Name,
@@ -37,9 +37,9 @@ func (g *FindQuery) FindQuery(Name string, query_id int) ([]model.UsersForQuery,
 		return nil, err
 	}
 
-	var queries []model.UsersForQuery
+	var queries []model.AnswersForQuery
 	for _, q := range queryResp.Items {
-		queries = append(queries, model.UsersForQuery{
+		queries = append(queries, model.AnswersForQuery{
 			Name:        q.Name,
 			Description: q.Description,
 			MinScore:    int(q.MinScore),
@@ -47,6 +47,7 @@ func (g *FindQuery) FindQuery(Name string, query_id int) ([]model.UsersForQuery,
 			Score:       int(q.Score),
 			Answer:      q.Answer,
 			Login:       q.Login,
+			UserId:      int(q.UserId),
 		})
 	}
 

@@ -90,5 +90,16 @@ message ForQueryResponseList {
 }
 
 message FindQueryResponseList {
-    repeated ForQueryResponse items = 1;
+    repeated FindQueryResponse items = 1;
+}
+
+message FindQueryResponse {
+    string name = 1;
+    string description = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+    string answer = 5;
+    int32 score = 6;
+    string login = 7;
+    int32 user_id = 8;
 }
