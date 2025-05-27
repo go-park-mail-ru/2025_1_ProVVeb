@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -34,8 +35,16 @@ type ProfileRepository interface {
 	CloseRepo()
 }
 
+type DBQuerier interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type ProfileRepo struct {
-	DB     *pgxpool.Pool
+	DB     DBQuerier
 	Client *redis.Client
 }
 
@@ -871,7 +880,9 @@ func (pr *ProfileRepo) StorePhoto(userID int, url string) error {
 }
 
 func (pr *ProfileRepo) CloseRepo() {
-	ClosePostgresConnection(pr.DB)
+	if pool, ok := pr.DB.(*pgxpool.Pool); ok {
+		pool.Close()
+	}
 }
 
 const (

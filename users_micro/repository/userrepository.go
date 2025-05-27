@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/model"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -32,9 +33,14 @@ type UserRepository interface {
 
 	CloseRepo() error
 }
+type DBExecutor interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+}
 
 type UserRepo struct {
-	DB *pgxpool.Pool
+	DB DBExecutor
 }
 
 func NewUserRepo() (*UserRepo, error) {
@@ -42,7 +48,7 @@ func NewUserRepo() (*UserRepo, error) {
 	db, err := InitPostgresConnection(cfg)
 	if err != nil {
 		fmt.Println("Error connecting to database:", err)
-		return &UserRepo{}, err
+		return nil, err
 	}
 	return &UserRepo{DB: db}, nil
 }
@@ -287,7 +293,11 @@ func (ur *UserRepo) GetAdmin(userID int) (bool, error) {
 }
 
 func (ur *UserRepo) CloseRepo() error {
-	return ClosePostgresConnection(ur.DB)
+	pool, ok := ur.DB.(*pgxpool.Pool)
+	if !ok {
+		return fmt.Errorf("DBExecutor is not a *pgxpool.Pool")
+	}
+	return ClosePostgresConnection(pool)
 }
 
 func (ur *UserRepo) ValidateLogin(login string) error {

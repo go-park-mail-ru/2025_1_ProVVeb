@@ -24,7 +24,6 @@ func main() {
 		return
 	}
 	defer postgresClient.CloseRepo()
-	defer profiles.ClosePostgresConnection(postgresClient.DB)
 
 	staticClient, err := profiles.NewStaticRepo()
 	if err != nil {
