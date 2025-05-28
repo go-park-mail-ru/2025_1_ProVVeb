@@ -49,7 +49,7 @@ services:
 
   backend:
     # build: ./backend
-    image: forus809/backend:latest
+    image: forus809/beameye:latest
     expose:
       - "8099"
       - "8080"
