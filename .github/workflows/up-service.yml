@@ -10,17 +10,17 @@ jobs:
     strategy:
       matrix:
         branch-type:
-        - 'refs/heads/main'
-        - 'refs/heads/dev'
-        - 'refs/heads/ci'
+        - ${{ contains(github.ref, 'refs/heads/main') && 'main' || '' }}
+        - ${{ contains(github.ref, 'refs/heads/dev') && 'dev' || '' }}
+        - ${{ contains(github.ref, 'refs/heads/ci') && 'ci' || '' }}
         include:
-        - branch-type: 'refs/heads/main'
+        - branch-type: main
           run: |
             make test
-        - branch-type: 'refs/heads/dev'
+        - branch-type: dev
           run: |
             make test
-        - branch-type: 'refs/heads/ci'
+        - branch-type: ci
           run: |
             # make test
             echo "TESTING AHAHAHHAHAH"
@@ -34,19 +34,19 @@ jobs:
     strategy:
       matrix:
         branch-type:
-        - 'refs/heads/main'
-        - 'refs/heads/dev'
-        - 'refs/heads/ci'
+        - ${{ contains(github.ref, 'refs/heads/main') && 'main' || '' }}
+        - ${{ contains(github.ref, 'refs/heads/dev') && 'dev' || '' }}
+        - ${{ contains(github.ref, 'refs/heads/ci') && 'ci' || '' }}
         include:
-        - branch-type: 'refs/heads/main'
+        - branch-type: main
           uses: golangci/golangci-lint-action@v8
           with:
             version: v2.1
-        - branch-type: 'refs/heads/dev'
+        - branch-type: dev
           uses: golangci/golangci-lint-action@v8
           with:
             version: v2.1
-        - branch-type: 'refs/heads/ci'
+        - branch-type: ci
           run: |
             # make lint
             echo "LINTerING AHAHAHHAHAH"
