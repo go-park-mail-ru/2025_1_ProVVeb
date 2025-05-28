@@ -7,54 +7,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        branch-type:
-        - ${{ contains(github.ref, 'refs/heads/main') && 'main' || '' }}
-        - ${{ contains(github.ref, 'refs/heads/dev') && 'dev' || '' }}
-        - ${{ contains(github.ref, 'refs/heads/ci') && 'ci' || '' }}
-        include:
-        - branch-type: main
-          run: |
-            make test
-        - branch-type: dev
-          run: |
-            make test
-        - branch-type: ci
-          run: |
-            # make test
-            echo "TESTING AHAHAHHAHAH"
     steps:
     - uses: actions/checkout@v4
-    - name: test
+    - name: Run tests
       run: |
-        ${{ matrix.run }}            
+        if [ "${{ github.ref }}" == "refs/heads/ci" ]; then
+          echo "TESTING AHAHAHHAHAH (CI specific)"
+        else
+          make test
+        fi       
   lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        branch-type:
-        - ${{ contains(github.ref, 'refs/heads/main') && 'main' || '' }}
-        - ${{ contains(github.ref, 'refs/heads/dev') && 'dev' || '' }}
-        - ${{ contains(github.ref, 'refs/heads/ci') && 'ci' || '' }}
-        include:
-        - branch-type: main
-          uses: golangci/golangci-lint-action@v8
-          with:
-            version: v2.1
-        - branch-type: dev
-          uses: golangci/golangci-lint-action@v8
-          with:
-            version: v2.1
-        - branch-type: ci
-          run: |
-            # make lint
-            echo "LINTerING AHAHAHHAHAH"
     steps:
     - uses: actions/checkout@v4
-    - name: lint
-      run: |
-        ${{ matrix.run }}
+    - name: Run linter
+      if: github.ref != 'refs/heads/ci'
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.1
+    - name: Mock linter for CI
+      if: github.ref == 'refs/heads/ci'
+      run: echo "LINTerING AHAHAHHAHAH (CI specific)"
   build:
     needs: [ test, lint ]
     runs-on: ubuntu-latest
