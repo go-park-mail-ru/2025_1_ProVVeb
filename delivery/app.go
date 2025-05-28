@@ -184,6 +184,8 @@ func Run() {
 	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
 	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
 	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
+	profileSubrouter.HandleFunc("/recommendations", profilesHandler.GetRecommendations).Methods("GET")
+	profileSubrouter.HandleFunc("/getStatistics", profilesHandler.GetStatistics).Methods("GET")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
@@ -531,6 +533,16 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	GetRecommendations, err := usecase.NewGetRecommendationsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfileStats, err := usecase.NewGetProfileStatsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -542,6 +554,8 @@ func NewProfilesHandler(
 		UpdateProfileImagesUC: *UpdateProfileImages,
 		Subscriber:            Subscriber,
 		AddNotificationUC:     *AddNotification,
+		GetRecommendationsUC:  *GetRecommendations,
+		GetProfileStatsUC:     *GetProfileStats,
 		SearchProfileUC:       *SearchProfile,
 		GetAdminUC:            *GetAdmin,
 		Logger:                logger,

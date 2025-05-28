@@ -30,6 +30,8 @@ type ProfilesServiceClient interface {
 	GetProfileMatches(ctx context.Context, in *GetProfileMatchesRequest, opts ...grpc.CallOption) (*GetProfileMatchesResponse, error)
 	SetProfileLike(ctx context.Context, in *SetProfileLikeRequest, opts ...grpc.CallOption) (*SetProfileLikeResponse, error)
 	SearchProfile(ctx context.Context, in *SearchProfileRequest, opts ...grpc.CallOption) (*SearchProfileResponse, error)
+	GetProfileStats(ctx context.Context, in *GetProfileStatsRequest, opts ...grpc.CallOption) (*GetProfileStatsResponse, error)
+	GetRecommendations(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 }
 
 type profilesServiceClient struct {
@@ -139,6 +141,24 @@ func (c *profilesServiceClient) SearchProfile(ctx context.Context, in *SearchPro
 	return out, nil
 }
 
+func (c *profilesServiceClient) GetProfileStats(ctx context.Context, in *GetProfileStatsRequest, opts ...grpc.CallOption) (*GetProfileStatsResponse, error) {
+	out := new(GetProfileStatsResponse)
+	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/GetProfileStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *profilesServiceClient) GetRecommendations(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
+	out := new(GetProfileResponse)
+	err := c.cc.Invoke(ctx, "/profiles.ProfilesService/GetRecommendations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProfilesServiceServer is the server API for ProfilesService service.
 // All implementations must embed UnimplementedProfilesServiceServer
 // for forward compatibility
@@ -154,6 +174,8 @@ type ProfilesServiceServer interface {
 	GetProfileMatches(context.Context, *GetProfileMatchesRequest) (*GetProfileMatchesResponse, error)
 	SetProfileLike(context.Context, *SetProfileLikeRequest) (*SetProfileLikeResponse, error)
 	SearchProfile(context.Context, *SearchProfileRequest) (*SearchProfileResponse, error)
+	GetProfileStats(context.Context, *GetProfileStatsRequest) (*GetProfileStatsResponse, error)
+	GetRecommendations(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	mustEmbedUnimplementedProfilesServiceServer()
 }
 
@@ -193,6 +215,12 @@ func (UnimplementedProfilesServiceServer) SetProfileLike(context.Context, *SetPr
 }
 func (UnimplementedProfilesServiceServer) SearchProfile(context.Context, *SearchProfileRequest) (*SearchProfileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SearchProfile not implemented")
+}
+func (UnimplementedProfilesServiceServer) GetProfileStats(context.Context, *GetProfileStatsRequest) (*GetProfileStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProfileStats not implemented")
+}
+func (UnimplementedProfilesServiceServer) GetRecommendations(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRecommendations not implemented")
 }
 func (UnimplementedProfilesServiceServer) mustEmbedUnimplementedProfilesServiceServer() {}
 
@@ -405,6 +433,42 @@ func _ProfilesService_SearchProfile_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProfilesService_GetProfileStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProfileStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilesServiceServer).GetProfileStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/profiles.ProfilesService/GetProfileStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilesServiceServer).GetProfileStats(ctx, req.(*GetProfileStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProfilesService_GetRecommendations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProfilesServiceServer).GetRecommendations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/profiles.ProfilesService/GetRecommendations",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProfilesServiceServer).GetRecommendations(ctx, req.(*GetProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProfilesService_ServiceDesc is the grpc.ServiceDesc for ProfilesService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -455,6 +519,14 @@ var ProfilesService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchProfile",
 			Handler:    _ProfilesService_SearchProfile_Handler,
+		},
+		{
+			MethodName: "GetProfileStats",
+			Handler:    _ProfilesService_GetProfileStats_Handler,
+		},
+		{
+			MethodName: "GetRecommendations",
+			Handler:    _ProfilesService_GetRecommendations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

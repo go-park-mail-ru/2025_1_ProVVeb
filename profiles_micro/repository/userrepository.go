@@ -32,6 +32,8 @@ type ProfileRepository interface {
 	StoreInterests(profileId int, interests []string) error
 	SetLike(from int, to int, status int) (int, error)
 	SearchProfiles(cur_user int, params model.SearchProfileRequest) ([]model.FoundProfile, error)
+	GetProfileStats(profileID int) (model.ProfileStats, error)
+	GetRecomendations(profileId int) (model.Profile, error)
 	CloseRepo()
 }
 
@@ -1181,4 +1183,222 @@ func (pr *ProfileRepo) SearchProfiles(cur_user int, params model.SearchProfileRe
 	}
 
 	return results, nil
+}
+
+const getStaticticsQuery = `
+SELECT 
+	COUNT(DISTINCT l.like_id) FILTER (WHERE l.profile_id = p.profile_id) AS likes_given,
+	COUNT(DISTINCT l2.like_id) FILTER (WHERE l2.liked_profile_id = p.profile_id) AS likes_received,
+	COUNT(DISTINCT m.match_id) AS matches,
+	COUNT(DISTINCT c1.complaint_id) AS complaints_made,
+	COUNT(DISTINCT c2.complaint_id) AS complaints_received,
+	COUNT(DISTINCT msg.message_id) AS messages_sent,
+	COUNT(DISTINCT ch.chat_id) AS chat_count
+FROM profiles p
+LEFT JOIN users u ON u.profile_id = p.profile_id
+LEFT JOIN likes l ON l.profile_id = p.profile_id
+LEFT JOIN likes l2 ON l2.liked_profile_id = p.profile_id
+LEFT JOIN matches m ON m.profile_id = p.profile_id OR m.matched_profile_id = p.profile_id
+LEFT JOIN complaints c1 ON c1.complaint_by = u.user_id
+LEFT JOIN complaints c2 ON c2.complaint_on = u.user_id
+LEFT JOIN messages msg ON msg.user_id = p.profile_id
+LEFT JOIN chats ch ON ch.first_profile_id = p.profile_id OR ch.second_profile_id = p.profile_id
+WHERE p.profile_id = $1;
+`
+
+func (r *ProfileRepo) GetProfileStats(profileID int) (model.ProfileStats, error) {
+	var stats model.ProfileStats
+	err := r.DB.QueryRow(context.Background(), getStaticticsQuery, profileID).Scan(
+		&stats.LikesGiven,
+		&stats.LikesReceived,
+		&stats.Matches,
+		&stats.ComplaintsMade,
+		&stats.ComplaintsReceived,
+		&stats.MessagesSent,
+		&stats.ChatCount,
+	)
+	if err != nil {
+		return stats, fmt.Errorf("failed to get profile stats: %w", err)
+	}
+
+	return stats, nil
+}
+
+const getRecommendationsQuery = `
+SELECT 
+    bp.profile_id,
+    bp.firstname,
+    bp.lastname,
+    bp.is_male,
+    bp.height,
+    bp.birthday,
+    bp.description,
+    bp.goal,
+    l.country,
+    l.city,
+    l.district,
+    liked.profile_id AS liked_by_profile_id,
+    s.path AS avatar,
+    i.description AS interest,
+    pr.preference_description,
+    pr.preference_value,
+    param.parameter_description,
+    param.parameter_value,
+    CASE WHEN sbs.sub_id IS NOT NULL THEN TRUE ELSE FALSE END AS premium_status,
+    sbs.border
+FROM profiles bp
+JOIN users bu ON bu.profile_id = bp.profile_id
+LEFT JOIN profile_interests pi ON pi.profile_id = bp.profile_id
+LEFT JOIN interests i ON i.interest_id = pi.interest_id
+LEFT JOIN profile_preferences pp ON pp.profile_id = bp.profile_id
+LEFT JOIN preferences pr ON pr.preference_id = pp.preference_id
+LEFT JOIN profile_parameters ppar ON ppar.profile_id = bp.profile_id
+LEFT JOIN parameters param ON param.parameter_id = ppar.parameter_id
+LEFT JOIN locations l ON l.location_id = bp.location_id
+LEFT JOIN photos s ON s.photo_id = bp.avatar_id
+LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id
+LEFT JOIN subscriptions sbs ON sbs.profile_id = bp.profile_id
+-- исключаем профили, если связанный с ними user_id присутствует в blacklist
+LEFT JOIN blacklist bl ON bl.user_id = bu.user_id
+WHERE 
+    bl.user_id IS NULL -- исключаем заблокированных пользователей
+    AND bp.profile_id != $1 -- не показывать самого себя
+    AND NOT EXISTS (
+        SELECT 1 FROM likes l2
+        WHERE l2.profile_id = $1 AND l2.liked_profile_id = bp.profile_id
+    )
+    AND (
+        SELECT COUNT(*) FROM profile_interests pi1
+        WHERE pi1.profile_id = $1 AND pi1.interest_id IN (
+            SELECT pi2.interest_id FROM profile_interests pi2 WHERE pi2.profile_id = bp.profile_id
+        )
+    ) * 1.0 / NULLIF((
+        SELECT COUNT(*) FROM profile_interests pi3 WHERE pi3.profile_id = $1
+    ), 0) >= 0.7
+    AND (
+        (
+            SELECT COUNT(*) FROM profile_preferences pp1
+            WHERE pp1.profile_id = $1 AND pp1.preference_id IN (
+                SELECT pp2.preference_id FROM profile_preferences pp2 WHERE pp2.profile_id = bp.profile_id
+            )
+        ) * 1.0 / NULLIF((
+            SELECT COUNT(*) FROM profile_preferences pp3 WHERE pp3.profile_id = $1
+        ), 0)
+        +
+        (
+            SELECT COUNT(*) FROM profile_preferences pp4
+            WHERE pp4.profile_id = bp.profile_id AND pp4.preference_id IN (
+                SELECT pp5.preference_id FROM profile_preferences pp5 WHERE pp5.profile_id = $1
+            )
+        ) * 1.0 / NULLIF((
+            SELECT COUNT(*) FROM profile_preferences pp6 WHERE pp6.profile_id = bp.profile_id
+        ), 0)
+    ) / 2.0 >= 0.5
+LIMIT 1;
+`
+
+func (pr *ProfileRepo) GetRecomendations(profileId int) (model.Profile, error) {
+	var profile model.Profile
+	var birth sql.NullTime
+	var interest sql.NullString
+	var preferenceDesc sql.NullString
+	var preferenceValue sql.NullString
+	var likedByProfileId sql.NullInt64
+	var photo sql.NullString
+	var country, city, district sql.NullString
+
+	var goal sql.NullInt64
+	var paramDesc, paramValue sql.NullString
+
+	var premiumStatus sql.NullBool
+	var premiumBorder sql.NullInt64
+
+	ctx := context.Background()
+	rows, err := pr.DB.Query(ctx, getRecommendationsQuery, profileId)
+
+	if err != nil {
+		return profile, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(
+			&profile.ProfileId,
+			&profile.FirstName,
+			&profile.LastName,
+			&profile.IsMale,
+			&profile.Height,
+			&birth,
+			&profile.Description,
+			&goal,
+			&country,
+			&city,
+			&district,
+			&likedByProfileId,
+			&photo,
+			&interest,
+			&preferenceDesc,
+			&preferenceValue,
+			&paramDesc,
+			&paramValue,
+			&premiumStatus,
+			&premiumBorder,
+		); err != nil {
+			return profile, err
+		}
+
+		if birth.Valid {
+			profile.Birthday = birth.Time
+		}
+
+		if country.Valid && city.Valid && district.Valid {
+			profile.Location = fmt.Sprintf("%s@%s@%s", country.String, city.String, district.String)
+		}
+
+		if likedByProfileId.Valid && !slices.Contains(profile.LikedBy, int(likedByProfileId.Int64)) {
+			profile.LikedBy = append(profile.LikedBy, int(likedByProfileId.Int64))
+		}
+
+		if interest.Valid && !slices.Contains(profile.Interests, interest.String) {
+			profile.Interests = append(profile.Interests, interest.String)
+		}
+		if goal.Valid {
+			profile.Goal = int(goal.Int64)
+		}
+
+		if paramDesc.Valid && paramValue.Valid {
+			param := model.Preference{
+				Description: paramDesc.String,
+				Value:       paramValue.String,
+			}
+			if !slices.Contains(profile.Parameters, param) {
+				profile.Parameters = append(profile.Parameters, param)
+			}
+		}
+
+		if preferenceDesc.Valid && preferenceValue.Valid {
+			pref := model.Preference{
+				Description: preferenceDesc.String,
+				Value:       preferenceValue.String,
+			}
+			if !slices.Contains(profile.Preferences, pref) {
+				profile.Preferences = append(profile.Preferences, pref)
+			}
+		}
+		if photo.Valid && !slices.Contains(profile.Photos, photo.String) {
+			profile.Photos = append(profile.Photos, photo.String)
+		}
+		if premiumStatus.Valid && premiumStatus.Bool {
+			profile.Premium.Status = true
+			if premiumBorder.Valid {
+				profile.Premium.Border = int(premiumBorder.Int64)
+			}
+		}
+	}
+
+	if rows.Err() != nil {
+		return profile, rows.Err()
+	}
+
+	return profile, nil
 }

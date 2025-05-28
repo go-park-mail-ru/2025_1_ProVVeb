@@ -71,11 +71,11 @@ type ProfilesHandler struct {
 	UpdateProfileUC       usecase.ProfileUpdate
 	UpdateProfileImagesUC usecase.StaticUpload
 	SearchProfileUC       usecase.SearchProfiles
-
-	AddNotificationUC usecase.AddNotification
-	Subscriber        *redis.Client
-
-	GetAdminUC usecase.GetAdmin
+	AddNotificationUC     usecase.AddNotification
+	Subscriber            *redis.Client
+	GetAdminUC            usecase.GetAdmin
+	GetRecommendationsUC  usecase.GetRecommendations
+	GetProfileStatsUC     usecase.GetProfileStats
 
 	Logger *logger.LogrusLogger
 }
@@ -3154,6 +3154,138 @@ func (ch *ComplaintHandler) GetStatistics(w http.ResponseWriter, r *http.Request
 	ch.Logger.WithFields(&logrus.Fields{
 		"user_id": user_id,
 	}).Info("statistics for complaints retrieved successfully")
+
+	MakeEasyJSONResponse(w, http.StatusOK, stats)
+}
+
+func (ph *ProfilesHandler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetProfile request started")
+
+	profileRetrieved.WithLabelValues("get profile").Inc()
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		ph.Logger.Warn("unauthorized profile access attempt")
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
+		return
+	}
+
+	cacheKey := fmt.Sprintf("recommendation:%d", profileId)
+	lockKey := fmt.Sprintf("recommendation_lock:%d", profileId)
+
+	exists, err := ph.Subscriber.Exists(context.Background(), lockKey).Result()
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("Redis error on lock check")
+	}
+
+	if exists > 0 {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+		}).Warn("recommendation requested too often")
+
+		MakeEasyJSONResponse(w, http.StatusTooManyRequests,
+			&model.ErrorResponse{Message: "Recommendations can be requested only once per 24 hours"},
+		)
+		return
+	}
+
+	cached, err := ph.Subscriber.Get(context.Background(), cacheKey).Bytes()
+	if err == nil && len(cached) > 0 {
+		var cachedProfile model.Profile
+		if err := json.Unmarshal(cached, &cachedProfile); err == nil {
+			MakeEasyJSONResponse(w, http.StatusOK, cachedProfile)
+			return
+		}
+	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Debug("fetching recommendation from DB")
+
+	profile, err := ph.GetProfileUC.GetRecommendations(int(profileId))
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get recommendation")
+
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
+		)
+		return
+	}
+
+	// Кэшируем результат
+	profileBytes, _ := json.Marshal(profile)
+	if err := ph.Subscriber.Set(context.Background(), cacheKey, profileBytes, 24*time.Hour).Err(); err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to cache recommendation")
+	}
+
+	if err := ph.Subscriber.Set(context.Background(), lockKey, "1", 24*time.Hour).Err(); err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to set recommendation lock")
+	}
+
+	MakeEasyJSONResponse(w, http.StatusOK, profile)
+}
+
+func (ph *ProfilesHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
+	ph.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+	}).Info("GetProfile request started")
+
+	profileRetrieved.WithLabelValues("get profile").Inc()
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		ph.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized profile access attempt")
+
+		MakeEasyJSONResponse(w, http.StatusUnauthorized,
+			&model.ErrorResponse{Message: "You don't have access"},
+		)
+		return
+	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Debug("attempting to get profile")
+
+	stats, err := ph.GetProfileStatsUC.GetProfileStats(int(profileId))
+	if err != nil {
+		ph.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Error("failed to get profile")
+
+		MakeEasyJSONResponse(w, http.StatusInternalServerError,
+			&model.ErrorResponse{Message: fmt.Sprintf("Error getting profile: %v", err)},
+		)
+		return
+	}
+
+	ph.Logger.WithFields(&logrus.Fields{
+		"profile_id": profileId,
+	}).Info("profile retrieved successfully")
 
 	MakeEasyJSONResponse(w, http.StatusOK, stats)
 }

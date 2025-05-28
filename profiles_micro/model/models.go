@@ -55,6 +55,16 @@ type FoundProfile struct {
 	Goal     int    `yaml:"goal" json:"goal"`
 }
 
+type ProfileStats struct {
+	LikesGiven         int `json:"likesGiven"`
+	LikesReceived      int `json:"likesReceived"`
+	Matches            int `json:"matches"`
+	ComplaintsMade     int `json:"complaintsMade"`
+	ComplaintsReceived int `json:"complaintsReceived"`
+	MessagesSent       int `json:"messagesSent"`
+	ChatCount          int `json:"chatCount"`
+}
+
 var (
 	ErrInvalidUserRepoConfig = errors.New("invalid user repository config")
 	ErrProfileNotFound       = errors.New("profile not found")

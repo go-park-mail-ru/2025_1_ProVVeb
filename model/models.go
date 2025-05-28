@@ -491,8 +491,20 @@ type User struct {
 	Status   int    `yaml:"status" json:"status"`
 }
 
+//easyjson:json
 type UserAnswer struct {
 	Name   string `json:"name"`
 	Score  int32  `json:"score"`
 	Answer string `json:"answer"`
+}
+
+//easyjson:json
+type ProfileStats struct {
+	LikesGiven         int `json:"likesGiven"`
+	LikesReceived      int `json:"likesReceived"`
+	Matches            int `json:"matches"`
+	ComplaintsMade     int `json:"complaintsMade"`
+	ComplaintsReceived int `json:"complaintsReceived"`
+	MessagesSent       int `json:"messagesSent"`
+	ChatCount          int `json:"chatCount"`
 }
