@@ -3225,7 +3225,6 @@ func (ph *ProfilesHandler) GetRecommendations(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Кэшируем результат
 	profileBytes, _ := json.Marshal(profile)
 	if err := ph.Subscriber.Set(context.Background(), cacheKey, profileBytes, 24*time.Hour).Err(); err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
