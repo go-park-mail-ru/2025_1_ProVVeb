@@ -74,9 +74,9 @@ jobs:
         # cd ./beameye
         # docker-compose pull # проверить
         # docker-compose up 
-        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
           cd ./beameye
           touch successful-ssh.txt
           sudo docker-compose pull
           sudo docker-compose up -d --build
-        "
+        EOF
