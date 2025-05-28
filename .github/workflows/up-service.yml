@@ -57,14 +57,11 @@ jobs:
       with:
         username: ${{ vars.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-    - name: build and push postgre
+    - name: build and push db backend
       run: |
         ls
         docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
         docker push forus809/postgre:latest
-    - name: build and push beameye backend
-      run: |
-        ls
         docker build -t forus809/beameye:latest -f ./Dockerfile .
         docker push forus809/beameye:latest
   # deploy:
