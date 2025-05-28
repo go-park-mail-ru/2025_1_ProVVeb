@@ -6,7 +6,7 @@ on:
   pull_request:
 jobs:
   test:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
         # make test
         echo "TESTING AHAHAHHAHAH"
   lint:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
