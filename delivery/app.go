@@ -130,7 +130,7 @@ func Run() {
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, notifClient.Client, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, usersCon, notifClient.Client.(*redis.Client), logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
@@ -142,7 +142,7 @@ func Run() {
 		return
 	}
 
-	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client, logger)
+	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client.(*redis.Client), logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with notificationHandler: %v", err))
 		return
@@ -178,12 +178,14 @@ func Run() {
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 	profileSubrouter.HandleFunc("", profilesHandler.GetProfiles).Methods("GET")
 	profileSubrouter.HandleFunc("/like", profilesHandler.SetLike).Methods("POST")
 	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
 	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
 	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
+	profileSubrouter.HandleFunc("/recommendations", profilesHandler.GetRecommendations).Methods("GET")
+	profileSubrouter.HandleFunc("/getStatistics", profilesHandler.GetStatistics).Methods("GET")
+	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
@@ -231,12 +233,17 @@ func Run() {
 
 	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
+	ComplaintSubrouter.HandleFunc("/find", complaintHandler.FindComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/delete", complaintHandler.DeleteComplaint).Methods("DELETE")
+	ComplaintSubrouter.HandleFunc("/handle", complaintHandler.HandleComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/getStatistics", complaintHandler.GetStatistics).Methods("POST")
 
-	subscriptionSubrouter := r.PathPrefix("/subsription").Subrouter()
+	subscriptionSubrouter := r.PathPrefix("/subscription").Subrouter()
 	subscriptionSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	subscriptionSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	subscriptionSubrouter.HandleFunc("", subscripHandler.AddSubscription).Methods("POST")
+	subscriptionSubrouter.HandleFunc("/changeborder", subscripHandler.ChangeBorder).Methods("POST")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{
@@ -294,16 +301,40 @@ func NewComplaintHandler(
 		return nil, err
 	}
 
+	FindComplaintUC, err := usecase.NewFindComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteComplaintsUC, err := usecase.NewDeleteComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	HandleComplaintUC, err := usecase.NewHandleComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetStatisticsUC, err := usecase.NewGetStatisticsComplUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ComplaintHandler{
-		GetComplaintsUC:  *GetComplaints,
-		CreateComplateUC: *CreateComplate,
-		GetAdminUC:       *GetAdminUC,
-		Logger:           logger,
+		GetComplaintsUC:    *GetComplaints,
+		CreateComplateUC:   *CreateComplate,
+		FindCompaintUC:     *FindComplaintUC,
+		DeleteComplaintsUC: *DeleteComplaintsUC,
+		HandleComplaintUC:  *HandleComplaintUC,
+		GetStatisticsUC:    *GetStatisticsUC,
+		GetAdminUC:         *GetAdminUC,
+		Logger:             logger,
 	}, nil
 }
 
@@ -440,10 +471,12 @@ func NewMessageHandler(
 func NewProfilesHandler(
 	conn *grpc.ClientConn,
 	notifrepo repository.NotificationsRepository,
+	admin_conn *grpc.ClientConn,
 	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*ProfilesHandler, error) {
 	client := profilespb.NewProfilesServiceClient(conn)
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
 	DeleteImage, err := usecase.NewDeleteStaticUseCase(client, logger)
 	if err != nil {
@@ -495,6 +528,21 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	GetAdmin, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetRecommendations, err := usecase.NewGetRecommendationsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfileStats, err := usecase.NewGetProfileStatsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -506,7 +554,10 @@ func NewProfilesHandler(
 		UpdateProfileImagesUC: *UpdateProfileImages,
 		Subscriber:            Subscriber,
 		AddNotificationUC:     *AddNotification,
+		GetRecommendationsUC:  *GetRecommendations,
+		GetProfileStatsUC:     *GetProfileStats,
 		SearchProfileUC:       *SearchProfile,
+		GetAdminUC:            *GetAdmin,
 		Logger:                logger,
 	}, nil
 }
@@ -638,8 +689,13 @@ func NewSubHandler(
 	if err != nil {
 		return nil, err
 	}
+	UpdateBorder, err := usecase.NewUpdateBorderUseCase(subClient, logger)
+	if err != nil {
+		return nil, err
+	}
 	return &SubHandler{
-		AddSubUC: *AddSubscription,
-		Logger:   logger,
+		AddSubUC:       *AddSubscription,
+		UpdateBorderUC: *UpdateBorder,
+		Logger:         logger,
 	}, nil
 }

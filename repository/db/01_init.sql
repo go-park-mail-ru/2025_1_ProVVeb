@@ -47,7 +47,6 @@ CREATE TABLE users (
     email TEXT UNIQUE NOT NULL CHECK (LENGTH(email) <= 255)
     CHECK (email ~* '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
     phone TEXT UNIQUE CHECK (LENGTH(phone) <= 20),
-    CHECK (phone ~ '^\+\d{10,15}$'),
     password TEXT NOT NULL CHECK (LENGTH(password) >= 8 AND LENGTH(password) <= 255), 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -144,7 +143,7 @@ CREATE TABLE matches (
 
 CREATE TABLE subscriptions (
     sub_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL UNIQUE,
     sub_type BIGINT NOT NULL,
     transaction_data TEXT,
     border INT,

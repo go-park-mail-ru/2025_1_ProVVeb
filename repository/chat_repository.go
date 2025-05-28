@@ -93,8 +93,13 @@ const (
 		last_message,
 		last_sender 
 	FROM chats 
-	WHERE (first_profile_id = $1 OR second_profile_id = $1);
+	WHERE (first_profile_id = $1 OR second_profile_id = $1)
+	  AND NOT EXISTS (
+		SELECT 1 FROM blacklist b 
+		WHERE b.user_id IN (first_profile_id, second_profile_id)
+	  );
 	`
+
 	GetProfileParams = `
 	SELECT 
 		p.firstname, 
@@ -504,7 +509,7 @@ func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Messag
 
 	var filtered []model.Message
 	for _, m := range messages {
-		if m.Status == 1 {
+		if m.Status == 1 || m.Status == -1 {
 			filtered = append(filtered, m)
 		}
 	}

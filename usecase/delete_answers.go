@@ -23,11 +23,11 @@ func NewDeleteAnswerUseCase(
 	return &DeleteAnswer{QueryService: queryService, logger: logger}, nil
 }
 
-func (uc *DeleteAnswer) DeleteAnswer(userID int, queryID int) error {
+func (uc *DeleteAnswer) DeleteAnswer(userID int, Query_name string) error {
 	uc.logger.Info("DeleteAnswer", "userID", userID)
 	req := &querypb.DeleteAnswerRequest{
-		UserId:  int64(userID),
-		QueryId: int64(queryID),
+		UserId:    int64(userID),
+		QueryName: Query_name,
 	}
 
 	_, err := uc.QueryService.DeleteAnswer(context.Background(), req)

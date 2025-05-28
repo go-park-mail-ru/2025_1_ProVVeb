@@ -15,16 +15,25 @@ import (
 
 type NotificationsRepository interface {
 	GetNotifications(userID int) ([]model.NotificationSend, error)
-	MarkNotifications(userID int) error
+	MarkNotifications(userID int, nofit_type string) error
 	DeleteNotifications(notification_id int, userID int) error
 
 	GetCurrentNotifications(userID int) ([]model.NotificationSend, error)
 	AddNotification(userID int, notif model.NotificationSend) error
 }
 
+type RedisClient interface {
+	LRange(ctx context.Context, key string, start, stop int64) *redis.StringSliceCmd
+	TxPipeline() redis.Pipeliner
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Close() error
+	Ping(ctx context.Context) *redis.StatusCmd
+	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
+}
+
 type NotificationsRepo struct {
 	DB     *sql.DB
-	Client *redis.Client
+	Client RedisClient
 	Ctx    context.Context
 }
 
@@ -104,17 +113,54 @@ func (nr *NotificationsRepo) GetNotifications(userID int) ([]model.NotificationS
 }
 
 const UpdateNotifications = `
-UPDATE notifications
+UPDATE notifications n
 SET read_at = CURRENT_TIMESTAMP
-WHERE user_id = $1;
+FROM notification_types nt
+WHERE n.notification_type = nt.notif_type
+  AND n.user_id = $1
+  AND nt.type_description = $2;
 `
 
-func (nr *NotificationsRepo) MarkNotifications(userID int) error {
-	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID)
+func (nr *NotificationsRepo) MarkNotifications(userID int, notifType string) error {
+	_, err := nr.DB.ExecContext(context.Background(), UpdateNotifications, userID, notifType)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	redisKey := fmt.Sprintf("CACHE:user:%dnotifications", userID)
+	fmt.Println(redisKey)
+
+	items, err := nr.Client.LRange(nr.Ctx, redisKey, 0, 99).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil
+		}
+		return err
+	}
+
+	notifications := make([]string, 0, len(items))
+	for _, item := range items {
+		var notif model.NotificationSend
+		if err := json.Unmarshal([]byte(item), &notif); err != nil {
+			continue
+		}
+		if notif.NotifType == notifType {
+			notif.Read = 1
+		}
+		updated, err := json.Marshal(notif)
+		if err != nil {
+			continue
+		}
+		notifications = append(notifications, string(updated))
+	}
+
+	pipe := nr.Client.TxPipeline()
+	pipe.Del(nr.Ctx, redisKey)
+	if len(notifications) > 0 {
+		pipe.RPush(nr.Ctx, redisKey, notifications)
+	}
+	_, err = pipe.Exec(nr.Ctx)
+	return err
 }
 
 const DeleteNotification = `

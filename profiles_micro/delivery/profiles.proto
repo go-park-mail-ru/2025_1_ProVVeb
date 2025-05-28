@@ -19,6 +19,23 @@ service ProfilesService {
     rpc SetProfileLike(SetProfileLikeRequest) returns (SetProfileLikeResponse);
 
     rpc SearchProfile(SearchProfileRequest) returns (SearchProfileResponse);
+
+    rpc GetProfileStats(GetProfileStatsRequest) returns (GetProfileStatsResponse);
+    rpc GetRecommendations(GetProfileRequest) returns (GetProfileResponse);
+}
+
+message GetProfileStatsRequest {
+    int32 profile_id = 1;
+}
+
+message GetProfileStatsResponse {
+    int32 likes_given = 1;
+    int32 likes_received = 2;
+    int32 matches = 3;
+    int32 complaints_made = 4;
+    int32 complaints_received = 5;
+    int32 messages_sent = 6;
+    int32 chat_count = 7;
 }
 
 message Preference {
