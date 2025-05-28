@@ -1,11 +1,7 @@
 package tests
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"image"
-	"image/png"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -13,9 +9,6 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/repository"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-	pgxmock "github.com/pashagolub/pgxmock/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	mockk "github.com/stretchr/testify/mock"
@@ -305,96 +298,96 @@ func TestGetProfileById(t *testing.T) {
 			expectedErr: true,
 		},
 	}
-// func TestGetProfileById(t *testing.T) {
-// 	tests := []struct {
-// 		name        string
-// 		profileID   int
-// 		mockRows    func(mock sqlmock.Sqlmock)
-// 		expected    model.Profile
-// 		expectedErr bool
-// 	}{
-// 		{
-// 			name:      "valid profile with all fields",
-// 			profileID: 1,
-// 			mockRows: func(mock sqlmock.Sqlmock) {
-// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
-// 					WithArgs(1).
-// 					WillReturnRows(sqlmock.NewRows([]string{
-// 						"profile_id", "firstname", "lastname", "is_male", "height",
-// 						"birthday", "description", "country", "city", "district",
-// 						"liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value",
-// 					}).AddRow(
-// 						1, "Иван", "Иванов", true, 180,
-// 						time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC), "Описание", "Россия", "Москва", "ЦАО",
-// 						sql.NullInt64{Int64: 2, Valid: true},
-// 						sql.NullString{String: "avatar.jpg", Valid: true},
-// 						sql.NullString{String: "Музыка", Valid: true},
-// 						sql.NullString{String: "Рост", Valid: true},
-// 						sql.NullString{String: "180+", Valid: true},
-// 					))
-// 			},
-// 			expected: model.Profile{
-// 				ProfileId:   1,
-// 				FirstName:   "Иван",
-// 				LastName:    "Иванов",
-// 				IsMale:      true,
-// 				Height:      180,
-// 				Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-// 				Description: "Описание",
-// 				Location:    "Россия@Москва@ЦАО",
-// 				LikedBy:     []int{2},
-// 				Photos:      []string{"avatar.jpg"},
-// 				Interests:   []string{"Музыка"},
-// 				Preferences: []model.Preference{
-// 					{Description: "Рост", Value: "180+"},
-// 				},
-// 			},
-// 			expectedErr: false,
-// 		},
-// 		{
-// 			name:      "empty profile (no data)",
-// 			profileID: 42,
-// 			mockRows: func(mock sqlmock.Sqlmock) {
-// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
-// 					WithArgs(42).
-// 					WillReturnRows(sqlmock.NewRows([]string{
-// 						"profile_id", "firstname", "lastname", "is_male", "height",
-// 						"birthday", "description", "country", "city", "district",
-// 						"liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value",
-// 					}))
-// 			},
-// 			expected:    model.Profile{},
-// 			expectedErr: false,
-// 		},
-// 		{
-// 			name:      "query error",
-// 			profileID: 99,
-// 			mockRows: func(mock sqlmock.Sqlmock) {
-// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
-// 					WithArgs(99).
-// 					WillReturnError(sql.ErrConnDone)
-// 			},
-// 			expected:    model.Profile{},
-// 			expectedErr: true,
-// 		},
-// 	}
+	// func TestGetProfileById(t *testing.T) {
+	// 	tests := []struct {
+	// 		name        string
+	// 		profileID   int
+	// 		mockRows    func(mock sqlmock.Sqlmock)
+	// 		expected    model.Profile
+	// 		expectedErr bool
+	// 	}{
+	// 		{
+	// 			name:      "valid profile with all fields",
+	// 			profileID: 1,
+	// 			mockRows: func(mock sqlmock.Sqlmock) {
+	// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
+	// 					WithArgs(1).
+	// 					WillReturnRows(sqlmock.NewRows([]string{
+	// 						"profile_id", "firstname", "lastname", "is_male", "height",
+	// 						"birthday", "description", "country", "city", "district",
+	// 						"liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value",
+	// 					}).AddRow(
+	// 						1, "Иван", "Иванов", true, 180,
+	// 						time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC), "Описание", "Россия", "Москва", "ЦАО",
+	// 						sql.NullInt64{Int64: 2, Valid: true},
+	// 						sql.NullString{String: "avatar.jpg", Valid: true},
+	// 						sql.NullString{String: "Музыка", Valid: true},
+	// 						sql.NullString{String: "Рост", Valid: true},
+	// 						sql.NullString{String: "180+", Valid: true},
+	// 					))
+	// 			},
+	// 			expected: model.Profile{
+	// 				ProfileId:   1,
+	// 				FirstName:   "Иван",
+	// 				LastName:    "Иванов",
+	// 				IsMale:      true,
+	// 				Height:      180,
+	// 				Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+	// 				Description: "Описание",
+	// 				Location:    "Россия@Москва@ЦАО",
+	// 				LikedBy:     []int{2},
+	// 				Photos:      []string{"avatar.jpg"},
+	// 				Interests:   []string{"Музыка"},
+	// 				Preferences: []model.Preference{
+	// 					{Description: "Рост", Value: "180+"},
+	// 				},
+	// 			},
+	// 			expectedErr: false,
+	// 		},
+	// 		{
+	// 			name:      "empty profile (no data)",
+	// 			profileID: 42,
+	// 			mockRows: func(mock sqlmock.Sqlmock) {
+	// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
+	// 					WithArgs(42).
+	// 					WillReturnRows(sqlmock.NewRows([]string{
+	// 						"profile_id", "firstname", "lastname", "is_male", "height",
+	// 						"birthday", "description", "country", "city", "district",
+	// 						"liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value",
+	// 					}))
+	// 			},
+	// 			expected:    model.Profile{},
+	// 			expectedErr: false,
+	// 		},
+	// 		{
+	// 			name:      "query error",
+	// 			profileID: 99,
+	// 			mockRows: func(mock sqlmock.Sqlmock) {
+	// 				mock.ExpectQuery(regexp.QuoteMeta(repository.GetProfileByIdQuery)).
+	// 					WithArgs(99).
+	// 					WillReturnError(sql.ErrConnDone)
+	// 			},
+	// 			expected:    model.Profile{},
+	// 			expectedErr: true,
+	// 		},
+	// 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockDB := new(MockDB)
 			tt.mockRows(mockDB)
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			db, mock, err := sqlmock.New()
-// 			assert.NoError(t, err)
-// 			defer db.Close()
+			// 	for _, tt := range tests {
+			// 		t.Run(tt.name, func(t *testing.T) {
+			// 			db, mock, err := sqlmock.New()
+			// 			assert.NoError(t, err)
+			// 			defer db.Close()
 
 			repo := &repository.ProfileRepo{DB: mockDB}
 			profile, err := repo.GetProfileById(tt.profileID)
-// 			tt.mockRows(mock)
+			// 			tt.mockRows(mock)
 
-// 			repo := &repository.ProfileRepo{DB: db}
-// 			profile, err := repo.GetProfileById(tt.profileID)
+			// 			repo := &repository.ProfileRepo{DB: db}
+			// 			profile, err := repo.GetProfileById(tt.profileID)
 
 			if tt.expectedErr {
 				assert.Error(t, err)
@@ -487,40 +480,40 @@ func TestGetProfileById(t *testing.T) {
 func TestSQL_StoreInterests(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestSQL_StoreInterests(t *testing.T) {
-// 	db, mock, err := sqlmock.New()
-// 	require.NoError(t, err)
-// 	defer db.Close()
+	// func TestSQL_StoreInterests(t *testing.T) {
+	// 	db, mock, err := sqlmock.New()
+	// 	require.NoError(t, err)
+	// 	defer db.Close()
 
-// 	repo := &repository.ProfileRepo{DB: db}
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	mock.ExpectBegin()
+	// 	mock.ExpectBegin()
 
 	mockDB.On("Query", mock.Anything,
 		`SELECT interest_id FROM interests WHERE description = $1`,
 		[]interface{}{"Музыка"}).
 		Return(&MockRows{}, sql.ErrNoRows)
-// 	mock.ExpectQuery(`SELECT interest_id FROM interests WHERE description = \$1`).
-// 		WithArgs("Музыка").
-// 		WillReturnError(sql.ErrNoRows)
+		// 	mock.ExpectQuery(`SELECT interest_id FROM interests WHERE description = \$1`).
+		// 		WithArgs("Музыка").
+		// 		WillReturnError(sql.ErrNoRows)
 
 	mockDB.On("Query", mock.Anything,
 		`INSERT INTO interests (description) VALUES ($1) RETURNING interest_id`,
 		[]interface{}{"Музыка"}).
 		Return(&MockRows{data: [][]interface{}{{3}}}, nil)
-// 	mock.ExpectQuery(`INSERT INTO interests \(description\) VALUES \(\$1\) RETURNING interest_id`).
-// 		WithArgs("Музыка").
-// 		WillReturnRows(sqlmock.NewRows([]string{"interest_id"}).AddRow(3))
+		// 	mock.ExpectQuery(`INSERT INTO interests \(description\) VALUES \(\$1\) RETURNING interest_id`).
+		// 		WithArgs("Музыка").
+		// 		WillReturnRows(sqlmock.NewRows([]string{"interest_id"}).AddRow(3))
 
 	mockDB.On("Exec", mock.Anything,
 		`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`,
 		[]interface{}{1, 3}).
 		Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
-// 	mock.ExpectExec(`INSERT INTO profile_interests \(profile_id, interest_id\) VALUES \(\$1, \$2\)`).
-// 		WithArgs(1, 3).
-// 		WillReturnResult(sqlmock.NewResult(1, 1))
+		// 	mock.ExpectExec(`INSERT INTO profile_interests \(profile_id, interest_id\) VALUES \(\$1, \$2\)`).
+		// 		WithArgs(1, 3).
+		// 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-// 	mock.ExpectCommit()
+		// 	mock.ExpectCommit()
 
 	err := repo.StoreInterests(1, []string{"Музыка"})
 	require.NoError(t, err)
@@ -561,6 +554,7 @@ func TestSQL_DeleteProfile(t *testing.T) {
 	require.NoError(t, err)
 	mockDB.AssertExpectations(t)
 }
+
 // func TestSQL_DeleteProfile(t *testing.T) {
 // 	db, mock, err := sqlmock.New()
 // 	require.NoError(t, err)
@@ -638,15 +632,15 @@ func ProfilesTestInitPostgresConfig(t *testing.T) {
 func TestStorePhotos(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestStorePhotos(t *testing.T) {
-// 	db, mock, _ := sqlmock.New()
-// 	defer db.Close()
-// 	repo := &repository.ProfileRepo{DB: db}
+	// func TestStorePhotos(t *testing.T) {
+	// 	db, mock, _ := sqlmock.New()
+	// 	defer db.Close()
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	photos := []string{
-// 		"photo1.jpg",
-// 		"photo2.jpg",
-// 	}
+	// 	photos := []string{
+	// 		"photo1.jpg",
+	// 		"photo2.jpg",
+	// 	}
 
 	for _, p := range photos {
 		mockDB.On("Exec", mock.Anything,
@@ -656,16 +650,17 @@ func TestStorePhotos(t *testing.T) {
 			[]interface{}{1, p}).
 			Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
 	}
-// 	for _, p := range photos {
-// 		mock.ExpectExec(`INSERT INTO static`).
-// 			WithArgs(1, p).
-// 			WillReturnResult(sqlmock.NewResult(1, 1))
-// 	}
+	// 	for _, p := range photos {
+	// 		mock.ExpectExec(`INSERT INTO static`).
+	// 			WithArgs(1, p).
+	// 			WillReturnResult(sqlmock.NewResult(1, 1))
+	// 	}
 
 	err := repo.StorePhotos(1, photos)
 	assert.NoError(t, err)
 	mockDB.AssertExpectations(t)
 }
+
 // 	err := repo.StorePhotos(1, photos)
 // 	assert.NoError(t, err)
 // 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -674,12 +669,12 @@ func TestStorePhotos(t *testing.T) {
 func TestSetLike(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestSetLike(t *testing.T) {
-// 	db, mock, _ := sqlmock.New()
-// 	defer db.Close()
-// 	repo := &repository.ProfileRepo{DB: db}
+	// func TestSetLike(t *testing.T) {
+	// 	db, mock, _ := sqlmock.New()
+	// 	defer db.Close()
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	fromID, toID, status := 1, 2, 1
+	// 	fromID, toID, status := 1, 2, 1
 
 	mockDB.On("Query", mock.Anything,
 		mock.MatchedBy(func(sql string) bool {
@@ -687,9 +682,9 @@ func TestSetLike(t *testing.T) {
 		}),
 		[]interface{}{fromID, toID}).
 		Return(&MockRows{data: [][]interface{}{}}, nil)
-// 	mock.ExpectQuery(`SELECT like_id, status FROM likes`).
-// 		WithArgs(fromID, toID).
-// 		WillReturnRows(sqlmock.NewRows([]string{}))
+		// 	mock.ExpectQuery(`SELECT like_id, status FROM likes`).
+		// 		WithArgs(fromID, toID).
+		// 		WillReturnRows(sqlmock.NewRows([]string{}))
 
 	mockDB.On("Query", mock.Anything,
 		mock.MatchedBy(func(sql string) bool {
@@ -698,9 +693,9 @@ func TestSetLike(t *testing.T) {
 		}),
 		[]interface{}{fromID, toID, status}).
 		Return(&MockRows{data: [][]interface{}{{1}}}, nil)
-// 	mock.ExpectQuery(`INSERT INTO likes .* RETURNING like_id`).
-// 		WithArgs(fromID, toID, status).
-// 		WillReturnRows(sqlmock.NewRows([]string{"like_id"}).AddRow(1))
+		// 	mock.ExpectQuery(`INSERT INTO likes .* RETURNING like_id`).
+		// 		WithArgs(fromID, toID, status).
+		// 		WillReturnRows(sqlmock.NewRows([]string{"like_id"}).AddRow(1))
 
 	_, err := repo.SetLike(fromID, toID, status)
 	assert.NoError(t, err)
@@ -754,12 +749,12 @@ func TestSetLike(t *testing.T) {
 func TestGetPhotos(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestGetPhotos(t *testing.T) {
-// 	db, mock, _ := sqlmock.New()
-// 	defer db.Close()
-// 	repo := &repository.ProfileRepo{DB: db}
+	// func TestGetPhotos(t *testing.T) {
+	// 	db, mock, _ := sqlmock.New()
+	// 	defer db.Close()
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	userID := 1
+	// 	userID := 1
 
 	expectedSQL := `SELECT path FROM static WHERE profile_id = ( SELECT profile_id FROM users WHERE user_id = $1 )`
 	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{userID}).
@@ -769,11 +764,11 @@ func TestGetPhotos(t *testing.T) {
 				{"photo2.jpg"},
 			},
 		}, nil)
-// 	mock.ExpectQuery(`SELECT path FROM static WHERE profile_id = \( SELECT profile_id FROM users WHERE user_id = \$1 \)`).
-// 		WithArgs(userID).
-// 		WillReturnRows(sqlmock.NewRows([]string{"path"}).
-// 			AddRow("photo1.jpg").
-// 			AddRow("photo2.jpg"))
+		// 	mock.ExpectQuery(`SELECT path FROM static WHERE profile_id = \( SELECT profile_id FROM users WHERE user_id = \$1 \)`).
+		// 		WithArgs(userID).
+		// 		WillReturnRows(sqlmock.NewRows([]string{"path"}).
+		// 			AddRow("photo1.jpg").
+		// 			AddRow("photo2.jpg"))
 
 	photos, err := repo.GetPhotos(userID)
 
@@ -783,6 +778,7 @@ func TestGetPhotos(t *testing.T) {
 	assert.Equal(t, "photo2.jpg", photos[1])
 	mockDB.AssertExpectations(t)
 }
+
 // 	photos, err := repo.GetPhotos(userID)
 // 	assert.NoError(t, err)
 // 	assert.Len(t, photos, 2)
@@ -794,14 +790,14 @@ func TestGetPhotos(t *testing.T) {
 func TestDeletePhoto(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestDeletePhoto(t *testing.T) {
-// 	db, mock, err := sqlmock.New()
-// 	if err != nil {
-// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
-// 	}
-// 	defer db.Close()
+	// func TestDeletePhoto(t *testing.T) {
+	// 	db, mock, err := sqlmock.New()
+	// 	if err != nil {
+	// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
+	// 	}
+	// 	defer db.Close()
 
-// 	repo := &repository.ProfileRepo{DB: db}
+	// 	repo := &repository.ProfileRepo{DB: db}
 
 	profileID := 1
 	photoPath := "image.png"
@@ -809,12 +805,12 @@ func TestDeletePhoto(t *testing.T) {
 	expectedSQL := `DELETE FROM "static" WHERE profile_id = $1 AND path = $2`
 	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{profileID, "/" + photoPath}).
 		Return(pgconn.NewCommandTag("DELETE 1"), nil)
-// 	mock.ExpectExec(`DELETE FROM "static" WHERE profile_id = \$1 AND path = \$2`).
-// 		WithArgs(1, "/image.png").
-// 		WillReturnResult(sqlmock.NewResult(0, 1))
+		// 	mock.ExpectExec(`DELETE FROM "static" WHERE profile_id = \$1 AND path = \$2`).
+		// 		WithArgs(1, "/image.png").
+		// 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := repo.DeletePhoto(profileID, photoPath)
-// 	err = repo.DeletePhoto(1, "image.png")
+	// 	err = repo.DeletePhoto(1, "image.png")
 
 	assert.NoError(t, err)
 	mockDB.AssertExpectations(t)
@@ -890,32 +886,33 @@ func TestDeletePhoto(t *testing.T) {
 func TestStorePhoto(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestStorePhoto(t *testing.T) {
-// 	db, mock, err := sqlmock.New()
-// 	if err != nil {
-// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
-// 	}
-// 	defer db.Close()
+	// func TestStorePhoto(t *testing.T) {
+	// 	db, mock, err := sqlmock.New()
+	// 	if err != nil {
+	// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
+	// 	}
+	// 	defer db.Close()
 
-// 	repo := &repository.ProfileRepo{DB: db}
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	p := "image.jpg"
-// 	userID := 0
+	// 	p := "image.jpg"
+	// 	userID := 0
 
 	// Настраиваем ожидание INSERT запроса
 	expectedSQL := `INSERT INTO static (profile_id, path, created_at, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id, path, created_at`
 	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{userID, p}).
 		Return(pgconn.NewCommandTag("INSERT 1 1"), nil)
-// 	mock.ExpectExec(`^INSERT INTO static \(.+\) VALUES \(\$1, \$2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING profile_id, path, created_at;`).
-// 		WithArgs(userID, p).
-// 		WillReturnResult(sqlmock.NewResult(1, 1))
+		// 	mock.ExpectExec(`^INSERT INTO static \(.+\) VALUES \(\$1, \$2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING profile_id, path, created_at;`).
+		// 		WithArgs(userID, p).
+		// 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.StorePhoto(userID, p)
-// 	err = repo.StorePhoto(userID, p)
+	// 	err = repo.StorePhoto(userID, p)
 
 	assert.NoError(t, err)
 	mockDB.AssertExpectations(t)
 }
+
 // 	assert.NoError(t, err)
 // 	assert.NoError(t, mock.ExpectationsWereMet())
 // }
@@ -923,25 +920,25 @@ func TestStorePhoto(t *testing.T) {
 func TestStoreProfile(t *testing.T) {
 	mockDB := new(MockDB)
 	repo := &repository.ProfileRepo{DB: mockDB}
-// func TestStoreProfile(t *testing.T) {
-// 	db, mock, err := sqlmock.New()
-// 	if err != nil {
-// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
-// 	}
-// 	defer db.Close()
+	// func TestStoreProfile(t *testing.T) {
+	// 	db, mock, err := sqlmock.New()
+	// 	if err != nil {
+	// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
+	// 	}
+	// 	defer db.Close()
 
-// 	repo := &repository.ProfileRepo{DB: db}
+	// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	p := model.Profile{
-// 		ProfileId:   1,
-// 		FirstName:   "Иван",
-// 		LastName:    "Иванов",
-// 		IsMale:      true,
-// 		Height:      180,
-// 		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-// 		Description: "Привет, я Иван",
-// 		Location:    "Россия@Москва@Центральный",
-// 	}
+	// 	p := model.Profile{
+	// 		ProfileId:   1,
+	// 		FirstName:   "Иван",
+	// 		LastName:    "Иванов",
+	// 		IsMale:      true,
+	// 		Height:      180,
+	// 		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+	// 		Description: "Привет, я Иван",
+	// 		Location:    "Россия@Москва@Центральный",
+	// 	}
 
 	// Разбиваем location на составляющие
 	locationParts := strings.Split(p.Location, "@")
@@ -955,9 +952,9 @@ func TestStoreProfile(t *testing.T) {
 			data: [][]interface{}{{1}},
 			// columns: []string{"location_id"},
 		}, nil)
-// 	mock.ExpectQuery(`INSERT INTO locations \(country, city, district\) VALUES \(\$1, \$2, \$3\) RETURNING location_id`).
-// 		WithArgs("Россия", "Москва", "Центральный").
-// 		WillReturnRows(sqlmock.NewRows([]string{"location_id"}).AddRow(1))
+		// 	mock.ExpectQuery(`INSERT INTO locations \(country, city, district\) VALUES \(\$1, \$2, \$3\) RETURNING location_id`).
+		// 		WithArgs("Россия", "Москва", "Центральный").
+		// 		WillReturnRows(sqlmock.NewRows([]string{"location_id"}).AddRow(1))
 
 	// Мок для вставки профиля
 	mockDB.On("Query", mock.Anything,
@@ -975,20 +972,20 @@ func TestStoreProfile(t *testing.T) {
 			data: [][]interface{}{{1}},
 			// columns: []string{"profile_id"},
 		}, nil)
-// 	mock.ExpectQuery(`INSERT INTO profiles \(firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at\)`).
-// 		WithArgs(
-// 			p.FirstName,
-// 			p.LastName,
-// 			p.IsMale,
-// 			p.Birthday,
-// 			p.Height,
-// 			p.Description,
-// 			1,
-// 		).
-// 		WillReturnRows(sqlmock.NewRows([]string{"profile_id"}).AddRow(1))
+		// 	mock.ExpectQuery(`INSERT INTO profiles \(firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at\)`).
+		// 		WithArgs(
+		// 			p.FirstName,
+		// 			p.LastName,
+		// 			p.IsMale,
+		// 			p.Birthday,
+		// 			p.Height,
+		// 			p.Description,
+		// 			1,
+		// 		).
+		// 		WillReturnRows(sqlmock.NewRows([]string{"profile_id"}).AddRow(1))
 
 	_, err := repo.StoreProfile(p)
-// 	_, err = repo.StoreProfile(p)
+	// 	_, err = repo.StoreProfile(p)
 
 	assert.NoError(t, err)
 	mockDB.AssertExpectations(t)
@@ -1066,27 +1063,27 @@ func TestGetProfilesByUserId(t *testing.T) {
 			// 	"preference_description", "preference_value",
 			// },
 		}, nil)
-// func TestGetProfilesByUserId(t *testing.T) {
-// 	db, mock, err := sqlmock.New()
-// 	if err != nil {
-// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
-// 	}
-// 	defer db.Close()
+		// func TestGetProfilesByUserId(t *testing.T) {
+		// 	db, mock, err := sqlmock.New()
+		// 	if err != nil {
+		// 		t.Fatalf("Не удалось создать mock для базы данных: %v", err)
+		// 	}
+		// 	defer db.Close()
 
-// 	repo := &repository.ProfileRepo{DB: db}
+		// 	repo := &repository.ProfileRepo{DB: db}
 
-// 	rows := sqlmock.NewRows([]string{"profile_id", "firstname", "lastname", "is_male", "height", "birthday", "description", "country", "city", "district", "liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value"}).
-// 		AddRow(1, "Иван", "Иванов", true, 180, time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC), "Описание", "Россия", "Москва", "Центральный", 1, "avatar.jpg", "Технологии", "Предпочтение 1", "Высокое")
+		// 	rows := sqlmock.NewRows([]string{"profile_id", "firstname", "lastname", "is_male", "height", "birthday", "description", "country", "city", "district", "liked_by_profile_id", "avatar", "interest", "preference_description", "preference_value"}).
+		// 		AddRow(1, "Иван", "Иванов", true, 180, time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC), "Описание", "Россия", "Москва", "Центральный", 1, "avatar.jpg", "Технологии", "Предпочтение 1", "Высокое")
 
-// 	mock.ExpectQuery(`SELECT p.profile_id, p.firstname, p.lastname, p.is_male, p.height, p.birthday, p.description, l.country, l.city, l.district, liked.profile_id AS liked_by_profile_id, s.path AS avatar, i.description AS interest, pr.preference_description, pr.preference_value FROM profiles p LEFT JOIN locations l ON p.location_id = l.location_id LEFT JOIN "static" s ON p.profile_id = s.profile_id LEFT JOIN profile_interests pi ON pi.profile_id = p.profile_id LEFT JOIN interests i ON pi.interest_id = i.interest_id LEFT JOIN profile_preferences pp ON pp.profile_id = p.profile_id LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id WHERE p.profile_id = \$1`).
-// 		WithArgs(1).
-// 		WillReturnRows(rows)
+		// 	mock.ExpectQuery(`SELECT p.profile_id, p.firstname, p.lastname, p.is_male, p.height, p.birthday, p.description, l.country, l.city, l.district, liked.profile_id AS liked_by_profile_id, s.path AS avatar, i.description AS interest, pr.preference_description, pr.preference_value FROM profiles p LEFT JOIN locations l ON p.location_id = l.location_id LEFT JOIN "static" s ON p.profile_id = s.profile_id LEFT JOIN profile_interests pi ON pi.profile_id = p.profile_id LEFT JOIN interests i ON pi.interest_id = i.interest_id LEFT JOIN profile_preferences pp ON pp.profile_id = p.profile_id LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id WHERE p.profile_id = \$1`).
+		// 		WithArgs(1).
+		// 		WillReturnRows(rows)
 
-// 	repo.GetProfilesByUserId(0)
+		// 	repo.GetProfilesByUserId(0)
 
-// 	mock.ExpectQuery(`SELECT .* FROM profiles .* WHERE p.profile_id = \$1`).
-// 		WithArgs(2).
-// 		WillReturnRows(rows)
+		// 	mock.ExpectQuery(`SELECT .* FROM profiles .* WHERE p.profile_id = \$1`).
+		// 		WithArgs(2).
+		// 		WillReturnRows(rows)
 
 	profiles, err := repo.GetProfilesByUserId(1)
 	assert.NoError(t, err)
@@ -1103,6 +1100,7 @@ func TestGetProfilesByUserId(t *testing.T) {
 
 	mockDB.AssertExpectations(t)
 }
+
 // 	profiles, err := repo.GetProfilesByUserId(1)
 // 	assert.NoError(t, err)
 // 	assert.Len(t, profiles, 0)
@@ -1336,7 +1334,7 @@ func TestUpdateProfile(t *testing.T) {
 	mockDB.On("Query", mock.Anything, repository.GetLocationID,
 		[]interface{}{locationParts[0], locationParts[1], locationParts[2]}).
 		Return(&MockRows{
-			data:    [][]interface{}{},
+			data: [][]interface{}{},
 		}, nil)
 
 	mockDB.On("Exec", mock.Anything, repository.InsertLocation,
@@ -1355,7 +1353,7 @@ func TestUpdateProfile(t *testing.T) {
 	mockDB.On("Query", mock.Anything, repository.GetInterestIdByDescription,
 		[]interface{}{"Sport"}).
 		Return(&MockRows{
-			data:    [][]interface{}{{1}},
+			data: [][]interface{}{{1}},
 		}, nil)
 
 	mockDB.On("Exec", mock.Anything, repository.InsertProfileInterest,
@@ -1363,7 +1361,7 @@ func TestUpdateProfile(t *testing.T) {
 		Return(pgconn.NewCommandTag("INSERT 1"), nil)
 
 	mockDB.On("Commit", mock.Anything).Return(nil)
-// 	mock.ExpectCommit()
+	// 	mock.ExpectCommit()
 
 	newProfile := model.Profile{
 		FirstName:   "John",
@@ -1375,20 +1373,21 @@ func TestUpdateProfile(t *testing.T) {
 		Interests:   []string{"Sport"},
 		Birthday:    birthday,
 	}
-// 	newProfile := model.Profile{
-// 		FirstName:   "John",
-// 		LastName:    "Doe",
-// 		IsMale:      true,
-// 		Height:      180,
-// 		Description: "Updated Description",
-// 		Location:    "Russia@Moscow@Centra",
-// 		Interests:   []string{"Sport"},
-// 	}
+	// 	newProfile := model.Profile{
+	// 		FirstName:   "John",
+	// 		LastName:    "Doe",
+	// 		IsMale:      true,
+	// 		Height:      180,
+	// 		Description: "Updated Description",
+	// 		Location:    "Russia@Moscow@Centra",
+	// 		Interests:   []string{"Sport"},
+	// 	}
 
 	err := repo.UpdateProfile(100, newProfile)
 	require.NoError(t, err)
-// 	repo.UpdateProfile(100, newProfile)
+	// 	repo.UpdateProfile(100, newProfile)
 
 	mockDB.AssertExpectations(t)
 }
+
 // }
