@@ -63,8 +63,7 @@ jobs:
         docker build -t forus809/beameye:latest -f ./Dockerfile .
         docker push forus809/beameye:latest
   deploy:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     needs: [ build, build-db-and-backend ]
     steps:
