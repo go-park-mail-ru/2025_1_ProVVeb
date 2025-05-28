@@ -40,11 +40,16 @@ jobs:
       with:
         username: ${{ vars.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-  
+
     - name: build and push ${{ matrix.image }}
       run: |
         docker build -t forus809/${{ matrix.image }}:latest -f ./${{ matrix.image }}/Dockerfile .
         docker push forus809/${{ matrix.image }}:latest
+
+  build-db-and-backend:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    runs-on: ubuntu-latest
+    steps:
     - name: build and push postgre
       run: |
         docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
