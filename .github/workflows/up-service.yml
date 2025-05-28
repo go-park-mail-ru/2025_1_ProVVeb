@@ -6,7 +6,7 @@ on:
   pull_request:
 jobs:
   test:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
         # make test
         echo "TESTING AHAHAHHAHAH"
   lint:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -28,12 +28,11 @@ jobs:
         # make lint
         echo "LINTerING AHAHAHHAHAH"
   build:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     needs: [ test, lint ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "postgre", "beameye" ]
         image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro" ]
     steps:
     - uses: actions/checkout@v4
@@ -50,7 +49,7 @@ jobs:
 
   build-db-and-backend:
     needs: [ test, lint ]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
