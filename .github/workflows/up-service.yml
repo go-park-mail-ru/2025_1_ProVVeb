@@ -47,6 +47,7 @@ jobs:
         docker push forus809/${{ matrix.image }}:latest
 
   build-db-and-backend:
+    needs: [ test, lint ]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-latest
     steps:
