@@ -58,14 +58,13 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: build and push db backend
       run: |
-        ls
         docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
         docker push forus809/postgre:latest
         docker build -t forus809/beameye:latest -f ./Dockerfile .
         docker push forus809/beameye:latest
   deploy:
-    # if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    # if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [ build, build-db-and-backend ]
     steps:
@@ -75,8 +74,9 @@ jobs:
         # cd ./beameye
         # docker-compose pull # проверить
         # docker-compose up 
-        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
           cd ./beameye
-          docker-compose pull
-          docker-compose up -d
-        "
+          touch successful-ssh.txt
+          sudo docker-compose pull
+          sudo docker-compose up -d --build
+        EOF
