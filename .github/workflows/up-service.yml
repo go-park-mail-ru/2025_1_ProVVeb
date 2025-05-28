@@ -40,6 +40,7 @@ jobs:
       with:
         username: ${{ vars.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+  
     - name: build and push ${{ matrix.image }}
       run: |
         docker build -t forus809/${{ matrix.image }}:latest -f ./${{ matrix.image }}/Dockerfile .
