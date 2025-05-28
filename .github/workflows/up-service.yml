@@ -6,29 +6,56 @@ on:
   pull_request:
 jobs:
   test:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch-type:
+        - 'refs/heads/main'
+        - 'refs/heads/dev'
+        - 'refs/heads/ci'
+        include:
+        - branch-type: 'refs/heads/main'
+          run: |
+            make test
+        - branch-type: 'refs/heads/dev'
+          run: |
+            make test
+        - branch-type: 'refs/heads/ci'
+          run: |
+            # make test
+            echo "TESTING AHAHAHHAHAH"
     steps:
     - uses: actions/checkout@v4
     - name: test
       run: |
-        # make test
-        echo "TESTING AHAHAHHAHAH"
+        ${{ matrix.run }}            
   lint:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch-type:
+        - 'refs/heads/main'
+        - 'refs/heads/dev'
+        - 'refs/heads/ci'
+        include:
+        - branch-type: 'refs/heads/main'
+          uses: golangci/golangci-lint-action@v8
+          with:
+            version: v2.1
+        - branch-type: 'refs/heads/dev'
+          uses: golangci/golangci-lint-action@v8
+          with:
+            version: v2.1
+        - branch-type: 'refs/heads/ci'
+          run: |
+            # make lint
+            echo "LINTerING AHAHAHHAHAH"
     steps:
     - uses: actions/checkout@v4
-    # - name: golangci-lint
-    #   uses: golangci/golangci-lint-action@v8
-    #   with:
-    #     version: v2.1
-    - name: linter
+    - name: lint
       run: |
-        # make lint
-        echo "LINTerING AHAHAHHAHAH"
+        ${{ matrix.run }}
   build:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     needs: [ test, lint ]
     runs-on: ubuntu-latest
     strategy:
@@ -49,7 +76,6 @@ jobs:
 
   build-db-and-backend:
     needs: [ test, lint ]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
