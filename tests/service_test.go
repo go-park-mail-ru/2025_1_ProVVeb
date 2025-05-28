@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	staticrepo "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
