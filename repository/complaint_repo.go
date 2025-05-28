@@ -162,15 +162,18 @@ WITH filtered_complaints AS (
       AND ($3 = '' OR LOWER(ct.type_description) = LOWER($3))
       AND ($4 = 0 OR c.status = $4)
       AND (
-          $5 = '' OR (
-              similarity(cb.login, $5) > 0.3
-              OR LOWER(cb.login) LIKE LOWER($5 || '%')
+          ($5 = '' AND $6 = '')
+          OR (
+              $5 <> '' AND (
+                  similarity(cb.login, $5) > 0.3
+                  OR LOWER(cb.login) LIKE LOWER($5 || '%')
+              )
           )
-      )
-      AND (
-          $6 = '' OR (
-              similarity(co.login, $6) > 0.3
-              OR LOWER(co.login) LIKE LOWER($6 || '%')
+          OR (
+              $6 <> '' AND (
+                  similarity(co.login, $6) > 0.3
+                  OR LOWER(co.login) LIKE LOWER($6 || '%')
+              )
           )
       )
 )
@@ -186,6 +189,7 @@ SELECT
     closed_at
 FROM filtered_complaints
 ORDER BY created_at DESC;
+
 
 `
 
