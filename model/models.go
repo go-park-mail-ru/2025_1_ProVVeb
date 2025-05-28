@@ -194,6 +194,10 @@ type FlowersPayload struct {
 	UserID int `json:"user_id"`
 }
 
+type ReadNotifPayload struct {
+	NotifType string `json:"notif_type"`
+}
+
 type ComplaintWithLogins struct {
 	ComplaintID   int64      `json:"complaint_id"`
 	ComplaintBy   string     `json:"complaint_by"`

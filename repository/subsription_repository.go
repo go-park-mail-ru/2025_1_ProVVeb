@@ -11,7 +11,8 @@ import (
 )
 
 type SubsriptionRepository interface {
-	CreateSub(userID int, sub_type int) error
+	CreateSub(userID int, subType int, data string) error
+	UpdateBorder(userID int, new_border int) error
 }
 
 type SubRepo struct {
@@ -47,18 +48,41 @@ func NewSubRepo() (*SubRepo, error) {
 }
 
 const CreateSubQuery = `
-INSERT INTO subscriptions (user_id, sub_type, expires_at)
+INSERT INTO subscriptions (user_id, sub_type, expires_at, transaction_data)
 VALUES (
     $1,
     2,
-    NOW() + make_interval(days := 3 + 30 * $2)
-);
+    NOW() + make_interval(days := 3 + 30 * $2),
+    $3
+)
+ON CONFLICT (user_id) DO UPDATE
+SET 
+    sub_type = EXCLUDED.sub_type,
+    expires_at = EXCLUDED.expires_at,
+    transaction_data = EXCLUDED.transaction_data,
+    created_at = CURRENT_TIMESTAMP;
+
 `
 
-func (sr *SubRepo) CreateSub(userID int, subType int) error {
-	_, err := sr.DB.ExecContext(context.Background(), CreateSubQuery, userID, subType)
+func (sr *SubRepo) CreateSub(userID int, subType int, data string) error {
+	_, err := sr.DB.ExecContext(context.Background(), CreateSubQuery, userID, subType, data)
 	if err != nil {
 		return fmt.Errorf("failed to create subscription: %w", err)
+	}
+	return nil
+}
+
+const UpdateBorderQuery = `
+UPDATE subscriptions
+		SET border = $1
+		WHERE user_id = $2;
+
+`
+
+func (sr *SubRepo) UpdateBorder(userID int, new_border int) error {
+	_, err := sr.DB.ExecContext(context.Background(), UpdateBorderQuery, new_border, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update border: %w", err)
 	}
 	return nil
 }

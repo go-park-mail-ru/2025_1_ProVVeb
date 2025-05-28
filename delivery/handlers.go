@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/logger"
@@ -30,8 +31,10 @@ type SessionHandler struct {
 }
 
 type SubHandler struct {
-	AddSubUC usecase.AddSubscription
-	Logger   *logger.LogrusLogger
+	AddSubUC       usecase.AddSubscription
+	UpdateBorderUC usecase.UpdateBorder
+
+	Logger *logger.LogrusLogger
 }
 
 type UserHandler struct {
@@ -250,16 +253,22 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			}(payload)
 
 		case "read":
+			var payload model.ReadNotifPayload
+			if err := json.Unmarshal(wsMessage.Payload, &payload); err != nil {
+				mh.Logger.Error("Failed to unmarshal payload: ", err)
+				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
+				break
+			}
 			messageReceived.WithLabelValues().Inc()
-			go func() {
-				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId))
+			go func(payload model.ReadNotifPayload) {
+				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId), payload.NotifType)
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
 					return
 				}
 				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
-			}()
+			}(payload)
 
 		default:
 			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
@@ -1769,7 +1778,7 @@ func (ph *ProfilesHandler) GetProfiles(w http.ResponseWriter, r *http.Request) {
 
 		if viewCount >= model.MaxProfileViewsWithoutSub {
 			MakeResponse(w, http.StatusAccepted,
-				map[string]string{"message": "Thats it"},
+				map[string]string{"message": "Иди потрогай траву"},
 			)
 			return
 		}
@@ -2479,19 +2488,116 @@ func (sh *SubHandler) AddSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var AddSubscription struct {
-		Subscription_Type int `json:"sub_type"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&AddSubscription); err != nil {
-		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+	var label string
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		var req struct {
+			Label string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid JSON"})
+			return
+		}
+		label = req.Label
+	} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid form"})
+			return
+		}
+
+		label = r.FormValue("label")
+	} else {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid content type"})
 		return
 	}
 
-	if err := sh.AddSubUC.CreateSub(int(user_id), AddSubscription.Subscription_Type); err != nil {
+	sub_id, err := strconv.Atoi(label)
+	if err != nil {
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "Invalid label format"})
+		return
+	}
+
+	var builder strings.Builder
+	for key, values := range r.Form {
+		if key == "label" {
+			continue
+		}
+		for _, v := range values {
+			builder.WriteString(fmt.Sprintf("%s=%s; ", key, v))
+		}
+	}
+
+	combined := builder.String()
+
+	if err := sh.AddSubUC.CreateSub(int(user_id), sub_id, combined); err != nil {
 		fmt.Println(err)
 		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": "Failed to save user data"})
 		return
 	}
 
 	MakeResponse(w, http.StatusCreated, map[string]string{"message": "Subsr created"})
+}
+
+func (sh *SubHandler) ChangeBorder(w http.ResponseWriter, r *http.Request) {
+	sh.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+	}).Info("SetLike request started")
+
+	userIDRaw := r.Context().Value(userIDKey)
+	profileId, ok := userIDRaw.(uint32)
+	if !ok {
+		sh.Logger.WithFields(&logrus.Fields{
+			"error": "missing or invalid userID in context",
+		}).Warn("unauthorized access attempt")
+
+		MakeResponse(w, http.StatusUnauthorized,
+			map[string]string{"message": "You don't have access"},
+		)
+		return
+	}
+
+	IsPremiumRaw := r.Context().Value(isPremiumKey)
+	IsPremium, _ := IsPremiumRaw.(bool)
+
+	var input struct {
+		NewBorder int `json:"new_border"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"error":      err.Error(),
+		}).Warn("failed to decode like request body")
+
+		MakeResponse(w, http.StatusBadRequest,
+			map[string]string{"message": "Invalid JSON data"},
+		)
+		return
+	}
+
+	if !IsPremium {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"new_border": input.NewBorder,
+		}).Warn("no premium")
+
+		MakeResponse(w, http.StatusBadRequest, map[string]string{"message": "You cannot update border with no subscription"})
+		return
+	}
+
+	err := sh.UpdateBorderUC.UpdateBorder(int(profileId), input.NewBorder)
+	if err != nil {
+		sh.Logger.WithFields(&logrus.Fields{
+			"profile_id": profileId,
+			"new_border": input.NewBorder,
+			"error":      err.Error(),
+		}).Error("failed to set like")
+
+		MakeResponse(w, http.StatusInternalServerError, map[string]string{"message": fmt.Sprintf("Error getting like: %v", err)})
+		return
+	}
+
+	MakeResponse(w, http.StatusOK, map[string]string{"message": "Changed"})
 }

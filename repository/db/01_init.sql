@@ -144,7 +144,7 @@ CREATE TABLE matches (
 
 CREATE TABLE subscriptions (
     sub_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL UNIQUE,
     sub_type BIGINT NOT NULL,
     transaction_data TEXT,
     border INT,

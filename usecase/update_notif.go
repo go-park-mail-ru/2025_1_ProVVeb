@@ -15,9 +15,9 @@ func NewUpdateNotificationStatusUseCase(notifRepo repository.NotificationsReposi
 	return &UpdateNotificationStatus{notifRepo: notifRepo, logger: logger}, nil
 }
 
-func (gp *UpdateNotificationStatus) UpdateNotificatons(userID int) error {
+func (gp *UpdateNotificationStatus) UpdateNotificatons(userID int, nofit_type string) error {
 	gp.logger.Info("UpdateNotificatons", "userID", userID)
-	err := gp.notifRepo.MarkNotifications(userID)
+	err := gp.notifRepo.MarkNotifications(userID, nofit_type)
 	if err != nil {
 		gp.logger.Error("UpdateNotificatons", "userID", userID, "error", err)
 	} else {

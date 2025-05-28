@@ -232,11 +232,12 @@ func Run() {
 	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
 
-	subscriptionSubrouter := r.PathPrefix("/subsription").Subrouter()
+	subscriptionSubrouter := r.PathPrefix("/subscription").Subrouter()
 	subscriptionSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	subscriptionSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	subscriptionSubrouter.HandleFunc("", subscripHandler.AddSubscription).Methods("POST")
+	subscriptionSubrouter.HandleFunc("/changeborder", subscripHandler.ChangeBorder).Methods("POST")
 
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{
@@ -638,8 +639,13 @@ func NewSubHandler(
 	if err != nil {
 		return nil, err
 	}
+	UpdateBorder, err := usecase.NewUpdateBorderUseCase(subClient, logger)
+	if err != nil {
+		return nil, err
+	}
 	return &SubHandler{
-		AddSubUC: *AddSubscription,
-		Logger:   logger,
+		AddSubUC:       *AddSubscription,
+		UpdateBorderUC: *UpdateBorder,
+		Logger:         logger,
 	}, nil
 }
