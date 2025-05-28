@@ -1195,7 +1195,7 @@ func (pr *ProfileRepo) SearchProfiles(cur_user int, params model.SearchProfileRe
 	return results, nil
 }
 
-const getStaticticsQuery = `
+const GetStaticticsQuery = `
 SELECT 
 	COUNT(DISTINCT l.like_id) FILTER (WHERE l.profile_id = p.profile_id) AS likes_given,
 	COUNT(DISTINCT l2.like_id) FILTER (WHERE l2.liked_profile_id = p.profile_id) AS likes_received,
@@ -1218,7 +1218,7 @@ WHERE p.profile_id = $1;
 
 func (r *ProfileRepo) GetProfileStats(profileID int) (model.ProfileStats, error) {
 	var stats model.ProfileStats
-	err := r.DB.QueryRow(context.Background(), getStaticticsQuery, profileID).Scan(
+	err := r.DB.QueryRow(context.Background(), GetStaticticsQuery, profileID).Scan(
 		&stats.LikesGiven,
 		&stats.LikesReceived,
 		&stats.Matches,
@@ -1234,7 +1234,7 @@ func (r *ProfileRepo) GetProfileStats(profileID int) (model.ProfileStats, error)
 	return stats, nil
 }
 
-const getRecommendationsQuery = `
+const GetRecommendationsQuery = `
 SELECT 
     bp.profile_id,
     bp.firstname,
@@ -1323,7 +1323,7 @@ func (pr *ProfileRepo) GetRecomendations(profileId int) (model.Profile, error) {
 	var premiumBorder sql.NullInt64
 
 	ctx := context.Background()
-	rows, err := pr.DB.Query(ctx, getRecommendationsQuery, profileId)
+	rows, err := pr.DB.Query(ctx, GetRecommendationsQuery, profileId)
 	fmt.Println(err)
 
 	if err != nil {

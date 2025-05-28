@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -95,7 +96,17 @@ func (m *MockDB) Begin(ctx context.Context) (pgx.Tx, error) {
 
 func (m *MockDB) Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
 	argsRet := m.Called(ctx, query, args)
-	return argsRet.Get(0).(pgconn.CommandTag), argsRet.Error(1)
+	ct := argsRet.Get(0)
+	if ct == nil {
+		var emptyTag pgconn.CommandTag
+		return emptyTag, argsRet.Error(1)
+
+	}
+	tag, ok := ct.(pgconn.CommandTag)
+	if !ok {
+		panic(fmt.Sprintf("expected pgconn.CommandTag, got %T", ct))
+	}
+	return tag, argsRet.Error(1)
 }
 
 func (m *MockDB) QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row {
@@ -103,103 +114,65 @@ func (m *MockDB) QueryRow(ctx context.Context, query string, args ...interface{}
 	return argsRet.Get(0).(pgx.Row)
 }
 
-type mockRow struct {
-	mock.Mock
-	values []interface{}
-}
-
-func (m *mockRow) Scan(dest ...interface{}) error {
-	for i := range dest {
-		switch d := dest[i].(type) {
-		case *int:
-			*d = m.values[i].(int)
-		default:
-			return fmt.Errorf("unsupported scan type %T", d)
-		}
-	}
-	return nil
-}
-
-type MockStaticRepo struct {
-	mock.Mock
-}
-
-func (m *MockStaticRepo) DeleteImage(userID int, filename string) error {
-	args := m.Called(userID, filename)
-	return args.Error(0)
-}
-
-type MockProfilesRepo struct {
-	mock.Mock
-}
-
-func (m *MockProfilesRepo) DeletePhoto(userID int, filename string) error {
-	args := m.Called(userID, filename)
-	return args.Error(0)
-}
-
 type MockRow struct {
-	err error
-	val int
-}
-
-func MockRowError(err error) *MockRow {
-	return &MockRow{err: err}
-}
-
-func MockRowResult(val int) *MockRow {
-	return &MockRow{val: val}
+	data []interface{}
+	err  error
 }
 
 func (r *MockRow) Scan(dest ...interface{}) error {
 	if r.err != nil {
 		return r.err
 	}
-	if len(dest) > 0 {
-		if ptr, ok := dest[0].(*int); ok {
-			*ptr = r.val
+	if len(dest) != len(r.data) {
+		return fmt.Errorf("Scan argument count %d does not match data count %d", len(dest), len(r.data))
+	}
+
+	for i := 0; i < len(dest); i++ {
+		if r.data[i] == nil {
+			switch d := dest[i].(type) {
+			case *int:
+				*d = 0
+			case *string:
+				*d = ""
+			case **time.Time:
+				*d = nil
+			case *bool:
+				*d = false
+			default:
+				return fmt.Errorf("unsupported nil scan type %T", d)
+			}
+			continue
+		}
+
+		switch d := dest[i].(type) {
+		case *int:
+			val, ok := r.data[i].(int)
+			if !ok {
+				return fmt.Errorf("expected int but got %T", r.data[i])
+			}
+			*d = val
+		case *string:
+			val, ok := r.data[i].(string)
+			if !ok {
+				return fmt.Errorf("expected string but got %T", r.data[i])
+			}
+			*d = val
+		case **time.Time:
+			val, ok := r.data[i].(*time.Time)
+			if !ok && r.data[i] != nil {
+				return fmt.Errorf("expected *time.Time but got %T", r.data[i])
+			}
+			*d = val
+		case *bool:
+			val, ok := r.data[i].(bool)
+			if !ok {
+				return fmt.Errorf("expected bool but got %T", r.data[i])
+			}
+			*d = val
+		default:
+			return fmt.Errorf("unsupported scan type %T", d)
 		}
 	}
+
 	return nil
-}
-
-type MockExecResult int
-
-func (r MockExecResult) RowsAffected() int64 {
-	return int64(r)
-}
-
-type MockTx struct {
-	mock.Mock
-}
-
-func (m *MockTx) Commit(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-func (m *MockTx) Rollback(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-func (m *MockTx) Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error) {
-	callArgs := []interface{}{ctx, query}
-	callArgs = append(callArgs, args...)
-	called := m.Called(callArgs...)
-	return called.Get(0).(pgconn.CommandTag), called.Error(1)
-}
-
-func (m *MockTx) Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error) {
-	callArgs := []interface{}{ctx, query}
-	callArgs = append(callArgs, args...)
-	called := m.Called(callArgs...)
-	return called.Get(0).(pgx.Rows), called.Error(1)
-}
-
-func (m *MockTx) QueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row {
-	callArgs := []interface{}{ctx, query}
-	callArgs = append(callArgs, args...)
-	called := m.Called(callArgs...)
-	return called.Get(0).(pgx.Row)
 }

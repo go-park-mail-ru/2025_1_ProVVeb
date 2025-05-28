@@ -22,9 +22,18 @@ type NotificationsRepository interface {
 	AddNotification(userID int, notif model.NotificationSend) error
 }
 
+type RedisClient interface {
+	LRange(ctx context.Context, key string, start, stop int64) *redis.StringSliceCmd
+	TxPipeline() redis.Pipeliner
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	Close() error
+	Ping(ctx context.Context) *redis.StatusCmd
+	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
+}
+
 type NotificationsRepo struct {
 	DB     *sql.DB
-	Client *redis.Client
+	Client RedisClient
 	Ctx    context.Context
 }
 

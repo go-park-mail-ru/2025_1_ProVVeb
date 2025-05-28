@@ -130,7 +130,7 @@ func Run() {
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, usersCon, notifClient.Client, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, usersCon, notifClient.Client.(*redis.Client), logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
@@ -142,7 +142,7 @@ func Run() {
 		return
 	}
 
-	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client, logger)
+	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client.(*redis.Client), logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with notificationHandler: %v", err))
 		return

@@ -109,7 +109,7 @@ test:
 	@echo "Обработка покрытия..."
 
 	# Добавляем условие для исключения файлов
-	cat $(COVERAGE_TMP) | grep -vE 'github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/tests/mock.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles_grpc.pb.go|/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/model/models_easyjson.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users_grpc.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles.pb.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
+	cat $(COVERAGE_TMP) | grep -vE 'github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/server/postgres_con.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/tests/mock.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/usecase/|github.com/go-park-mail-ru/2025_1_ProVVeb/usecase/|github.com/go-park-mail-ru/2025_1_ProVVeb/delivery/handlers.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/tests/mock.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles_grpc.pb.go|/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/model/models_easyjson.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users_grpc.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles.pb.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
 
 	go tool cover -func=$(COVERAGE_OUT)
 
