@@ -52,6 +52,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect

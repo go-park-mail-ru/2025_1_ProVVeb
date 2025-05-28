@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	staticrepo "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +36,7 @@ func TestInitPostgresConfig(t *testing.T) {
 }
 
 func NewStaticRepo(t *testing.T) {
-	repo, _ := repository.NewStaticRepo()
+	repo, _ := staticrepo.NewStaticRepo()
 	require.NotNil(t, repo)
 }
 

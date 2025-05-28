@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -34,8 +35,16 @@ type ProfileRepository interface {
 	CloseRepo()
 }
 
+type DBQuerier interface {
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type ProfileRepo struct {
-	DB     *pgxpool.Pool
+	DB     DBQuerier
 	Client *redis.Client
 }
 
@@ -611,7 +620,7 @@ SET
 	description = $5,
 	location_id = $6,
 	birthday = $7,    
-	goal = $8         
+	goal = $8,
 	updated_at = CURRENT_TIMESTAMP
 WHERE profile_id = $9;
 
@@ -871,7 +880,9 @@ func (pr *ProfileRepo) StorePhoto(userID int, url string) error {
 }
 
 func (pr *ProfileRepo) CloseRepo() {
-	ClosePostgresConnection(pr.DB)
+	if pool, ok := pr.DB.(*pgxpool.Pool); ok {
+		pool.Close()
+	}
 }
 
 const (
@@ -883,25 +894,26 @@ const (
 	CreateLikeQuery = `
 	INSERT INTO likes (profile_id, liked_profile_id, created_at, status)
 	VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
+	ON CONFLICT (profile_id, liked_profile_id)
+	DO UPDATE SET
+    	status = EXCLUDED.status,
+    	created_at = CURRENT_TIMESTAMP
 	RETURNING like_id;
+
 	`
 
 	CreateMatchQuery = `
 	INSERT INTO matches (profile_id, matched_profile_id, created_at)
 	VALUES ($1, $2, CURRENT_TIMESTAMP)
 	`
+	DeleteMatchQuery = `DELETE FROM matches WHERE 
+				(profile_id = $1 AND matched_profile_id = $2) OR 
+				(profile_id = $2 AND matched_profile_id = $1)`
 )
 
 func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err error) {
 	var existingID int
 	var existing_status int
-	err = pr.DB.QueryRow(context.Background(), CheckLikeExistsQuery, from, to).Scan(&existingID, &existing_status)
-	if err == nil {
-		return 0, nil
-	}
-	if err != pgx.ErrNoRows {
-		return 0, fmt.Errorf("error checking existing like: %w", err)
-	}
 	err = pr.DB.QueryRow(
 		context.Background(),
 		CreateLikeQuery,
@@ -960,6 +972,17 @@ func (pr *ProfileRepo) SetLike(from int, to int, status int) (likeID int, err er
 		likeID = -1
 	}
 
+	if status == 2 {
+		_, err = pr.DB.Exec(
+			context.Background(),
+			DeleteMatchQuery,
+			from, to,
+		)
+		if err != nil {
+			return likeID, fmt.Errorf("error deleting match on dislike: %w", err)
+		}
+	}
+
 	return likeID, nil
 }
 
@@ -987,6 +1010,7 @@ func (pr *ProfileRepo) StoreInterests(profileID int, interests []string) error {
 		if err != nil {
 			return err
 		}
+
 	}
 
 	return tx.Commit(ctx)
@@ -1099,6 +1123,8 @@ WITH filtered_profiles AS (
         OR similarity(p.fullname_translit, $11) > 0.3
         OR to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $11)
         OR to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $11)
+		OR LOWER(p.firstname) LIKE LOWER($11 || '%')
+		OR LOWER(p.lastname) LIKE LOWER($11 || '%')
     )
 )
 

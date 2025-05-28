@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	usersrepo "github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,7 +134,8 @@ func TestValidateLogin(t *testing.T) {
 		{"InvalidLogin$", model.ErrInvalidLogin},
 	}
 
-	uv, _ := repository.NewUParamsValidator()
+	// uv, _ := repository.NewUParamsValidator()
+	uv, _ := usersrepo.NewUserRepo()
 
 	for _, tt := range tests {
 		t.Run(tt.login, func(t *testing.T) {
@@ -155,7 +156,8 @@ func TestValidatePassword(t *testing.T) {
 		{"thisPasswordIsWayTooLongForTheSystem123456789012345678901234567890", model.ErrInvalidPasswordSize},
 	}
 
-	uv, _ := repository.NewUParamsValidator()
+	// uv, _ := repository.NewUParamsValidator()
+	uv, _ := usersrepo.NewUserRepo()
 
 	for _, tt := range tests {
 		t.Run(tt.password, func(t *testing.T) {
