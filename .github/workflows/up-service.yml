@@ -41,6 +41,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: build and push ${{ matrix.image }}
       run: |
+        ls
         docker build -t forus809/${{ matrix.image }}:latest -f ./backend/${{ matrix.image }}/Dockerfile .
         docker push forus809/${{ matrix.image }}:latest
   # deploy:
