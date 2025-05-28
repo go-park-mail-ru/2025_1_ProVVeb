@@ -360,7 +360,7 @@ WITH filtered_profiles AS (
         ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
     WHERE p.profile_id != $1 
       AND liked.profile_id IS NULL 
-      AND p.profile_id > $2
+      AND ($2 = 0 OR p.profile_id > $2)
     ORDER BY p.profile_id
     LIMIT $3
 )
