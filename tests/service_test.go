@@ -35,11 +35,6 @@ func TestInitPostgresConfig(t *testing.T) {
 	require.NotNil(t, connStr)
 }
 
-func NewStaticRepo(t *testing.T) {
-	repo, _ := staticrepo.NewStaticRepo()
-	require.NotNil(t, repo)
-}
-
 func InitPostgresConnection(t *testing.T) {
 	repo, _ := repository.InitPostgresConnection(repository.InitPostgresConfig())
 	require.NotNil(t, repo)
@@ -150,8 +145,8 @@ func TestInitPostgresConfigProf(t *testing.T) {
 	cfg := repository.InitPostgresConfig()
 	assert.Equal(t, "postgres", cfg.Host)
 	assert.Equal(t, 5432, cfg.Port)
-	assert.Equal(t, "postgres", cfg.User)
-	assert.Equal(t, "Grey31415", cfg.Password)
+	assert.Equal(t, "app_user", cfg.User)
+	assert.Equal(t, "your_secure_password", cfg.Password)
 	assert.Equal(t, "dev", cfg.DBName)
 	assert.Equal(t, "disable", cfg.SSLMode)
 }

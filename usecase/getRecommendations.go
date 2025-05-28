@@ -9,31 +9,31 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type GetProfile struct {
+type GetRecommendations struct {
 	ProfilesService profilespb.ProfilesServiceClient
 	logger          *logger.LogrusLogger
 }
 
-func NewGetProfileUseCase(
+func NewGetRecommendationsUseCase(
 	ProfilesService profilespb.ProfilesServiceClient,
 	logger *logger.LogrusLogger,
-) (*GetProfile, error) {
+) (*GetRecommendations, error) {
 	if ProfilesService == nil || logger == nil {
-		return &GetProfile{}, model.ErrGetProfileUC
+		return &GetRecommendations{}, model.ErrGetProfileUC
 	}
-	return &GetProfile{ProfilesService: ProfilesService, logger: logger}, nil
+	return &GetRecommendations{ProfilesService: ProfilesService, logger: logger}, nil
 }
 
-func (gp *GetProfile) GetProfile(userId int) (model.Profile, error) {
-	gp.logger.Info("GetProfileUseCase")
+func (gp *GetRecommendations) GetRecommendations(userId int) (model.Profile, error) {
+	gp.logger.Info("GetRecommendations")
 	req := &profilespb.GetProfileRequest{
 		ProfileId: int32(userId),
 	}
-	res, err := gp.ProfilesService.GetProfile(context.Background(), req)
+	res, err := gp.ProfilesService.GetRecommendations(context.Background(), req)
 	if err != nil {
 		gp.logger.WithFields(&logrus.Fields{
 			"error": err,
-		}).Error("GetProfileUseCase")
+		}).Error("GetRecommendationsUseCase")
 		return model.Profile{}, err
 	}
 

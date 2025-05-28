@@ -1,4 +1,4 @@
-TEST_DIR= ./tests
+TEST_DIR= .
 COVERAGE_TMP=coverage.out.tmp
 COVERAGE_OUT=coverage.out
 FILES_TO_CLEAN=*.out *.out.tmp *DS_Store 
@@ -87,6 +87,8 @@ launch:
 	docker compose up --build 
 	@echo "Все"
 
+easyjson:
+	go generate ./...
 
 test_injection:
 	clear 
@@ -101,6 +103,7 @@ good:
 	@echo "good"
 
 test:
+	clear
 	# @echo "Делаем моки..."
 	# mockgen -source=auth_micro/server/service.go -destination=mocks/sessiomockgen -source=auth_micro/server/sessionrepository.go -destination=mocks/session_repo_mock.go -package=mocksn_repo_mock.go -package=mocks
 	@echo "Запуск тестов..."
@@ -108,7 +111,7 @@ test:
 	@echo "Обработка покрытия..."
 
 	# Добавляем условие для исключения файлов
-	cat $(COVERAGE_TMP) | grep -vE '/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/user_repository.go|github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/server/service.go|github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/server/service.go|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/static_repository.go|github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/server/postgres_con.go|github.com/go-park-mail-ru/2025_1_ProVVeb/repository/chat_repository.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
+	cat $(COVERAGE_TMP) | grep -vE 'github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/tests/mock.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles_grpc.pb.go|/mocks/|.proto|.sql|go.mod|go.sum|Dockerfile|docker-compose.yml|github.com/go-park-mail-ru/2025_1_ProVVeb/model/models_easyjson.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users_grpc.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/users_micro/delivery/users.pb.go|github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/delivery/profiles.pb.go' > $(COVERAGE_OUT) && rm $(COVERAGE_TMP)
 
 	go tool cover -func=$(COVERAGE_OUT)
 

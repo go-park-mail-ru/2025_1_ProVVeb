@@ -22,9 +22,9 @@ func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
 	assert.NoError(t, err)
 	defer mr.Close()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
+	// 	rdb := redis.NewClient(&redis.Options{
+	// 		Addr: mr.Addr(),
+	// 	})
 
 	db, mock, _ := sqlmock.New()
 	defer db.Close()

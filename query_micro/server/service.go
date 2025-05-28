@@ -102,9 +102,9 @@ func (s *QueryServiceServerImpl) FindQuery(ctx context.Context, req *querypb.Fin
 		return nil, fmt.Errorf("error getting users for queries: %v", err)
 	}
 
-	var usersForQueryList []*querypb.ForQueryResponse
+	var usersForQueryList []*querypb.FindQueryResponse
 	for _, userForQuery := range usersForQueries {
-		usersForQueryList = append(usersForQueryList, &querypb.ForQueryResponse{
+		usersForQueryList = append(usersForQueryList, &querypb.FindQueryResponse{
 			Name:        userForQuery.Name,
 			Description: userForQuery.Description,
 			MinScore:    int32(userForQuery.MinScore),
@@ -112,6 +112,7 @@ func (s *QueryServiceServerImpl) FindQuery(ctx context.Context, req *querypb.Fin
 			Login:       userForQuery.Login,
 			Answer:      userForQuery.Answer,
 			Score:       int32(userForQuery.Score),
+			UserId:      int32(userForQuery.UserId),
 		})
 	}
 
@@ -119,7 +120,7 @@ func (s *QueryServiceServerImpl) FindQuery(ctx context.Context, req *querypb.Fin
 }
 
 func (s *QueryServiceServerImpl) DeleteAnswer(ctx context.Context, req *querypb.DeleteAnswerRequest) (*emptypb.Empty, error) {
-	err := s.Repo.DeleteAnswer(int(req.QueryId), int(req.UserId))
+	err := s.Repo.DeleteAnswer(req.QueryName, int(req.UserId))
 	if err != nil {
 		return nil, fmt.Errorf("error sending response: %v", err)
 	}
