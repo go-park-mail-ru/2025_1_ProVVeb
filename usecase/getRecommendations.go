@@ -24,7 +24,7 @@ func NewGetRecommendationsUseCase(
 	return &GetRecommendations{ProfilesService: ProfilesService, logger: logger}, nil
 }
 
-func (gp *GetProfile) GetRecommendations(userId int) (model.Profile, error) {
+func (gp *GetRecommendations) GetRecommendations(userId int) (model.Profile, error) {
 	gp.logger.Info("GetRecommendations")
 	req := &profilespb.GetProfileRequest{
 		ProfileId: int32(userId),

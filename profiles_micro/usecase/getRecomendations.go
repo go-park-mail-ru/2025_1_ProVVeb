@@ -9,6 +9,7 @@ import (
 )
 
 func (pss *ProfileServiceServer) GetRecommendations(ctx context.Context, req *profiles.GetProfileRequest) (*profiles.GetProfileResponse, error) {
+
 	pss.Logger.Info("v", "user_id", req.GetProfileId())
 	profile, err := pss.ProfilesRepo.GetRecomendations(int(req.GetProfileId()))
 	if err != nil {

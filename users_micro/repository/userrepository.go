@@ -161,7 +161,10 @@ SELECT
 	u.phone, 
 	u.status
 FROM users u
-WHERE u.login = $1;
+WHERE u.login = $1
+AND NOT EXISTS (
+    SELECT 1 FROM blacklist b WHERE b.user_id = u.user_id
+  );
 `
 
 func (ur *UserRepo) GetUserByLogin(login string) (model.User, error) {
@@ -263,7 +266,16 @@ func (ur *UserRepo) DeleteSession(userId int) error {
 }
 
 const GetUserByIdQuery = `
-	SELECT login, email, phone, status FROM users WHERE user_id = $1;
+SELECT 
+	u.login, 
+	u.email, 
+	u.phone, 
+	u.status
+FROM users u
+WHERE u.user_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM blacklist b WHERE b.user_id = u.user_id
+  );
 `
 
 func (ur *UserRepo) GetUserParams(userID int) (model.User, error) {

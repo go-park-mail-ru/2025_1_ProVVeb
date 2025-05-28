@@ -162,6 +162,9 @@ WITH base_profile AS (
         height, birthday, description, goal, location_id
     FROM profiles
     WHERE profile_id = $1
+      AND NOT EXISTS (
+          SELECT 1 FROM blacklist b WHERE b.user_id = profiles.profile_id
+      )
 )
 SELECT 
     bp.profile_id,
@@ -195,6 +198,7 @@ LEFT JOIN profile_parameter pp2 ON pp2.profile_id = bp.profile_id
 LEFT JOIN parameters param ON pp2.parameter_id = param.parameter_id
 LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id
 LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id AND sbs.expires_at > NOW();
+
 `
 
 func (pr *ProfileRepo) GetProfileById(profileId int) (model.Profile, error) {
@@ -360,6 +364,9 @@ WITH filtered_profiles AS (
     WHERE p.profile_id != $1 
       AND liked.profile_id IS NULL 
       AND p.profile_id > $2
+	  AND NOT EXISTS (
+          SELECT 1 FROM blacklist b WHERE b.user_id = profiles.profile_id
+      )
     ORDER BY p.profile_id
     LIMIT $3
 )
@@ -890,7 +897,7 @@ func (pr *ProfileRepo) CloseRepo() {
 const (
 	CheckLikeExistsQuery = `
 	SELECT like_id, status FROM likes
-	WHERE profile_id = $1 AND liked_profile_id = $2;
+	WHERE profile_id = $1 AND liked_profile_id = $2 ;
 	`
 
 	CreateLikeQuery = `
@@ -1066,6 +1073,9 @@ WITH filtered_profiles AS (
     LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
     WHERE p.profile_id != $1
       AND liked.profile_id IS NULL
+	  AND NOT EXISTS (
+          SELECT 1 FROM blacklist b WHERE b.user_id = p.profile_id
+      )
       AND (
           $2 = '' OR $2 = 'Any' OR
           (p.is_male = CASE 
@@ -1252,43 +1262,42 @@ LEFT JOIN profile_interests pi ON pi.profile_id = bp.profile_id
 LEFT JOIN interests i ON i.interest_id = pi.interest_id
 LEFT JOIN profile_preferences pp ON pp.profile_id = bp.profile_id
 LEFT JOIN preferences pr ON pr.preference_id = pp.preference_id
-LEFT JOIN profile_parameters ppar ON ppar.profile_id = bp.profile_id
+LEFT JOIN profile_parameter ppar ON ppar.profile_id = bp.profile_id
 LEFT JOIN parameters param ON param.parameter_id = ppar.parameter_id
 LEFT JOIN locations l ON l.location_id = bp.location_id
-LEFT JOIN photos s ON s.photo_id = bp.avatar_id
+LEFT JOIN static s ON bp.profile_id = s.profile_id
 LEFT JOIN likes liked ON liked.liked_profile_id = bp.profile_id
-LEFT JOIN subscriptions sbs ON sbs.profile_id = bp.profile_id
--- исключаем профили, если связанный с ними user_id присутствует в blacklist
+LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id
 LEFT JOIN blacklist bl ON bl.user_id = bu.user_id
 WHERE 
-    bl.user_id IS NULL -- исключаем заблокированных пользователей
-    AND bp.profile_id != $1 -- не показывать самого себя
+    bl.user_id IS NULL 
+    AND bp.profile_id != 6 
     AND NOT EXISTS (
         SELECT 1 FROM likes l2
-        WHERE l2.profile_id = $1 AND l2.liked_profile_id = bp.profile_id
+        WHERE l2.profile_id = 6 AND l2.liked_profile_id = bp.profile_id
     )
     AND (
         SELECT COUNT(*) FROM profile_interests pi1
-        WHERE pi1.profile_id = $1 AND pi1.interest_id IN (
+        WHERE pi1.profile_id = 6 AND pi1.interest_id IN (
             SELECT pi2.interest_id FROM profile_interests pi2 WHERE pi2.profile_id = bp.profile_id
         )
     ) * 1.0 / NULLIF((
-        SELECT COUNT(*) FROM profile_interests pi3 WHERE pi3.profile_id = $1
+        SELECT COUNT(*) FROM profile_interests pi3 WHERE pi3.profile_id = 6
     ), 0) >= 0.7
     AND (
         (
-            SELECT COUNT(*) FROM profile_preferences pp1
-            WHERE pp1.profile_id = $1 AND pp1.preference_id IN (
+            SELECT COUNT(*) FROM profile_preferences  pp1
+            WHERE pp1.profile_id = 6 AND pp1.preference_id IN (
                 SELECT pp2.preference_id FROM profile_preferences pp2 WHERE pp2.profile_id = bp.profile_id
             )
         ) * 1.0 / NULLIF((
-            SELECT COUNT(*) FROM profile_preferences pp3 WHERE pp3.profile_id = $1
+            SELECT COUNT(*) FROM profile_preferences pp3 WHERE pp3.profile_id = 6
         ), 0)
         +
         (
             SELECT COUNT(*) FROM profile_preferences pp4
             WHERE pp4.profile_id = bp.profile_id AND pp4.preference_id IN (
-                SELECT pp5.preference_id FROM profile_preferences pp5 WHERE pp5.profile_id = $1
+                SELECT pp5.preference_id FROM profile_preferences pp5 WHERE pp5.profile_id = 6
             )
         ) * 1.0 / NULLIF((
             SELECT COUNT(*) FROM profile_preferences pp6 WHERE pp6.profile_id = bp.profile_id
@@ -1315,6 +1324,7 @@ func (pr *ProfileRepo) GetRecomendations(profileId int) (model.Profile, error) {
 
 	ctx := context.Background()
 	rows, err := pr.DB.Query(ctx, getRecommendationsQuery, profileId)
+	fmt.Println(err)
 
 	if err != nil {
 		return profile, err
@@ -1346,6 +1356,7 @@ func (pr *ProfileRepo) GetRecomendations(profileId int) (model.Profile, error) {
 		); err != nil {
 			return profile, err
 		}
+		fmt.Println(err)
 
 		if birth.Valid {
 			profile.Birthday = birth.Time

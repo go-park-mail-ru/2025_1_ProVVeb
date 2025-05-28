@@ -3212,7 +3212,7 @@ func (ph *ProfilesHandler) GetRecommendations(w http.ResponseWriter, r *http.Req
 		"profile_id": profileId,
 	}).Debug("fetching recommendation from DB")
 
-	profile, err := ph.GetProfileUC.GetRecommendations(int(profileId))
+	profile, err := ph.GetRecommendationsUC.GetRecommendations(int(profileId))
 	if err != nil {
 		ph.Logger.WithFields(&logrus.Fields{
 			"profile_id": profileId,

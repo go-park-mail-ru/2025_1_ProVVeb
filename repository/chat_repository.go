@@ -93,8 +93,13 @@ const (
 		last_message,
 		last_sender 
 	FROM chats 
-	WHERE (first_profile_id = $1 OR second_profile_id = $1);
+	WHERE (first_profile_id = $1 OR second_profile_id = $1)
+	  AND NOT EXISTS (
+		SELECT 1 FROM blacklist b 
+		WHERE b.user_id IN (first_profile_id, second_profile_id)
+	  );
 	`
+
 	GetProfileParams = `
 	SELECT 
 		p.firstname, 

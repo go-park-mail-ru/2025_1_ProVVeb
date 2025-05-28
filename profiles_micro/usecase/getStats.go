@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (pss *ProfileServiceServer) GetStats(
+func (pss *ProfileServiceServer) GetProfileStats(
 	ctx context.Context,
 	req *profiles.GetProfileStatsRequest,
 ) (*profiles.GetProfileStatsResponse, error) {

@@ -178,7 +178,6 @@ func Run() {
 	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 	profileSubrouter.HandleFunc("", profilesHandler.GetProfiles).Methods("GET")
 	profileSubrouter.HandleFunc("/like", profilesHandler.SetLike).Methods("POST")
 	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
@@ -186,6 +185,7 @@ func Run() {
 	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
 	profileSubrouter.HandleFunc("/recommendations", profilesHandler.GetRecommendations).Methods("GET")
 	profileSubrouter.HandleFunc("/getStatistics", profilesHandler.GetStatistics).Methods("GET")
+	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
 	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
