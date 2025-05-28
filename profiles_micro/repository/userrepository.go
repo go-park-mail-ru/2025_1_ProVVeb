@@ -1271,33 +1271,33 @@ LEFT JOIN subscriptions sbs ON sbs.user_id = bp.profile_id
 LEFT JOIN blacklist bl ON bl.user_id = bu.user_id
 WHERE 
     bl.user_id IS NULL 
-    AND bp.profile_id != 6 
+    AND bp.profile_id != $1 
     AND NOT EXISTS (
         SELECT 1 FROM likes l2
-        WHERE l2.profile_id = 6 AND l2.liked_profile_id = bp.profile_id
+        WHERE l2.profile_id = $1 AND l2.liked_profile_id = bp.profile_id
     )
     AND (
         SELECT COUNT(*) FROM profile_interests pi1
-        WHERE pi1.profile_id = 6 AND pi1.interest_id IN (
+        WHERE pi1.profile_id = $1 AND pi1.interest_id IN (
             SELECT pi2.interest_id FROM profile_interests pi2 WHERE pi2.profile_id = bp.profile_id
         )
     ) * 1.0 / NULLIF((
-        SELECT COUNT(*) FROM profile_interests pi3 WHERE pi3.profile_id = 6
+        SELECT COUNT(*) FROM profile_interests pi3 WHERE pi3.profile_id = $1
     ), 0) >= 0.7
     AND (
         (
             SELECT COUNT(*) FROM profile_preferences  pp1
-            WHERE pp1.profile_id = 6 AND pp1.preference_id IN (
+            WHERE pp1.profile_id = $1 AND pp1.preference_id IN (
                 SELECT pp2.preference_id FROM profile_preferences pp2 WHERE pp2.profile_id = bp.profile_id
             )
         ) * 1.0 / NULLIF((
-            SELECT COUNT(*) FROM profile_preferences pp3 WHERE pp3.profile_id = 6
+            SELECT COUNT(*) FROM profile_preferences pp3 WHERE pp3.profile_id = $1
         ), 0)
         +
         (
             SELECT COUNT(*) FROM profile_preferences pp4
             WHERE pp4.profile_id = bp.profile_id AND pp4.preference_id IN (
-                SELECT pp5.preference_id FROM profile_preferences pp5 WHERE pp5.profile_id = 6
+                SELECT pp5.preference_id FROM profile_preferences pp5 WHERE pp5.profile_id = $1
             )
         ) * 1.0 / NULLIF((
             SELECT COUNT(*) FROM profile_preferences pp6 WHERE pp6.profile_id = bp.profile_id
