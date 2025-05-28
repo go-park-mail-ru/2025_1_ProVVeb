@@ -3,32 +3,31 @@ run-name: ${{ github.actor }} is deploying Beameye Service
 on:
   push:
     branches: [ main, dev, ci ]
-  pull_request:
 jobs:
   test:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: test
+    - name: Run tests
       run: |
-        # make test
-        echo "TESTING AHAHAHHAHAH"
+        if [ "${{ github.ref }}" == "refs/heads/ci" ]; then
+          echo "TESTING AHAHAHHAHAH (CI specific)"
+        else
+          make test
+        fi       
   lint:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    # - name: golangci-lint
-    #   uses: golangci/golangci-lint-action@v8
-    #   with:
-    #     version: v2.1
-    - name: linter
-      run: |
-        # make lint
-        echo "LINTerING AHAHAHHAHAH"
+    - name: Run linter
+      if: github.ref != 'refs/heads/ci'
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.1
+    - name: Mock linter for CI
+      if: github.ref == 'refs/heads/ci'
+      run: echo "LINTerING AHAHAHHAHAH (CI specific)"
   build:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     needs: [ test, lint ]
     runs-on: ubuntu-latest
     strategy:
@@ -49,7 +48,6 @@ jobs:
 
   build-db-and-backend:
     needs: [ test, lint ]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/work'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -73,7 +71,12 @@ jobs:
     steps:
     - name: deploy our beautiful app
       run: |
-        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
-        cd ./beameye
-        docker-compose pull # проверить
-        docker-compose up 
+        # ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
+        # cd ./beameye
+        # docker-compose pull # проверить
+        # docker-compose up 
+        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+          cd ./beameye
+          docker-compose pull
+          docker-compose up -d
+        "
