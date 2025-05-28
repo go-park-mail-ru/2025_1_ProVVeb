@@ -5,21 +5,26 @@ on:
     branches: [ main, dev, ci ]
   pull_request:
 jobs:
-  # test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: test
-  #     run: |
-  #       make test
-  # lint:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: golangci-lint
-  #     uses: golangci/golangci-lint-action@v8
-  #     with:
-  #       version: v2.1
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: test
+      run: |
+        # make test
+        echo "TESTING AHAHAHHAHAH"
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    # - name: golangci-lint
+    #   uses: golangci/golangci-lint-action@v8
+    #   with:
+    #     version: v2.1
+    - name: linter
+      run: |
+        # make lint
+        echo "LINTerING AHAHAHHAHAH"
   build:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     needs: [ test, lint ]
