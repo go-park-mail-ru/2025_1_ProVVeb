@@ -50,6 +50,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - name: build and push postgre
       run: |
         ls
