@@ -6,6 +6,7 @@ on:
   pull_request:
 jobs:
   test:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -14,6 +15,7 @@ jobs:
         # make test
         echo "TESTING AHAHAHHAHAH"
   lint:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -26,7 +28,7 @@ jobs:
         # make lint
         echo "LINTerING AHAHAHHAHAH"
   build:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
     needs: [ test, lint ]
     runs-on: ubuntu-latest
     strategy:
@@ -48,7 +50,7 @@ jobs:
 
   build-db-and-backend:
     needs: [ test, lint ]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -64,14 +66,15 @@ jobs:
         docker push forus809/postgre:latest
         docker build -t forus809/beameye:latest -f ./Dockerfile .
         docker push forus809/beameye:latest
-  # deploy:
-  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
-  #   runs-on: ubuntu-latest
-  #   needs: [ build ]
-  #   steps:
-  #   - name: deploy our beautiful app
-  #     run: |
-  #       ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
-  #       cd ./beameye
-  #       docker-compose pull # проверить
-  #       docker-compose up 
+  deploy:
+    # if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [ build, build-db-and-backend ]
+    steps:
+    - name: deploy our beautiful app
+      run: |
+        ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
+        cd ./beameye
+        docker-compose pull # проверить
+        docker-compose up 
