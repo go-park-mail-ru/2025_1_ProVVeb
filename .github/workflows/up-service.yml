@@ -32,7 +32,7 @@ jobs:
     strategy:
       matrix:
         # image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "postgre", "beameye" ]
-        image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "beameye" ]
+        image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro" ]
     steps:
     - uses: actions/checkout@v4
     - name: login to docker hub
@@ -48,6 +48,10 @@ jobs:
       run: |
         docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
         docker push forus809/postgre:latest
+    - name: build and push beameye backend
+      run: |
+        docker build -t forus809/beameye:latest -f ./Dockerfile .
+        docker push forus809/beameye:latest
   # deploy:
   #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
   #   runs-on: ubuntu-latest
