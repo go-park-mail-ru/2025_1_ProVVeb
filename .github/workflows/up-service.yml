@@ -70,13 +70,12 @@ jobs:
     steps:
     - name: deploy our beautiful app
       run: |
-        # ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}
-        # cd ./beameye
-        # docker-compose pull # проверить
-        # docker-compose up 
         ssh -i ${{ secrets.PRIVATE_KEY }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << EOF
           cd ./beameye
           touch successful-ssh.txt
           sudo docker-compose pull
+          cat "-------------------" > successful-ssh.txt
+          cat "" > successful-ssh.txt
           sudo docker-compose up -d --build
+          cat "" > successful-ssh.txt
         EOF
