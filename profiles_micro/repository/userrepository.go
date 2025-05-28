@@ -162,9 +162,6 @@ WITH base_profile AS (
         height, birthday, description, goal, location_id
     FROM profiles
     WHERE profile_id = $1
-      AND NOT EXISTS (
-          SELECT 1 FROM blacklist b WHERE b.user_id = profiles.profile_id
-      )
 )
 SELECT 
     bp.profile_id,
@@ -364,9 +361,6 @@ WITH filtered_profiles AS (
     WHERE p.profile_id != $1 
       AND liked.profile_id IS NULL 
       AND p.profile_id > $2
-	  AND NOT EXISTS (
-          SELECT 1 FROM blacklist b WHERE b.user_id = profiles.profile_id
-      )
     ORDER BY p.profile_id
     LIMIT $3
 )
@@ -1073,9 +1067,6 @@ WITH filtered_profiles AS (
     LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
     WHERE p.profile_id != $1
       AND liked.profile_id IS NULL
-	  AND NOT EXISTS (
-          SELECT 1 FROM blacklist b WHERE b.user_id = p.profile_id
-      )
       AND (
           $2 = '' OR $2 = 'Any' OR
           (p.is_male = CASE 
