@@ -1,26 +1,30 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    # build:
+    #   context: ./backend/repository/db
+    image: forus809/postgre:latest
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
-    ports:
-      - "8020:5432"
+    expose: 
+      - "8020"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/repository/db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dev"]
+      test: ["CMD-SHELL", "pg_isready -U app_user -d dev"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: always
 
+
   redis:
     image: redis:7-alpine
-    ports:
-      - "8010:6379"
+    expose:
+      - "8010"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -44,10 +48,11 @@ services:
     command: server /data --console-address ":9001"
 
   backend:
-    build: ./backend
-    ports:
-      - "8099:8099"
-      - "8080:8080"
+    # build: ./backend
+    image: forus809/beameye:latest
+    expose:
+      - "8099"
+      - "8080"
     restart: always
     volumes:
       - ./backend:/app
@@ -55,8 +60,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379
@@ -67,26 +72,27 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
-    build: ./frontend
-    ports:
-      - "8000:8000"
-    restart: always
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
+  # frontend:
+  #   build: ./frontend
+  #   expose:
+  #     - "8000"
+  #   restart: always
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - NODE_ENV=development
+  #     - CHOKIDAR_USEPOLLING=true
+  #   depends_on:
+  #     - backend
   
   query_micro:
-    build:
-      context: ./backend
-      dockerfile: query_micro/Dockerfile
-    ports:
-      - "8081:8081"
+    # build:
+    #   context: ./backend
+    #   dockerfile: query_micro/Dockerfile
+    image: forus809/query_micro:latest
+    expose:
+      - "8081"
     restart: always
     volumes:
       - ./backend:/backend
@@ -94,8 +100,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
     depends_on:
@@ -103,11 +109,12 @@ services:
         condition: service_healthy
 
   auth_micro:
-    build:
-      context: ./backend
-      dockerfile: auth_micro/Dockerfile
-    ports:
-      - "8082:8082"
+    # build:
+    #   context: ./backend
+    #   dockerfile: auth_micro/Dockerfile
+    image: forus809/auth_micro:latest
+    expose:
+      - "8082"
     restart: always
     volumes:
       - ./backend:/backend
@@ -115,8 +122,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
       REDIS_ADDR: redis:6379
@@ -128,11 +135,12 @@ services:
         condition: service_healthy
 
   profiles_micro:
-    build:
-      context: ./backend
-      dockerfile: profiles_micro/Dockerfile
-    ports:
-      - "8083:8083"
+    # build:
+    #   context: ./backend
+    #   dockerfile: profiles_micro/Dockerfile
+    image: forus809/profiles_micro:latest
+    expose:
+      - "8083"
     restart: always
     volumes:
       - ./backend:/backend
@@ -140,20 +148,27 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: miniopassword
+      REDIS_ADDR: redis:6379
+      REDIS_DB: 0
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
   
   users_micro:
-    build:
-      context: ./backend
-      dockerfile: users_micro/Dockerfile
-    ports:
-      - "8085:8085"
+    # build:
+    #   context: ./backend
+    #   dockerfile: users_micro/Dockerfile
+    image: forus809/users_micro:latest
+    expose:
+      - "8085"
     restart: always
     volumes:
       - ./backend:/backend
@@ -161,13 +176,48 @@ services:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Grey31415
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
       POSTGRES_SSLMODE: disable
     depends_on:
       postgres:
         condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus
+    expose:
+      - "8097"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+  
+  grafana:
+    image: grafana/grafana
+    expose:
+      - "8098"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d  # Конфиги Nginx
+      - ./nginx/certs:/etc/nginx/certs    # Сертификаты HTTPS
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./frontend/dist:/usr/share/nginx/html/frontend
+    depends_on:
+      - backend
+      - grafana
+    restart: always
 
 volumes:
   postgres_data:
@@ -176,3 +226,10 @@ volumes:
     driver: local
   midio_data:
     driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  default:
+    name: app_network
+    driver: bridge

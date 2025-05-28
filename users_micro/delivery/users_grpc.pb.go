@@ -21,10 +21,13 @@ const _ = grpc.SupportPackageIsVersion7
 type UsersServiceClient interface {
 	SaveUserData(ctx context.Context, in *SaveUserDataRequest, opts ...grpc.CallOption) (*SaveUserDataResponse, error)
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+	GetUserByLogin(ctx context.Context, in *GetUserByLoginRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UserExists(ctx context.Context, in *UserExistsRequest, opts ...grpc.CallOption) (*UserExistsResponse, error)
 	ValidateLogin(ctx context.Context, in *ValidateLoginRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ValidatePassword(ctx context.Context, in *ValidatePasswordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetPremium(ctx context.Context, in *GetPremiumRequest, opts ...grpc.CallOption) (*GetPremiumResponse, error)
+	SetPremium(ctx context.Context, in *SetPremiumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAdmin(ctx context.Context, in *GetAdminRequest, opts ...grpc.CallOption) (*GetAdminResponse, error)
 }
 
@@ -48,6 +51,15 @@ func (c *usersServiceClient) SaveUserData(ctx context.Context, in *SaveUserDataR
 func (c *usersServiceClient) GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
 	out := new(GetUserResponse)
 	err := c.cc.Invoke(ctx, "/users.UsersService/GetUser", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *usersServiceClient) GetUserByLogin(ctx context.Context, in *GetUserByLoginRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
+	out := new(GetUserResponse)
+	err := c.cc.Invoke(ctx, "/users.UsersService/GetUserByLogin", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +102,24 @@ func (c *usersServiceClient) ValidatePassword(ctx context.Context, in *ValidateP
 	return out, nil
 }
 
+func (c *usersServiceClient) GetPremium(ctx context.Context, in *GetPremiumRequest, opts ...grpc.CallOption) (*GetPremiumResponse, error) {
+	out := new(GetPremiumResponse)
+	err := c.cc.Invoke(ctx, "/users.UsersService/GetPremium", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *usersServiceClient) SetPremium(ctx context.Context, in *SetPremiumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/users.UsersService/SetPremium", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *usersServiceClient) GetAdmin(ctx context.Context, in *GetAdminRequest, opts ...grpc.CallOption) (*GetAdminResponse, error) {
 	out := new(GetAdminResponse)
 	err := c.cc.Invoke(ctx, "/users.UsersService/GetAdmin", in, out, opts...)
@@ -105,10 +135,13 @@ func (c *usersServiceClient) GetAdmin(ctx context.Context, in *GetAdminRequest, 
 type UsersServiceServer interface {
 	SaveUserData(context.Context, *SaveUserDataRequest) (*SaveUserDataResponse, error)
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+	GetUserByLogin(context.Context, *GetUserByLoginRequest) (*GetUserResponse, error)
 	DeleteUser(context.Context, *DeleteUserRequest) (*emptypb.Empty, error)
 	UserExists(context.Context, *UserExistsRequest) (*UserExistsResponse, error)
 	ValidateLogin(context.Context, *ValidateLoginRequest) (*emptypb.Empty, error)
 	ValidatePassword(context.Context, *ValidatePasswordRequest) (*emptypb.Empty, error)
+	GetPremium(context.Context, *GetPremiumRequest) (*GetPremiumResponse, error)
+	SetPremium(context.Context, *SetPremiumRequest) (*emptypb.Empty, error)
 	GetAdmin(context.Context, *GetAdminRequest) (*GetAdminResponse, error)
 	mustEmbedUnimplementedUsersServiceServer()
 }
@@ -123,6 +156,9 @@ func (UnimplementedUsersServiceServer) SaveUserData(context.Context, *SaveUserDa
 func (UnimplementedUsersServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUser not implemented")
 }
+func (UnimplementedUsersServiceServer) GetUserByLogin(context.Context, *GetUserByLoginRequest) (*GetUserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserByLogin not implemented")
+}
 func (UnimplementedUsersServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUser not implemented")
 }
@@ -134,6 +170,12 @@ func (UnimplementedUsersServiceServer) ValidateLogin(context.Context, *ValidateL
 }
 func (UnimplementedUsersServiceServer) ValidatePassword(context.Context, *ValidatePasswordRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ValidatePassword not implemented")
+}
+func (UnimplementedUsersServiceServer) GetPremium(context.Context, *GetPremiumRequest) (*GetPremiumResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPremium not implemented")
+}
+func (UnimplementedUsersServiceServer) SetPremium(context.Context, *SetPremiumRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPremium not implemented")
 }
 func (UnimplementedUsersServiceServer) GetAdmin(context.Context, *GetAdminRequest) (*GetAdminResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdmin not implemented")
@@ -183,6 +225,24 @@ func _UsersService_GetUser_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UsersServiceServer).GetUser(ctx, req.(*GetUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UsersService_GetUserByLogin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByLoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersServiceServer).GetUserByLogin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/users.UsersService/GetUserByLogin",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersServiceServer).GetUserByLogin(ctx, req.(*GetUserByLoginRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -259,6 +319,42 @@ func _UsersService_ValidatePassword_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UsersService_GetPremium_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPremiumRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersServiceServer).GetPremium(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/users.UsersService/GetPremium",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersServiceServer).GetPremium(ctx, req.(*GetPremiumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UsersService_SetPremium_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPremiumRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersServiceServer).SetPremium(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/users.UsersService/SetPremium",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersServiceServer).SetPremium(ctx, req.(*SetPremiumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UsersService_GetAdmin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetAdminRequest)
 	if err := dec(in); err != nil {
@@ -293,6 +389,10 @@ var UsersService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UsersService_GetUser_Handler,
 		},
 		{
+			MethodName: "GetUserByLogin",
+			Handler:    _UsersService_GetUserByLogin_Handler,
+		},
+		{
 			MethodName: "DeleteUser",
 			Handler:    _UsersService_DeleteUser_Handler,
 		},
@@ -307,6 +407,14 @@ var UsersService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidatePassword",
 			Handler:    _UsersService_ValidatePassword_Handler,
+		},
+		{
+			MethodName: "GetPremium",
+			Handler:    _UsersService_GetPremium_Handler,
+		},
+		{
+			MethodName: "SetPremium",
+			Handler:    _UsersService_SetPremium_Handler,
 		},
 		{
 			MethodName: "GetAdmin",

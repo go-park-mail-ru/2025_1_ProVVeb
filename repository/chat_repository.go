@@ -93,8 +93,9 @@ const (
 		last_message,
 		last_sender 
 	FROM chats 
-	WHERE (first_profile_id = $1 OR second_profile_id = $1);
+	WHERE (first_profile_id = $1 OR second_profile_id = $1)
 	`
+
 	GetProfileParams = `
 	SELECT 
 		p.firstname, 
@@ -190,6 +191,17 @@ func (cr *ChatRepo) CreateChat(firstProfileID, secondProfileID int) (int, error)
 	if err != nil {
 		return 0, err
 	}
+
+	notification := model.Notification{
+		Type: "new_message",
+		Payload: map[string]interface{}{
+			"chat_id": 123,
+			"from":    456,
+			"text":    "Привет!",
+		},
+	}
+	data, _ := json.Marshal(notification)
+	cr.Client.Publish(context.Background(), "user:42:notifications", data)
 
 	return chatID, nil
 }
@@ -310,7 +322,7 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 	if err != nil {
 		return err
 	}
-
+	var receiverID int
 	for _, uid := range []int{firstID, secondID} {
 		existingMessages, err := cr.GetMessagesFromCache(chatID, uid)
 		if err != nil {
@@ -325,6 +337,7 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 		}
 
 		if uid != deletedMsg.SenderID {
+			receiverID = uid
 			deletedMsg.Status = -1
 			updated = append(updated, deletedMsg)
 		}
@@ -332,6 +345,13 @@ func (cr *ChatRepo) DeleteMessage(messageID int, chatID int) error {
 		if err := cr.updateMessageCache(chatID, uid, updated); err != nil {
 			return err
 		}
+
+	}
+
+	channel := fmt.Sprintf("user:%d chat:%d messages", receiverID, chatID)
+	err = cr.Client.Publish(context.Background(), channel, "new").Err()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -400,6 +420,12 @@ func (cr *ChatRepo) CreateMessage(chatID int, userID int, content string, status
 	existingMessages = append(existingMessages, message)
 
 	if err := cr.updateMessageCache(chatID, receiverID, existingMessages); err != nil {
+		return 0, err
+	}
+
+	channel := fmt.Sprintf("user:%d chat:%d messages", receiverID, chatID)
+	err = cr.Client.Publish(context.Background(), channel, "new").Err()
+	if err != nil {
 		return 0, err
 	}
 
@@ -479,7 +505,7 @@ func (cr *ChatRepo) GetMessagesFromCache(chatID int, userID int) ([]model.Messag
 
 	var filtered []model.Message
 	for _, m := range messages {
-		if m.Status == 1 {
+		if m.Status == 1 || m.Status == -1 {
 			filtered = append(filtered, m)
 		}
 	}

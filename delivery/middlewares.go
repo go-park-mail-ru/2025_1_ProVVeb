@@ -26,6 +26,10 @@ type contextKey string
 
 const userIDKey contextKey = "userID"
 
+const isPremiumKey contextKey = "isPremium"
+
+const requestIDKey contextKey = "request_id"
+
 func PanicMiddleware(logger logger.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +59,7 @@ func BodySizeLimitMiddleware(limit int64) mux.MiddlewareFunc {
 	}
 }
 
-func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandler) mux.MiddlewareFunc {
+func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, sessionHandler *SessionHandler, userHandler *UserHandler) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sessionCookie, err := r.Cookie("session_id")
@@ -66,7 +70,7 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandl
 			}
 
 			sessionID := sessionCookie.Value
-			valueID, err := u.LoginUC.GetSession(sessionID)
+			valueID, err := sessionHandler.LoginUC.GetSession(sessionID)
 			if err != nil {
 				fmt.Println("no auth at", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)
@@ -76,6 +80,13 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandl
 			userID, err := strconv.ParseUint(valueID, 10, 32)
 			if err != nil {
 				fmt.Println("invalid session userID at", r.URL.Path)
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+
+			is_premium, _, err := userHandler.GetPremiumUC.GetPremium(int(userID))
+			if err != nil {
+				fmt.Println("Error getting premium at...", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
 			}
@@ -102,6 +113,7 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, u *SessionHandl
 			}
 
 			ctx := context.WithValue(r.Context(), userIDKey, uint32(userID))
+			ctx = context.WithValue(ctx, isPremiumKey, is_premium)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -114,7 +126,7 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 			requestID = uuid.New().String()
 		}
 
-		ctx := context.WithValue(r.Context(), "request_id", requestID)
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 		w.Header().Set("X-Request-ID", requestID)
 
 		if logger, ok := r.Context().Value("logger").(*logger.LogrusLogger); ok {
@@ -257,13 +269,13 @@ func NewMetricsMiddleware(cfg MetricsMiddlewareConfig) mux.MiddlewareFunc {
 			duration := time.Since(start).Seconds()
 
 			httpRequests.WithLabelValues(
-				r.URL.Path,
+				GetUrlForMetrics(r.URL.Path),
 				r.Method,
 				strconv.Itoa(rw.statusCode),
 			).Inc()
 
 			httpDuration.WithLabelValues(
-				r.URL.Path,
+				GetUrlForMetrics(r.URL.Path),
 				r.Method,
 			).Observe(duration)
 		})

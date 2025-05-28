@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -79,19 +80,25 @@ func Run() {
 		return
 	}
 
+	notifClient, err := repository.NewNotificationsRepo()
+	if err != nil {
+		fmt.Printf("Failed to initialize notificatins repo: %v\n", err)
+		return
+	}
+
 	complaintClient, err := repository.NewComplaintRepo()
 	if err != nil {
 		fmt.Printf("Failed to initialize complaint repo: %v\n", err)
 		return
 	}
 
-	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
-	postgresClient, err := repository.NewUserRepo()
+	subClient, err := repository.NewSubRepo()
 	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with postgresClient: %v", err))
+		fmt.Printf("Failed to initialize complaint repo: %v\n", err)
 		return
 	}
-	defer postgresClient.CloseRepo()
+
+	tokenValidator, _ := repository.NewJwtToken(string(model.Key))
 
 	hasher, err := repository.NewPassHasher()
 	if err != nil {
@@ -99,13 +106,7 @@ func Run() {
 		return
 	}
 
-	validator, err := repository.NewUParamsValidator()
-	if err != nil {
-		fmt.Println(fmt.Errorf("not able to work with validator: %v", err))
-		return
-	}
-
-	sessionHandler, err := NewSessionHandler(postgresClient, hasher, tokenValidator, validator, logger, authCon)
+	sessionHandler, err := NewSessionHandler(hasher, tokenValidator, logger, authCon, usersCon)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with sessionHandler: %v", err))
 		return
@@ -123,13 +124,13 @@ func Run() {
 		return
 	}
 
-	messageHandler, err := NewMessageHandler(chatClient, logger)
+	messageHandler, err := NewMessageHandler(chatClient, notifClient, chatClient.Client, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with queryHandler: %v", err))
 		return
 	}
 
-	profilesHandler, err := NewProfilesHandler(profilesCon, logger)
+	profilesHandler, err := NewProfilesHandler(profilesCon, notifClient, usersCon, notifClient.Client.(*redis.Client), logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with profilesHandler: %v", err))
 		return
@@ -138,6 +139,18 @@ func Run() {
 	complaintHandler, err := NewComplaintHandler(complaintClient, usersCon, logger)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with complaintHandler: %v", err))
+		return
+	}
+
+	notificationHandler, err := NewNotificationHandler(notifClient, notifClient.Client.(*redis.Client), logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with notificationHandler: %v", err))
+		return
+	}
+
+	subscripHandler, err := NewSubHandler(subClient, logger)
+	if err != nil {
+		fmt.Println(fmt.Errorf("not able to work with notificationHandler: %v", err))
 		return
 	}
 
@@ -154,7 +167,7 @@ func Run() {
 	r.HandleFunc("/users/logout", sessionHandler.LogoutUser).Methods("POST")
 
 	usersSubrouter := r.PathPrefix("/users").Subrouter()
-	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	usersSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	usersSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	usersSubrouter.HandleFunc("/{id}", usersHandler.DeleteUser).Methods("DELETE")
@@ -162,34 +175,40 @@ func Run() {
 	usersSubrouter.HandleFunc("/getParams", usersHandler.GetUserParams).Methods("GET")
 
 	profileSubrouter := r.PathPrefix("/profiles").Subrouter()
-	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	profileSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	profileSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 	profileSubrouter.HandleFunc("", profilesHandler.GetProfiles).Methods("GET")
 	profileSubrouter.HandleFunc("/like", profilesHandler.SetLike).Methods("POST")
 	profileSubrouter.HandleFunc("/match/{id}", profilesHandler.GetMatches).Methods("GET")
 	profileSubrouter.HandleFunc("/update", profilesHandler.UpdateProfile).Methods("POST")
 	profileSubrouter.HandleFunc("/search", profilesHandler.SearchProfiles).Methods("POST")
+	profileSubrouter.HandleFunc("/recommendations", profilesHandler.GetRecommendations).Methods("GET")
+	profileSubrouter.HandleFunc("/getStatistics", profilesHandler.GetStatistics).Methods("GET")
+	profileSubrouter.HandleFunc("/{id}", profilesHandler.GetProfile).Methods("GET")
 
 	photoSubrouter := r.PathPrefix("/profiles").Subrouter()
-	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	photoSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	photoSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizePhoto)))
 
 	photoSubrouter.HandleFunc("/uploadPhoto", profilesHandler.UploadPhoto).Methods("POST")
 	photoSubrouter.HandleFunc("/deletePhoto", profilesHandler.DeletePhoto).Methods("DELETE")
 
 	querySubrouter := r.PathPrefix("/queries").Subrouter()
-	querySubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	querySubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	querySubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	querySubrouter.HandleFunc("/getActive", queryHandler.GetActiveQueries).Methods("GET")
 	querySubrouter.HandleFunc("/sendResp", queryHandler.StoreUserAnswer).Methods("POST")
 	querySubrouter.HandleFunc("/getForUser", queryHandler.GetAnswersForUser).Methods("GET")
 	querySubrouter.HandleFunc("/getForQuery", queryHandler.GetAnswersForQuery).Methods("GET")
+	querySubrouter.HandleFunc("/findQuery", queryHandler.FindQuery).Methods("POST")
+
+	querySubrouter.HandleFunc("/deleteAnswer", queryHandler.DeleteQuery).Methods("POST")
+	querySubrouter.HandleFunc("/getStatistics", queryHandler.GetStatistics).Methods("POST")
 
 	messageSubrouter := r.PathPrefix("/chats").Subrouter()
-	messageSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	messageSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	messageSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	messageSubrouter.HandleFunc("", messageHandler.GetChats).Methods("GET")
@@ -197,26 +216,43 @@ func Run() {
 	messageSubrouter.HandleFunc("/delete", messageHandler.DeleteChat).Methods("DELETE")
 
 	wsRouter := r.PathPrefix("/chats").Subrouter()
-	wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	wsRouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	wsRouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	wsRouter.HandleFunc("/{chat_id}", messageHandler.HandleChat).Methods("GET")
 
 	notificationsSubrouter := r.PathPrefix("/notifications").Subrouter()
-	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	notificationsSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	notificationsSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
-	notificationsSubrouter.HandleFunc("", messageHandler.GetNotifications).Methods("GET")
+	notificationsSubrouter.HandleFunc("", notificationHandler.GetNotifications).Methods("GET")
 
 	ComplaintSubrouter := r.PathPrefix("/complaints").Subrouter()
-	ComplaintSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler))
+	ComplaintSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
 	ComplaintSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
 
 	ComplaintSubrouter.HandleFunc("/create", complaintHandler.CreateComplaint).Methods("POST")
 	ComplaintSubrouter.HandleFunc("/get", complaintHandler.GetComplaints).Methods("GET")
+	ComplaintSubrouter.HandleFunc("/find", complaintHandler.FindComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/delete", complaintHandler.DeleteComplaint).Methods("DELETE")
+	ComplaintSubrouter.HandleFunc("/handle", complaintHandler.HandleComplaint).Methods("POST")
+	ComplaintSubrouter.HandleFunc("/getStatistics", complaintHandler.GetStatistics).Methods("POST")
+
+	subscriptionSubrouter := r.PathPrefix("/subscription").Subrouter()
+	subscriptionSubrouter.Use(AuthWithCSRFMiddleware(tokenValidator, sessionHandler, usersHandler))
+	subscriptionSubrouter.Use(BodySizeLimitMiddleware(int64(model.Megabyte * model.MaxQuerySizeStr)))
+
+	subscriptionSubrouter.HandleFunc("", subscripHandler.AddSubscription).Methods("POST")
+	subscriptionSubrouter.HandleFunc("/changeborder", subscripHandler.ChangeBorder).Methods("POST")
 
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://213.219.214.83:8000", "http://localhost:8000"},
+		AllowedOrigins: []string{
+			"http://213.219.214.83:8000",
+			"http://localhost:8000",
+			"http://localhost",
+			"http://beameye.ru:8000",
+			"http://beameye.ru",
+		},
 		AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
 		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -252,7 +288,7 @@ func NewComplaintHandler(
 	complRepo repository.ComplaintRepository,
 	admin_conn *grpc.ClientConn,
 	logger *logger.LogrusLogger,
-) (*ComplaitHandler, error) {
+) (*ComplaintHandler, error) {
 	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
 	GetComplaints, err := usecase.NewGetComplaintUseCase(complRepo, logger)
@@ -265,16 +301,40 @@ func NewComplaintHandler(
 		return nil, err
 	}
 
+	FindComplaintUC, err := usecase.NewFindComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteComplaintsUC, err := usecase.NewDeleteComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	HandleComplaintUC, err := usecase.NewHandleComplaintUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetStatisticsUC, err := usecase.NewGetStatisticsComplUseCase(complRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	GetAdminUC, err := usecase.NewGetAdminUseCase(admin_client, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ComplaitHandler{
-		GetComplaintsUC:  *GetComplaints,
-		CreateComplateUC: *CreateComplate,
-		GetAdminUC:       *GetAdminUC,
-		Logger:           logger,
+	return &ComplaintHandler{
+		GetComplaintsUC:    *GetComplaints,
+		CreateComplateUC:   *CreateComplate,
+		FindCompaintUC:     *FindComplaintUC,
+		DeleteComplaintsUC: *DeleteComplaintsUC,
+		HandleComplaintUC:  *HandleComplaintUC,
+		GetStatisticsUC:    *GetStatisticsUC,
+		GetAdminUC:         *GetAdminUC,
+		Logger:             logger,
 	}, nil
 }
 
@@ -311,18 +371,38 @@ func NewQueryHandler(
 		return nil, err
 	}
 
+	FindQueryUC, err := usecase.NewFindQueryUseCase(query_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteQueryUC, err := usecase.NewDeleteAnswerUseCase(query_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetStatisticsUC, err := usecase.NewGetStatisticsUseCase(query_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &QueryHandler{
 		GetActiveQueriesUC:   *GetActive,
 		StoreUserAnswerUC:    *StoreAnswers,
 		GetAnswersForUserUC:  *GetAnswersForUser,
 		GetAnswersForQueryUC: *GetAnswersForQuery,
 		GetAdminUC:           *GetAdminUC,
+		FindQueryUC:          *FindQueryUC,
+		DeleteQueryUC:        *DeleteQueryUC,
+		GetStatisticsUC:      *GetStatisticsUC,
 		Logger:               logger,
 	}, nil
 }
 
 func NewMessageHandler(
 	messageRepo repository.ChatRepository,
+	notifrepo repository.NotificationsRepository,
+	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*MessageHandler, error) {
 
@@ -367,25 +447,36 @@ func NewMessageHandler(
 		return nil, err
 	}
 
+	AddNotification, err := usecase.NewAddNotificationUseCase(notifrepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &MessageHandler{
-		GetParticipants:        *getParticipantsUC,
+		GetParticipantsUC:      *getParticipantsUC,
 		GetChatsUC:             *getChatsUC,
 		CreateChatUC:           *createChatsUC,
 		DeleteChatUC:           *deleteChatsUC,
 		GetMessagesUC:          *getMessages,
 		DeleteMessageUC:        *deleteMessage,
-		CreateMessageUC:        *createMessageUC,
+		CreateMessagesUC:       *createMessageUC,
 		GetMessagesFromCacheUC: *getMessagesFromCacheUC,
 		UpdateMessageStatusUC:  *updateMessageStatusUC,
+		AddNotificationUC:      *AddNotification,
+		Subscriber:             Subscriber,
 		Logger:                 logger,
 	}, nil
 }
 
 func NewProfilesHandler(
 	conn *grpc.ClientConn,
+	notifrepo repository.NotificationsRepository,
+	admin_conn *grpc.ClientConn,
+	Subscriber *redis.Client,
 	logger *logger.LogrusLogger,
 ) (*ProfilesHandler, error) {
 	client := profilespb.NewProfilesServiceClient(conn)
+	admin_client := userspb.NewUsersServiceClient(admin_conn)
 
 	DeleteImage, err := usecase.NewDeleteStaticUseCase(client, logger)
 	if err != nil {
@@ -432,6 +523,26 @@ func NewProfilesHandler(
 		return nil, err
 	}
 
+	AddNotification, err := usecase.NewAddNotificationUseCase(notifrepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetAdmin, err := usecase.NewGetAdminUseCase(admin_client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetRecommendations, err := usecase.NewGetRecommendationsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetProfileStats, err := usecase.NewGetProfileStatsUseCase(client, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProfilesHandler{
 		DeleteImageUC:         *DeleteImage,
 		GetProfileImagesUC:    *GetProfileImages,
@@ -441,27 +552,32 @@ func NewProfilesHandler(
 		SetProfilesLikeUC:     *SetProfilesLike,
 		UpdateProfileUC:       *UpdateProfile,
 		UpdateProfileImagesUC: *UpdateProfileImages,
+		Subscriber:            Subscriber,
+		AddNotificationUC:     *AddNotification,
+		GetRecommendationsUC:  *GetRecommendations,
+		GetProfileStatsUC:     *GetProfileStats,
 		SearchProfileUC:       *SearchProfile,
+		GetAdminUC:            *GetAdmin,
 		Logger:                logger,
 	}, nil
 }
 
 func NewSessionHandler(
-	userRepo repository.UserRepository,
 	hasher repository.PasswordHasher,
 	token repository.JwtTokenizer,
-	validator repository.UserParamsValidator,
 	logger *logger.LogrusLogger,
 	conn *grpc.ClientConn,
+	userConn *grpc.ClientConn,
 ) (*SessionHandler, error) {
 
 	client := sessionpb.NewSessionServiceClient(conn)
 
+	userClient := userspb.NewUsersServiceClient(userConn)
+
 	loginUC, err := usecase.NewUserLogInUseCase(
-		userRepo,
 		hasher,
 		token,
-		validator,
+		userClient,
 		client,
 		logger,
 	)
@@ -478,7 +594,6 @@ func NewSessionHandler(
 	}
 
 	logoutUC, err := usecase.NewUserLogOutUseCase(
-		userRepo,
 		client,
 		logger,
 	)
@@ -516,10 +631,71 @@ func NewUsersHandler(
 		return &UserHandler{}, err
 	}
 
+	GetPremiumUC, err := usecase.NewGetPremiumUseCase(usersClient, logger)
+	if err != nil {
+		return &UserHandler{}, err
+	}
+
 	return &UserHandler{
 		SignupUC:     *SignupUC,
 		DeleteUserUC: *DeleteUserUC,
 		GetParamsUC:  *GetUserParamsUC,
+		GetPremiumUC: *GetPremiumUC,
 		Logger:       logger,
+	}, nil
+}
+
+func NewNotificationHandler(
+	notifRepo repository.NotificationsRepository,
+	Subscriber *redis.Client,
+	logger *logger.LogrusLogger,
+) (*NotificationsHandler, error) {
+	GetNotifications, err := usecase.NewGetNotificationsUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	UpdateNotifications, err := usecase.NewUpdateNotificationStatusUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	DeleteNotifications, err := usecase.NewDeleteNotificationUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	GetCurrentNotification, err := usecase.NewGetCurrentNotificationsUseCase(notifRepo, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &NotificationsHandler{
+		GetNotificationsUC:         *GetNotifications,
+		UpdateNotificationStatusUC: *UpdateNotifications,
+		DeleteNotificationUC:       *DeleteNotifications,
+		GetCurrentNotificationsUC:  *GetCurrentNotification,
+		Subscriber:                 Subscriber,
+		Logger:                     logger,
+	}, nil
+
+}
+
+func NewSubHandler(
+	subClient repository.SubsriptionRepository,
+	logger *logger.LogrusLogger,
+) (*SubHandler, error) {
+	AddSubscription, err := usecase.NewAddSubscriptionUseCase(subClient, logger)
+	if err != nil {
+		return nil, err
+	}
+	UpdateBorder, err := usecase.NewUpdateBorderUseCase(subClient, logger)
+	if err != nil {
+		return nil, err
+	}
+	return &SubHandler{
+		AddSubUC:       *AddSubscription,
+		UpdateBorderUC: *UpdateBorder,
+		Logger:         logger,
 	}, nil
 }

@@ -2,7 +2,10 @@ package query
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 
+	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/query_micro/config"
 )
 
@@ -156,4 +159,103 @@ func (qr *QueryRepo) GetUsersForQueries() ([]config.UsersForQuery, error) {
 		return nil, err
 	}
 	return usersForQuery, nil
+}
+
+const FindQuery = `
+SELECT 
+    q.name,
+    q.description,
+    q.min_score,
+    q.max_score,
+    u.login,
+    ua.answer,
+    ua.score,
+    ua.user_id
+FROM user_answer ua
+JOIN queries q ON ua.query_id = q.query_id
+JOIN users u ON ua.user_id = u.user_id
+JOIN profiles p ON p.profile_id = u.user_id
+WHERE q.is_active = TRUE
+  AND ($1::BIGINT = 0 OR q.query_id = $1)
+  AND (
+        $2 = '' OR
+        similarity(u.login, $2) > 0.3 OR
+        LOWER(u.login) LIKE LOWER($2 || '%')
+  )
+
+`
+
+func (qr *QueryRepo) FindQuery(name string, queryID int) ([]config.AnswersForQuery, error) {
+	rows, err := qr.DB.QueryContext(context.Background(), FindQuery, queryID, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []config.AnswersForQuery
+	for rows.Next() {
+		var row config.AnswersForQuery
+		if err := rows.Scan(
+			&row.Name,
+			&row.Description,
+			&row.MinScore,
+			&row.MaxScore,
+			&row.Login,
+			&row.Answer,
+			&row.Score,
+			&row.UserId,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
+const DeleteAnswerQuery = `
+DELETE FROM user_answer
+USING queries
+WHERE user_answer.query_id = queries.query_id
+  AND queries.name = $1
+  AND user_answer.user_id = $2;
+`
+
+func (qr *QueryRepo) DeleteAnswer(query_name string, user_id int) error {
+	_, err := qr.DB.ExecContext(context.Background(), DeleteAnswerQuery, query_name, user_id)
+	if err != nil {
+		return model.ErrDeleteUser
+	}
+	return nil
+}
+
+const getStatisticsQuery = `
+SELECT 
+    COUNT(*) AS total_answers,
+    AVG(score) AS average_score,
+    MIN(score) AS min_score,
+    MAX(score) AS max_score
+FROM user_answer
+WHERE query_id = $1;
+`
+
+func (qr *QueryRepo) GetStatistics(queryID int64) (config.QueryStats, error) {
+	var (
+		totalAnswers int64
+		avgScore     sql.NullFloat64
+		minScore     sql.NullInt64
+		maxScore     sql.NullInt64
+	)
+
+	row := qr.DB.QueryRowContext(context.Background(), getStatisticsQuery, queryID)
+	err := row.Scan(&totalAnswers, &avgScore, &minScore, &maxScore)
+	if err != nil {
+		return config.QueryStats{}, fmt.Errorf("failed to get statistics: %w", err)
+	}
+
+	return config.QueryStats{
+		TotalAnswers: totalAnswers,
+		AverageScore: avgScore.Float64,
+		MinScore:     int(minScore.Int64),
+		MaxScore:     int(maxScore.Int64),
+	}, nil
 }

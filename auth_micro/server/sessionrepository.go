@@ -3,17 +3,18 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
-	"os"
 	"strconv"
 	"time"
 
-	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
+	auth_config "github.com/go-park-mail-ru/2025_1_ProVVeb/auth_micro/config"
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v5"
 )
 
 type SessionRepository interface {
-	CreateSession(userId int) model.Session
+	CreateSession(userId int) auth_config.Session
 	DeleteSession(sessionId string) error
 	GetSession(sessionId string) (string, error)
 	StoreSession(sessionId string, data string, ttl time.Duration) error
@@ -22,31 +23,6 @@ type SessionRepository interface {
 	CheckAttempts(userIP string) (string, error)
 	IncreaseAttempts(userIP string) error
 	DeleteAttempts(userIP string) error
-}
-
-type SessionRepo struct {
-	Client *redis.Client
-	Ctx    context.Context
-}
-
-func NewSessionRepo() (*SessionRepo, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_ADDR"),
-		Password: "",
-		DB:       0,
-	})
-
-	ctx := context.Background()
-
-	_, err := client.Ping(ctx).Result()
-	if err != nil {
-		return &SessionRepo{}, err
-	}
-
-	return &SessionRepo{
-		Client: client,
-		Ctx:    ctx,
-	}, nil
 }
 
 func RandStringRunes(n int) string {
@@ -58,18 +34,44 @@ func RandStringRunes(n int) string {
 	return string(b)
 }
 
-func (sr *SessionRepo) CreateSession(userId int) model.Session {
-	session_id := RandStringRunes(model.SessionIdLength)
-	expires := model.SessionDuration
+func (sr *SessionRepo) CreateSession(userId int) auth_config.Session {
+	session_id := RandStringRunes(auth_config.SessionIdLength)
+	expires := auth_config.SessionDuration
 
-	return model.Session{
+	return auth_config.Session{
 		SessionId: session_id,
 		UserId:    userId,
 		Expires:   expires,
 	}
 }
 
+const (
+	FindSessionQuery = `
+SELECT id FROM sessions WHERE user_id = $1;
+`
+	DeleteSessionQuery = `
+DELETE FROM sessions WHERE user_id = $1;
+`
+)
+
 func (sr *SessionRepo) DeleteSession(sessionId string) error {
+	var profileId int
+	userId, err := strconv.Atoi(sessionId)
+	if err != nil {
+		return auth_config.ErrInvalidSessionId
+	}
+	err = sr.DB.QueryRowContext(context.Background(), FindSessionQuery, userId).Scan(&profileId)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return auth_config.ErrSessionNotFound
+		}
+		return auth_config.ErrDeleteSession
+	}
+	_, err = sr.DB.ExecContext(context.Background(), DeleteSessionQuery, userId)
+	if err != nil {
+		return auth_config.ErrDeleteSession
+	}
+
 	return sr.Client.Del(sr.Ctx, sessionId).Err()
 }
 
@@ -77,18 +79,39 @@ func (sr *SessionRepo) GetSession(sessionId string) (string, error) {
 	data, err := sr.Client.Get(sr.Ctx, sessionId).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return "", model.ErrSessionNotFound
+			return "", auth_config.ErrSessionNotFound
 		}
-		return "", model.ErrGetSession
+		return "", auth_config.ErrGetSession
 	}
 	return data, nil
 }
 
-func (sr *SessionRepo) StoreSession(sessionId string, data string, ttl time.Duration) error {
-	err := sr.Client.Set(sr.Ctx, sessionId, data, ttl).Err()
+const StoreSessionQuery = `
+INSERT INTO sessions (user_id, token, created_at, expires_at)
+VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+RETURNING id;
+`
+
+func (sr *SessionRepo) StoreSession(userID int, session_id string, token string, ttl time.Duration) error {
+	var sessionId int
+
+	err := sr.DB.QueryRowContext(
+		context.Background(),
+		StoreSessionQuery,
+		userID,
+		token,
+	).Scan(&sessionId)
+
 	if err != nil {
-		return model.ErrStoreSession
+		return err
 	}
+
+	userIDStr := strconv.Itoa(userID)
+	err = sr.Client.Set(sr.Ctx, session_id, userIDStr, ttl).Err()
+	if err != nil {
+		return auth_config.ErrStoreSession
+	}
+
 	return nil
 }
 
@@ -97,16 +120,23 @@ func (sr *SessionRepo) DeleteAllSessions() error {
 }
 
 func (sr *SessionRepo) CloseRepo() error {
+	var err error
+	if sr.DB != nil {
+		err = sr.DB.Close()
+		if err != nil {
+			fmt.Printf("failed while closing connection: %v\n", err)
+		}
+	}
 	return sr.Client.Close()
 }
 
 func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
-	tsKey := model.AttemptsKeyPrefix + userIP
-	timeKey := model.TimeAttemptsKeyPrefix + userIP
+	tsKey := auth_config.AttemptsKeyPrefix + userIP
+	timeKey := auth_config.TimeAttemptsKeyPrefix + userIP
 
 	countStr, err := sr.Client.Get(sr.Ctx, tsKey).Result()
 	if err == redis.Nil {
-		if err := sr.Client.Set(sr.Ctx, tsKey, 0, model.AttemptTTL).Err(); err != nil {
+		if err := sr.Client.Set(sr.Ctx, tsKey, 0, auth_config.AttemptTTL).Err(); err != nil {
 			return "", err
 		}
 		return "", nil
@@ -133,23 +163,23 @@ func (sr *SessionRepo) CheckAttempts(userIP string) (string, error) {
 		}
 	}
 
-	if count >= model.MaxAttempts {
+	if count >= auth_config.MaxAttempts {
 		return "", errors.New("too many login attempts, try later")
 	}
 
 	return "", nil
 }
 func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
-	tsKey := model.AttemptsKeyPrefix + userIP
-	timeKey := model.TimeAttemptsKeyPrefix + userIP
+	tsKey := auth_config.AttemptsKeyPrefix + userIP
+	timeKey := auth_config.TimeAttemptsKeyPrefix + userIP
 
 	count, err := sr.Client.Incr(sr.Ctx, tsKey).Result()
 	if err != nil {
 		return err
 	}
 
-	if count >= model.MaxAttempts {
-		additionalDelay := model.AttemptTTL * time.Duration(count-model.MaxAttempts)
+	if count >= auth_config.MaxAttempts {
+		additionalDelay := auth_config.AttemptTTL * time.Duration(count-auth_config.MaxAttempts)
 		blockUntil := time.Now().Unix() + int64(additionalDelay.Seconds())
 		return sr.Client.Set(sr.Ctx, timeKey, blockUntil, additionalDelay).Err()
 	}
@@ -158,7 +188,7 @@ func (sr *SessionRepo) IncreaseAttempts(userIP string) error {
 }
 
 func (sr *SessionRepo) DeleteAttempts(userIP string) error {
-	tsKey := model.AttemptsKeyPrefix + userIP
-	timeKey := model.TimeAttemptsKeyPrefix + userIP
+	tsKey := auth_config.AttemptsKeyPrefix + userIP
+	timeKey := auth_config.TimeAttemptsKeyPrefix + userIP
 	return sr.Client.Del(sr.Ctx, tsKey, timeKey).Err()
 }

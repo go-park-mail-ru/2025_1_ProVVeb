@@ -31,11 +31,20 @@ func (pss *ProfileServiceServer) StoreProfile(
 		})
 	}
 
+	var params []model.Preference
+	for _, pref := range req.Profile.Parametres {
+		params = append(params, model.Preference{
+			Description: pref.Description,
+			Value:       pref.Value,
+		})
+	}
+
 	var sentProfile model.Profile = model.Profile{
 		FirstName:   req.Profile.FirstName,
 		LastName:    req.Profile.LastName,
 		IsMale:      req.Profile.IsMale,
 		Birthday:    req.Profile.Birthday.AsTime(),
+		Goal:        int(req.Profile.Goal),
 		Height:      int(req.Profile.Height),
 		Description: req.Profile.Description,
 		Location:    req.Profile.Location,
@@ -43,6 +52,7 @@ func (pss *ProfileServiceServer) StoreProfile(
 		Photos:      req.Profile.Photos,
 		LikedBy:     likedBy,
 		Preferences: prefs,
+		Parameters:  params,
 	}
 
 	if sentProfile.FirstName != "" {
@@ -81,6 +91,11 @@ func (pss *ProfileServiceServer) StoreProfile(
 		height = rand.Intn(50) + 150
 	}
 
+	goal := sentProfile.Goal
+	if goal == 0 {
+		goal = 1
+	}
+
 	description := sentProfile.Description
 	if description == "" {
 		description = fake.SentencesN(2)
@@ -113,11 +128,13 @@ func (pss *ProfileServiceServer) StoreProfile(
 		IsMale:      sentProfile.IsMale,
 		Birthday:    birthday,
 		Height:      height,
+		Goal:        goal,
 		Description: description,
 		Location:    location,
 		Interests:   interests,
 		Photos:      photos,
 		Preferences: sentProfile.Preferences,
+		Parameters:  sentProfile.Parameters,
 		LikedBy:     sentProfile.LikedBy,
 	}
 

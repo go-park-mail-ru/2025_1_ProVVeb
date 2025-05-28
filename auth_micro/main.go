@@ -12,12 +12,13 @@ import (
 )
 
 func main() {
-	redisClient, err := auth.NewSessionRepo()
+	sessionRepo, err := auth.NewSessionRepo()
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
 		return
 	}
-	defer redisClient.CloseRepo()
+	defer sessionRepo.CloseRepo()
+	defer auth.ClosePostgresConnection(sessionRepo.DB)
 
 	lis, err := net.Listen("tcp", ":8082")
 	if err != nil {
@@ -27,7 +28,7 @@ func main() {
 	server := grpc.NewServer()
 
 	sessionService := &auth.SessionServiceServerImpl{
-		Repo: redisClient,
+		Repo: sessionRepo,
 	}
 
 	sessionpb.RegisterSessionServiceServer(server, sessionService)

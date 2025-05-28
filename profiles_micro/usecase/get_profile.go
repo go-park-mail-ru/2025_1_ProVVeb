@@ -29,19 +29,36 @@ func (pss *ProfileServiceServer) GetProfile(ctx context.Context, req *profiles.G
 			Value:       preference.Value,
 		})
 	}
+
+	var params []*profiles.Preference
+	for _, preference := range profile.Parameters {
+		params = append(params, &profiles.Preference{
+			Description: preference.Description,
+			Value:       preference.Value,
+		})
+	}
+
 	var prof *profiles.Profile = &profiles.Profile{
 		ProfileId:   int32(profile.ProfileId),
 		FirstName:   profile.FirstName,
 		LastName:    profile.LastName,
 		IsMale:      profile.IsMale,
+		Goal:        int32(profile.Goal),
 		Height:      int32(profile.Height),
 		Birthday:    timestamppb.New(profile.Birthday),
 		Description: profile.Description,
 		Location:    profile.Location,
 		Interests:   profile.Interests,
 		Preferences: prefs,
+		Parametres:  params,
 		Photos:      profile.Photos,
 		LikedBy:     likedBy,
+	}
+	if profile.Premium.Status {
+		prof.Premium = &profiles.Premium{
+			Status: profile.Premium.Status,
+			Border: int32(profile.Premium.Border),
+		}
 	}
 
 	return &profiles.GetProfileResponse{Profile: prof}, err

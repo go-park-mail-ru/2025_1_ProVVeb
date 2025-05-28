@@ -6,11 +6,9 @@ INSERT INTO complaint_types (type_description) VALUES
 ('Оскорбительный язык');
 
 INSERT INTO notification_types (type_description) VALUES 
-('Новое сообщение'),
-('Новый лайк'),
-('Новый матч'),
-('Истечение подписки'),
-('Просмотр профиля');
+('message'),
+('match'),
+('s');
 
 INSERT INTO locations (country, city, district) VALUES 
 ('США', 'Нью-Йорк', 'Манхэттен'),
@@ -25,30 +23,30 @@ INSERT INTO subscription_types (type_description) VALUES
 ('Золотая'),
 ('Платиновая');
 
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id) VALUES
-('Иван', 'Иванов', TRUE, '1990-05-15', 180, 'Программист, в свободное время увлекаюсь рисованием, больше всего люблю портреты', 1),
-('Анна', 'Петрова', FALSE, '1988-07-20', 165, 'Дизайнер, работаю в крупной компании, люблю своё дело :)', 2),
-('Ольга', 'Смирнова', FALSE, '1995-03-22', 170, 'Маркетолог, учу английский и китайский', 3),
-('Дмитрий', 'Кузнецов', TRUE, '1992-11-30', 175, 'Инженер из Бауманки, люблю участвовать с друзьями в CTF', 4),
-('Александр', 'Попов', TRUE, '1991-09-25', 185, 'Фотограф, еще ооочень люблю играть на фортепиано!', 5),
-('Максим', 'Орлов', TRUE, '1989-08-10', 182, 'Менеджер компании по переработке металлов. В школе вел кружок по химии', 1),
-('Инна', 'Лисова', FALSE, '1993-04-12', 168, 'Юрист, высшая квалификация... А вообще большой души человек :)', 2),
-('Леонид', 'Захаров', TRUE, '1987-01-05', 178, 'Врач в Подмосковье, работаю с детьми, хочу своих :3', 3),
-('Нина', 'Морозова', FALSE, '1996-12-30', 160, 'Писатель новелл и рассказов на тему science-fiction', 4),
-('Вера', 'Соколова', FALSE, '1990-10-15', 172, 'Актриса в Большом театре, также работаю с подростками в собственных постановках', 5);
+INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, goal) VALUES
+('Иван', 'Иванов', TRUE, '1990-05-15', 180, 'Программист, в свободное время увлекаюсь рисованием, больше всего люблю портреты', 1, 1),
+('Анна', 'Петрова', FALSE, '1988-07-20', 165, 'Дизайнер, работаю в крупной компании, люблю своё дело :)', 2, 2),
+('Ольга', 'Смирнова', FALSE, '1995-03-22', 170, 'Маркетолог, учу английский и китайский', 3, 1),
+('Дмитрий', 'Кузнецов', TRUE, '1992-11-30', 175, 'Инженер из Бауманки, люблю участвовать с друзьями в CTF', 4, 3),
+('Александр', 'Попов', TRUE, '1991-09-25', 185, 'Фотограф, еще ооочень люблю играть на фортепиано!', 5, 2),
+('Максим', 'Орлов', TRUE, '1989-08-10', 182, 'Менеджер компании по переработке металлов. В школе вел кружок по химии', 1, 1),
+('Инна', 'Лисова', FALSE, '1993-04-12', 168, 'Юрист, высшая квалификация... А вообще большой души человек :)', 2, 3),
+('Леонид', 'Захаров', TRUE, '1987-01-05', 178, 'Врач в Подмосковье, работаю с детьми, хочу своих :3', 3, 1),
+('Нина', 'Морозова', FALSE, '1996-12-30', 160, 'Писатель новелл и рассказов на тему science-fiction', 4, 2),
+('Вера', 'Соколова', FALSE, '1990-10-15', 172, 'Актриса в Большом театре, также работаю с подростками в собственных постановках', 5, 3);
 
 
 INSERT INTO users (profile_id, status, login, email, phone, password) VALUES
-(1, 1, 'ivanivanov', 'ivan@example.com', '1111111111', 'f40331940a2eb0ec842f09e39726335747f04e7cf3d3a56ea633f3b72ef2458d'),
-(2, 1, 'annapetrova', 'anna@example.com', '1111111112', 'eda6e9d3f2ff853757a9f864b8c793f5700d794f410252f1222b576e56b67983'),
-(3, 1, 'olgasmirnova', 'olga@example.com', '1111111113', 'ad98820e33eded62823c5abfc1db9780846d014b11d07eb28ac3186d68e15486'),
-(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '1111111114', '5bf6e3a85f0a1406b5602e21e0aad1369bc1ff57389c2f6174b2606db7b388ca'),
-(5, 1, 'alexpopov', 'alex@example.com', '1111111115', 'fbdd78794b1dbc3864c7bcbefb7c90f5c4ca5a1f409f9db1d492ffbeec6fb119'),
-(6, 1, 'maksorlov', 'maks@example.com', '1111111116', '78226589b60338ee48a4c411b34c9b93a3ee5a658ec8ea039e63a0e7c1274638'),
-(7, 1, 'innalisova', 'inna@example.com', '1111111117', '07e0c313ec2ea761e366fbda9dbdba9c903da501962ff298bbf050500e27be53'),
-(8, 1, 'leozaharov', 'leo@example.com', '1111111118', '0e03f2a800342f4bab3bb0ca88db5d37779f306898caf6ccf9d509c293f36f57'),
-(9, 1, 'ninamoro', 'nina@example.com', '1111111119', '2ee3914dee3e33b53083024874f141ce7050a11afa21cb2f04378642da9ad0a7'),
-(10, 1, 'verasokolova', 'vera@example.com', '1111111120', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
+(1, 1, 'ivanivanov', 'ivan@example.com', '+71111111111', 'f40331940a2eb0ec842f09e39726335747f04e7cf3d3a56ea633f3b72ef2458d'),
+(2, 1, 'annapetrova', 'anna@example.com', '+71111111112', 'eda6e9d3f2ff853757a9f864b8c793f5700d794f410252f1222b576e56b67983'),
+(3, 1, 'olgasmirnova', 'olga@example.com', '+71111111113', 'ad98820e33eded62823c5abfc1db9780846d014b11d07eb28ac3186d68e15486'),
+(4, 1, 'dmitrykuznetsov', 'dmitriy@example.com', '+71111111114', '5bf6e3a85f0a1406b5602e21e0aad1369bc1ff57389c2f6174b2606db7b388ca'),
+(5, 1, 'alexpopov', 'alex@example.com', '+71111111115', 'fbdd78794b1dbc3864c7bcbefb7c90f5c4ca5a1f409f9db1d492ffbeec6fb119'),
+(6, 1, 'maksorlov', 'maks@example.com', '+71111111116', '78226589b60338ee48a4c411b34c9b93a3ee5a658ec8ea039e63a0e7c1274638'),
+(7, 1, 'innalisova', 'inna@example.com', '+71111111117', '07e0c313ec2ea761e366fbda9dbdba9c903da501962ff298bbf050500e27be53'),
+(8, 1, 'leozaharov', 'leo@example.com', '+71111111118', '0e03f2a800342f4bab3bb0ca88db5d37779f306898caf6ccf9d509c293f36f57'),
+(9, 1, 'ninamoro', 'nina@example.com', '+71111111119', '2ee3914dee3e33b53083024874f141ce7050a11afa21cb2f04378642da9ad0a7'),
+(10, 1, 'verasokolova', 'vera@example.com', '+71111111190', '54c32671705cc23909c4a932eca574dbd2b9d8eeaf0a20cc3e614cf506bee0ef');
 
 
 INSERT INTO admins (user_id, role) VALUES 
@@ -102,19 +100,19 @@ INSERT INTO profile_interests (profile_id, interest_id) VALUES
 
 INSERT INTO preferences (preference_type, preference_description, preference_value) VALUES
 (1, 'bodyType', 'Атлетическое'),
-(1, 'hairColor', 'Блондин'),
-(1, 'eyeColor', 'Голубые'),
-(1, 'tattoo', 'false'),
-(1, 'smoking', 'false'),
-(1, 'education', 'Высшее'),
-(1, 'nationality', 'Русский'),
-(1, 'hairColor', 'Русый'),
-(1, 'eyeColor', 'Карие'),
-(1, 'tattoo', 'true'),
-(1, 'smoking', 'true'),
+(2, 'hairColor', 'Блондин'),
+(3, 'eyeColor', 'Голубые'),
+(4, 'tattoo', 'false'),
+(5, 'smoking', 'false'),
+(6, 'education', 'Высшее'),
+(7, 'nationality', 'Русский'),
+(2, 'hairColor', 'Русый'),
+(3, 'eyeColor', 'Карие'),
+(4, 'tattoo', 'true'),
+(5, 'smoking', 'true'),
 (1, 'bodyType', 'Худощавое'),
-(1, 'education', 'Среднее'),
-(1, 'nationality', 'Украинец');
+(6, 'education', 'Среднее'),
+(7, 'nationality', 'Грузин');
 
 INSERT INTO profile_preferences (profile_id, preference_id) VALUES
 (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
@@ -130,41 +128,42 @@ INSERT INTO profile_preferences (profile_id, preference_id) VALUES
 
 
 
--- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
--- (1, 2, 1), 
--- (2, 3, 1), 
--- (3, 4, 1), 
--- (4, 5, 1),
--- (5, 6, 1), 
--- (6, 7, 1), 
--- (7, 8, 1), 
--- (8, 9, 1), 
--- (9, 10, 1), 
--- (10, 1, 1);
+INSERT INTO parameters (parameter_type, parameter_description, parameter_value) VALUES
+(1, 'bodyType', 'Атлетическое'),
+(2, 'hairColor', 'Блондин'),
+(3, 'eyeColor', 'Голубые'),
+(4, 'tattoo', 'false'),
+(5, 'smoking', 'false'),
+(6, 'education', 'Высшее'),
+(7, 'nationality', 'Русский'),
+(2, 'hairColor', 'Русый'),
+(3, 'eyeColor', 'Карие'),
+(4, 'tattoo', 'true'),
+(5, 'smoking', 'true'),
+(1, 'bodyType', 'Худощавое'),
+(6, 'education', 'Среднее'),
+(7, 'nationality', 'Грузин');
 
--- INSERT INTO likes (profile_id, liked_profile_id, status) VALUES
--- (1, 3, 2),
--- (2, 4, 2),
--- (3, 5, 2),
--- (4, 6, 2),
--- (5, 7, 2),
--- (6, 8, 2),
--- (7, 9, 2),
--- (8, 10, 2),
--- (9, 1, 2),
--- (10, 2, 2);
+INSERT INTO profile_parameter (profile_id, parameter_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
+(2, 6), (2, 7), (2, 8), (2, 9), (2, 10),
+(3, 11), (3, 12), (3, 13), (3, 1), (3, 2),
+(4, 3), (4, 4), (4, 5), (4, 6), (4, 7),
+(5, 8), (5, 9), (5, 10), (5, 11), (5, 12),
+(6, 1), (6, 3), (6, 5), (6, 7), (6, 9),
+(7, 2), (7, 4), (7, 6), (7, 8), (7, 10),
+(8, 11), (8, 13), (8, 1), (8, 3), (8, 5),
+(9, 7), (9, 9), (9, 11), (9, 13), (9, 2),
+(10, 4), (10, 6), (10, 8), (10, 10), (10, 12);
 
 
--- INSERT INTO matches (profile_id, matched_profile_id) VALUES
--- (10, 2), (3, 4);
 
-
-INSERT INTO subscriptions (user_id, sub_type, transaction_data) VALUES 
-(1, 1, 'Подписка базовая'),
-(2, 2, 'Подписка премиум'),
-(3, 3, 'Подписка золотая'),
-(4, 4, 'Подписка платиновая'),
-(5, 1, 'Подписка базовая');
+INSERT INTO subscriptions (user_id, sub_type, transaction_data, expires_at) VALUES
+(1, 1, 'Подписка базовая',   CURRENT_TIMESTAMP + INTERVAL '30 days'),
+(2, 2, 'Подписка премиум',   CURRENT_TIMESTAMP + INTERVAL '90 days'), 
+(3, 3, 'Подписка золотая',   CURRENT_TIMESTAMP + INTERVAL '180 days'),  
+(4, 4, 'Подписка платиновая',CURRENT_TIMESTAMP + INTERVAL '365 days'),  
+(5, 1, 'Подписка базовая',   CURRENT_TIMESTAMP + INTERVAL '30 days');   
 
 INSERT INTO complaints (complaint_by, complaint_on, complaint_type, complaint_text, status) VALUES 
 (1, 2, 1, 'Неприемлемое поведение', 1),
@@ -176,12 +175,7 @@ INSERT INTO complaints (complaint_by, complaint_on, complaint_type, complaint_te
 INSERT INTO blacklist (user_id) VALUES 
 (5);
 
-INSERT INTO notifications (user_id, notification_type, content) VALUES 
-(1, 1, 'Новое сообщение от пользователя 2'),
-(2, 2, 'Пользователь 1 поставил вам лайк'),
-(3, 3, 'Пользователь 4 поставил вам лайк'),
-(4, 4, 'Ваша подписка истекает через 3 дня'),
-(5, 5, 'Ваш профиль был просмотрен пользователем 1');
+
 
 INSERT INTO profile_ratings (profile_id, rated_profile_id, rating_score, comment) VALUES 
 (1, 2, 5, 'Отличный человек!'),

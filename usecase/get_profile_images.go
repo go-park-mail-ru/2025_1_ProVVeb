@@ -43,12 +43,10 @@ func (gp *GetUserPhoto) GetUserPhoto(user_id int) ([][]byte, []string, error) {
 
 	var photos [][]byte
 	var filenames []string
-	for _, photo := range res.Files {
-		photos = append(photos, photo)
-	}
-	for _, filename := range res.Urls {
-		filenames = append(filenames, filename)
-	}
+
+	photos = append(photos, res.Files...)
+	filenames = append(filenames, res.Urls...)
+
 	gp.logger.WithFields(&logrus.Fields{
 		"len filenames": len(filenames),
 	}).Info("GetUserPhotoUseCase")

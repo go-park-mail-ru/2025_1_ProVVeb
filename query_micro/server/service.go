@@ -19,7 +19,6 @@ func NewSessionService(repo *QueryRepo) *QueryServiceServerImpl {
 }
 
 func (s *QueryServiceServerImpl) GetActive(ctx context.Context, req *querypb.GetUserRequest) (*querypb.ActiveQueryList, error) {
-	fmt.Println("Hello")
 	queries, err := s.Repo.GetActive(int(req.GetUserId()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting active queries: %v", err)
@@ -95,4 +94,50 @@ func (s *QueryServiceServerImpl) GetForQuery(ctx context.Context, req *emptypb.E
 	}
 
 	return &querypb.ForQueryResponseList{Items: usersForQueryList}, nil
+}
+
+func (s *QueryServiceServerImpl) FindQuery(ctx context.Context, req *querypb.FindQueryRequest) (*querypb.FindQueryResponseList, error) {
+	usersForQueries, err := s.Repo.FindQuery(req.Name, int(req.QueryId))
+	if err != nil {
+		return nil, fmt.Errorf("error getting users for queries: %v", err)
+	}
+
+	var usersForQueryList []*querypb.FindQueryResponse
+	for _, userForQuery := range usersForQueries {
+		usersForQueryList = append(usersForQueryList, &querypb.FindQueryResponse{
+			Name:        userForQuery.Name,
+			Description: userForQuery.Description,
+			MinScore:    int32(userForQuery.MinScore),
+			MaxScore:    int32(userForQuery.MaxScore),
+			Login:       userForQuery.Login,
+			Answer:      userForQuery.Answer,
+			Score:       int32(userForQuery.Score),
+			UserId:      int32(userForQuery.UserId),
+		})
+	}
+
+	return &querypb.FindQueryResponseList{Items: usersForQueryList}, nil
+}
+
+func (s *QueryServiceServerImpl) DeleteAnswer(ctx context.Context, req *querypb.DeleteAnswerRequest) (*emptypb.Empty, error) {
+	err := s.Repo.DeleteAnswer(req.QueryName, int(req.UserId))
+	if err != nil {
+		return nil, fmt.Errorf("error sending response: %v", err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (s *QueryServiceServerImpl) GetQueryStats(ctx context.Context, req *querypb.QueryStatsRequest) (*querypb.QueryStatsResponse, error) {
+	stats, err := s.Repo.GetStatistics(req.QueryId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting answers for user: %v", err)
+	}
+
+	return &querypb.QueryStatsResponse{
+		TotalAnswers: stats.TotalAnswers,
+		AverageScore: stats.AverageScore,
+		MinScore:     int32(stats.MinScore),
+		MaxScore:     int32(stats.MaxScore),
+	}, nil
 }

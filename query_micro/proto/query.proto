@@ -10,6 +10,34 @@ service QueryService {
     rpc SendResp(SendRespRequest) returns (google.protobuf.Empty);
     rpc GetForUser(GetUserRequest) returns (QueryResponseList);
     rpc GetForQuery(google.protobuf.Empty) returns (ForQueryResponseList);
+    
+    rpc FindQuery(FindQueryRequest) returns (FindQueryResponseList);
+
+    rpc DeleteAnswer(DeleteAnswerRequest) returns (google.protobuf.Empty);
+    rpc GetQueryStats(QueryStatsRequest) returns (QueryStatsResponse);
+}
+
+
+message DeleteAnswerRequest {
+    string query_name = 1;
+    int64 user_id = 2;
+  }
+  
+  message QueryStatsRequest {
+    int64 query_id = 1;
+  }
+  
+  message QueryStatsResponse {
+    int64 total_answers = 1;
+    double average_score = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+  }
+
+
+message FindQueryRequest {
+    int32 query_id = 1;
+    string name = 2;
 }
 
 message GetUserRequest {
@@ -59,4 +87,19 @@ message QueryResponseList {
 
 message ForQueryResponseList {
     repeated ForQueryResponse items = 1;
+}
+
+message FindQueryResponseList {
+    repeated FindQueryResponse items = 1;
+}
+
+message FindQueryResponse {
+    string name = 1;
+    string description = 2;
+    int32 min_score = 3;
+    int32 max_score = 4;
+    string answer = 5;
+    int32 score = 6;
+    string login = 7;
+    int32 user_id = 8;
 }

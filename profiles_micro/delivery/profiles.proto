@@ -17,13 +17,31 @@ service ProfilesService {
     rpc DeleteImage(DeleteImageRequest) returns (google.protobuf.Empty);
     rpc GetProfileMatches(GetProfileMatchesRequest) returns (GetProfileMatchesResponse);
     rpc SetProfileLike(SetProfileLikeRequest) returns (SetProfileLikeResponse);
+
+    rpc SearchProfile(SearchProfileRequest) returns (SearchProfileResponse);
+
+    rpc GetProfileStats(GetProfileStatsRequest) returns (GetProfileStatsResponse);
+    rpc GetRecommendations(GetProfileRequest) returns (GetProfileResponse);
+}
+
+message GetProfileStatsRequest {
+    int32 profile_id = 1;
+}
+
+message GetProfileStatsResponse {
+    int32 likes_given = 1;
+    int32 likes_received = 2;
+    int32 matches = 3;
+    int32 complaints_made = 4;
+    int32 complaints_received = 5;
+    int32 messages_sent = 6;
+    int32 chat_count = 7;
 }
 
 message Preference {
     string description = 1;
     string value = 2;
 }
-
 message Profile {
     int32 profile_id = 1;
     string first_name = 2;
@@ -36,7 +54,16 @@ message Profile {
     repeated string interests = 9;
     repeated int32 liked_by = 10;
     repeated Preference preferences = 11;
-    repeated string photos = 12;
+    repeated Preference parametres = 12;
+    repeated string photos = 13;
+    int32 goal = 14;
+
+    Premium premium = 15; 
+}
+
+message Premium {
+    bool status = 1;
+    int32 border = 2;
 }
 
 message GetProfileRequest {
@@ -110,4 +137,31 @@ message StoreProfileResponse {
 
 message DeleteProfileRequest {
     int32 profile_id = 1;
+}
+
+message SearchProfileRequest {
+    int32 IDUser = 1;
+    string Input = 2;
+    string IsMale = 3;
+    int32 AgeMin = 4;
+    int32 AgeMax = 5;
+    int32 HeightMin = 6;
+    int32 HeightMax = 7;
+    int32 Goal = 8;
+    repeated Preference Parametres = 9;
+    string Country = 10;
+    string City = 11;
+}
+
+message FoundProfile {
+    int32 IDUser = 1;
+    string FirstImg = 2;
+    string Fullname = 3;
+    int32 Age = 4;
+    int32 Goal = 5;
+}
+
+
+message SearchProfileResponse {
+    repeated FoundProfile Profiles = 1;
 }

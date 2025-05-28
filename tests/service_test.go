@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
+	staticrepo "github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,11 +33,6 @@ func TestCheckPostgresConfig(t *testing.T) {
 func TestInitPostgresConfig(t *testing.T) {
 	connStr := repository.InitPostgresConfig()
 	require.NotNil(t, connStr)
-}
-
-func NewStaticRepo(t *testing.T) {
-	repo, _ := repository.NewStaticRepo()
-	require.NotNil(t, repo)
 }
 
 func InitPostgresConnection(t *testing.T) {
@@ -149,8 +145,8 @@ func TestInitPostgresConfigProf(t *testing.T) {
 	cfg := repository.InitPostgresConfig()
 	assert.Equal(t, "postgres", cfg.Host)
 	assert.Equal(t, 5432, cfg.Port)
-	assert.Equal(t, "postgres", cfg.User)
-	assert.Equal(t, "Grey31415", cfg.Password)
+	assert.Equal(t, "app_user", cfg.User)
+	assert.Equal(t, "your_secure_password", cfg.Password)
 	assert.Equal(t, "dev", cfg.DBName)
 	assert.Equal(t, "disable", cfg.SSLMode)
 }
