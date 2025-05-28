@@ -31,7 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "postgre", "beameye" ]
+        # image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "postgre", "beameye" ]
+        image: [ "auth_micro", "profiles_micro", "query_micro", "users_micro", "beameye" ]
     steps:
     - uses: actions/checkout@v4
     - name: login to docker hub
@@ -41,9 +42,12 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: build and push ${{ matrix.image }}
       run: |
-        ls
-        docker build -t forus809/${{ matrix.image }}:latest -f ./backend/${{ matrix.image }}/Dockerfile .
+        docker build -t forus809/${{ matrix.image }}:latest -f ./${{ matrix.image }}/Dockerfile .
         docker push forus809/${{ matrix.image }}:latest
+    - name: build and push postgre
+      run: |
+        docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
+        docker push forus809/postgre:latest
   # deploy:
   #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci'
   #   runs-on: ubuntu-latest
