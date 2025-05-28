@@ -1,14 +1,13 @@
 services:
   postgres:
-    build:
-      context: ./backend/repository/db
+    # build:
+    #   context: ./backend/repository/db
+    image: forus809/postgre:latest
     environment:
       POSTGRES_USER: app_user
       POSTGRES_HOST: postgres
       POSTGRES_PASSWORD: your_secure_password
       POSTGRES_DB: dev
-    # ports:
-    #   - "8020:5432"
     expose: 
       - "8020"
     volumes:
@@ -49,7 +48,8 @@ services:
     command: server /data --console-address ":9001"
 
   backend:
-    build: ./backend
+    # build: ./backend
+    image: forus809/backend:latest
     expose:
       - "8099"
       - "8080"
@@ -87,9 +87,10 @@ services:
   #     - backend
   
   query_micro:
-    build:
-      context: ./backend
-      dockerfile: query_micro/Dockerfile
+    # build:
+    #   context: ./backend
+    #   dockerfile: query_micro/Dockerfile
+    image: forus809/query_micro:latest
     expose:
       - "8081"
     restart: always
@@ -108,9 +109,10 @@ services:
         condition: service_healthy
 
   auth_micro:
-    build:
-      context: ./backend
-      dockerfile: auth_micro/Dockerfile
+    # build:
+    #   context: ./backend
+    #   dockerfile: auth_micro/Dockerfile
+    image: forus809/auth_micro:latest
     expose:
       - "8082"
     restart: always
@@ -133,9 +135,10 @@ services:
         condition: service_healthy
 
   profiles_micro:
-    build:
-      context: ./backend
-      dockerfile: profiles_micro/Dockerfile
+    # build:
+    #   context: ./backend
+    #   dockerfile: profiles_micro/Dockerfile
+    image: forus809/profiles_micro:latest
     expose:
       - "8083"
     restart: always
@@ -160,9 +163,10 @@ services:
         condition: service_healthy
   
   users_micro:
-    build:
-      context: ./backend
-      dockerfile: users_micro/Dockerfile
+    # build:
+    #   context: ./backend
+    #   dockerfile: users_micro/Dockerfile
+    image: forus809/users_micro:latest
     expose:
       - "8085"
     restart: always
