@@ -1,7 +1,5 @@
 services:
   postgres:
-    # build:
-    #   context: ./backend/repository/db
     image: forus809/postgre:latest
     environment:
       POSTGRES_USER: app_user
@@ -19,7 +17,6 @@ services:
       timeout: 5s
       retries: 10
     restart: always
-
 
   redis:
     image: redis:7-alpine
@@ -48,7 +45,6 @@ services:
     command: server /data --console-address ":9001"
 
   backend:
-    # build: ./backend
     image: forus809/beameye:latest
     expose:
       - "8099"
@@ -72,24 +68,7 @@ services:
       redis:
         condition: service_healthy
 
-  # frontend:
-  #   build: ./frontend
-  #   expose:
-  #     - "8000"
-  #   restart: always
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   environment:
-  #     - NODE_ENV=development
-  #     - CHOKIDAR_USEPOLLING=true
-  #   depends_on:
-  #     - backend
-  
   query_micro:
-    # build:
-    #   context: ./backend
-    #   dockerfile: query_micro/Dockerfile
     image: forus809/query_micro:latest
     expose:
       - "8081"
@@ -109,9 +88,6 @@ services:
         condition: service_healthy
 
   auth_micro:
-    # build:
-    #   context: ./backend
-    #   dockerfile: auth_micro/Dockerfile
     image: forus809/auth_micro:latest
     expose:
       - "8082"
@@ -135,9 +111,6 @@ services:
         condition: service_healthy
 
   profiles_micro:
-    # build:
-    #   context: ./backend
-    #   dockerfile: profiles_micro/Dockerfile
     image: forus809/profiles_micro:latest
     expose:
       - "8083"
@@ -163,9 +136,6 @@ services:
         condition: service_healthy
   
   users_micro:
-    # build:
-    #   context: ./backend
-    #   dockerfile: users_micro/Dockerfile
     image: forus809/users_micro:latest
     expose:
       - "8085"
