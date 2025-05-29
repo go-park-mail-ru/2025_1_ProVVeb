@@ -22,9 +22,9 @@ func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
 	assert.NoError(t, err)
 	defer mr.Close()
 
-	// 	rdb := redis.NewClient(&redis.Options{
-	// 		Addr: mr.Addr(),
-	// 	})
+	rdb := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
 
 	db, mock, _ := sqlmock.New()
 	defer db.Close()
@@ -40,8 +40,8 @@ func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
 	assert.Equal(t, 123, session.UserId)
 	assert.Equal(t, model.SessionDuration, session.Expires)
 
-	// err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
-	// assert.NoError(t, err)
+	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
+	assert.NoError(t, err)
 
 	query := `INSERT INTO sessions (user_id, token, created_at, expires_at)
 VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')

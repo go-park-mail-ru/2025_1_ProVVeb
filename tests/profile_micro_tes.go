@@ -637,10 +637,10 @@ func TestStorePhotos(t *testing.T) {
 	// 	defer db.Close()
 	// 	repo := &repository.ProfileRepo{DB: db}
 
-	// 	photos := []string{
-	// 		"photo1.jpg",
-	// 		"photo2.jpg",
-	// 	}
+	photos := []string{
+		"photo1.jpg",
+		"photo2.jpg",
+	}
 
 	for _, p := range photos {
 		mockDB.On("Exec", mock.Anything,
@@ -674,7 +674,7 @@ func TestSetLike(t *testing.T) {
 	// 	defer db.Close()
 	// 	repo := &repository.ProfileRepo{DB: db}
 
-	// 	fromID, toID, status := 1, 2, 1
+	fromID, toID, status := 1, 2, 1
 
 	mockDB.On("Query", mock.Anything,
 		mock.MatchedBy(func(sql string) bool {
@@ -754,7 +754,7 @@ func TestGetPhotos(t *testing.T) {
 	// 	defer db.Close()
 	// 	repo := &repository.ProfileRepo{DB: db}
 
-	// 	userID := 1
+	userID := 1
 
 	expectedSQL := `SELECT path FROM static WHERE profile_id = ( SELECT profile_id FROM users WHERE user_id = $1 )`
 	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{userID}).
@@ -895,8 +895,8 @@ func TestStorePhoto(t *testing.T) {
 
 	// 	repo := &repository.ProfileRepo{DB: db}
 
-	// 	p := "image.jpg"
-	// 	userID := 0
+	p := "image.jpg"
+	userID := 0
 
 	// Настраиваем ожидание INSERT запроса
 	expectedSQL := `INSERT INTO static (profile_id, path, created_at, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id, path, created_at`
@@ -929,16 +929,16 @@ func TestStoreProfile(t *testing.T) {
 
 	// 	repo := &repository.ProfileRepo{DB: db}
 
-	// 	p := model.Profile{
-	// 		ProfileId:   1,
-	// 		FirstName:   "Иван",
-	// 		LastName:    "Иванов",
-	// 		IsMale:      true,
-	// 		Height:      180,
-	// 		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-	// 		Description: "Привет, я Иван",
-	// 		Location:    "Россия@Москва@Центральный",
-	// 	}
+	p := model.Profile{
+		ProfileId:   1,
+		FirstName:   "Иван",
+		LastName:    "Иванов",
+		IsMale:      true,
+		Height:      180,
+		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+		Description: "Привет, я Иван",
+		Location:    "Россия@Москва@Центральный",
+	}
 
 	// Разбиваем location на составляющие
 	locationParts := strings.Split(p.Location, "@")
