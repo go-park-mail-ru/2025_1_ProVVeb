@@ -1055,7 +1055,7 @@ func (pr *ProfileRepo) DeleteProfile(userId int) error {
 
 const SearchProfilesQuery = `
 WITH filtered_profiles AS (
-    SELECT p.profile_id, p.firstname, p.lastname, p.birthday, p.goal,
+    SELECT DISTINCT p.profile_id, p.firstname, p.lastname, p.birthday, p.goal,
            s.path AS avatar
     FROM profiles p
     JOIN users u ON u.profile_id = p.profile_id
@@ -1127,7 +1127,7 @@ WITH filtered_profiles AS (
           )
       )
 )
-SELECT
+SELECT DISTINCT
     profile_id AS "IDUser",
     avatar AS "FirstImg",
     firstname || ' ' || lastname AS "Fullname",
@@ -1135,6 +1135,7 @@ SELECT
     goal AS "Goal"
 FROM filtered_profiles
 ORDER BY profile_id;
+
 
 `
 
