@@ -129,7 +129,7 @@ func (s *QueryServiceServerImpl) DeleteAnswer(ctx context.Context, req *querypb.
 }
 
 func (s *QueryServiceServerImpl) GetQueryStats(ctx context.Context, req *querypb.QueryStatsRequest) (*querypb.QueryStatsResponse, error) {
-	stats, err := s.Repo.GetStatistics(req.QueryId)
+	stats, err := s.Repo.GetStatistics(req.QueryName)
 	if err != nil {
 		return nil, fmt.Errorf("error getting answers for user: %v", err)
 	}

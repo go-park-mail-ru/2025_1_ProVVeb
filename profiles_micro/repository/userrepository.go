@@ -358,13 +358,15 @@ WITH filtered_profiles AS (
     FROM profiles p
     LEFT JOIN likes liked 
         ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
-    WHERE p.profile_id != $1 
-      AND liked.profile_id IS NULL 
+    JOIN users u ON u.profile_id = p.profile_id
+    WHERE p.profile_id != $1
+      AND liked.profile_id IS NULL
+      AND u.user_id NOT IN (SELECT user_id FROM blacklist)
       AND ($2 = 0 OR p.profile_id > $2)
     ORDER BY p.profile_id
     LIMIT $3
 )
-SELECT 
+SELECT DISTINCT ON (p.profile_id)
     p.profile_id, 
     p.firstname, 
     p.lastname, 
@@ -382,28 +384,21 @@ SELECT
     pr.preference_value,
     param.parameter_description,
     param.parameter_value,
-	CASE WHEN sbs.sub_id IS NOT NULL THEN TRUE ELSE FALSE END AS premium_status,
+    CASE WHEN sbs.sub_id IS NOT NULL THEN TRUE ELSE FALSE END AS premium_status,
     sbs.border
 FROM filtered_profiles fp
 JOIN profiles p ON p.profile_id = fp.profile_id
-LEFT JOIN locations l 
-    ON p.location_id = l.location_id
-LEFT JOIN "static" s 
-    ON p.profile_id = s.profile_id
-LEFT JOIN profile_interests pi 
-    ON pi.profile_id = p.profile_id
-LEFT JOIN interests i 
-    ON pi.interest_id = i.interest_id
-LEFT JOIN profile_preferences pp 
-    ON pp.profile_id = p.profile_id
-LEFT JOIN preferences pr 
-    ON pp.preference_id = pr.preference_id
-LEFT JOIN profile_parameter pp2 
-    ON pp2.profile_id = p.profile_id
-LEFT JOIN parameters param 
-    ON param.parameter_id = pp2.parameter_id
+LEFT JOIN locations l ON p.location_id = l.location_id
+LEFT JOIN "static" s ON p.profile_id = s.profile_id
+LEFT JOIN profile_interests pi ON pi.profile_id = p.profile_id
+LEFT JOIN interests i ON pi.interest_id = i.interest_id
+LEFT JOIN profile_preferences pp ON pp.profile_id = p.profile_id
+LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id
+LEFT JOIN profile_parameter pp2 ON pp2.profile_id = p.profile_id
+LEFT JOIN parameters param ON param.parameter_id = pp2.parameter_id
 LEFT JOIN subscriptions sbs ON sbs.user_id = p.profile_id AND sbs.expires_at > NOW()
-ORDER BY p.profile_id;
+ORDER BY p.profile_id, i.description NULLS LAST;
+
 `
 
 func (pr *ProfileRepo) GetProfilesByUserId(forUserId int) ([]model.Profile, error) {
@@ -1063,10 +1058,12 @@ WITH filtered_profiles AS (
     SELECT p.profile_id, p.firstname, p.lastname, p.birthday, p.goal,
            s.path AS avatar
     FROM profiles p
+    JOIN users u ON u.profile_id = p.profile_id
     LEFT JOIN "static" s ON s.profile_id = p.profile_id
     LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id AND liked.profile_id = $1
     WHERE p.profile_id != $1
       AND liked.profile_id IS NULL
+      AND u.user_id NOT IN (SELECT user_id FROM blacklist)
       AND (
           $2 = '' OR $2 = 'Any' OR
           (p.is_male = CASE 
@@ -1119,18 +1116,16 @@ WITH filtered_profiles AS (
           )
           OR jsonb_array_length($10) = 0
       )
-	 AND (
-    $11 = '' OR
-    (
-        similarity((p.firstname || ' ' || p.lastname), $11) > 0.3
-        OR similarity(p.fullname_translit, $11) > 0.3
-        OR to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $11)
-        OR to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $11)
-		OR LOWER(p.firstname) LIKE LOWER($11 || '%')
-		OR LOWER(p.lastname) LIKE LOWER($11 || '%')
-    )
-)
-
+      AND (
+          $11 = '' OR (
+              similarity((p.firstname || ' ' || p.lastname), $11) > 0.3
+              OR similarity(p.fullname_translit, $11) > 0.3
+              OR to_tsvector('russian', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('russian', $11)
+              OR to_tsvector('english', (p.firstname || ' ' || p.lastname)) @@ plainto_tsquery('english', $11)
+              OR LOWER(p.firstname) LIKE LOWER($11 || '%')
+              OR LOWER(p.lastname) LIKE LOWER($11 || '%')
+          )
+      )
 )
 SELECT
     profile_id AS "IDUser",
@@ -1139,7 +1134,8 @@ SELECT
     FLOOR(DATE_PART('year', AGE(CURRENT_DATE, birthday)))::int AS "Age",
     goal AS "Goal"
 FROM filtered_profiles
-ORDER BY profile_id
+ORDER BY profile_id;
+
 `
 
 func (pr *ProfileRepo) SearchProfiles(cur_user int, params model.SearchProfileRequest) ([]model.FoundProfile, error) {

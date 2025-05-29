@@ -396,7 +396,7 @@ type CreateComplaintRequest struct {
 
 //easyjson:json
 type GetAnswerStatistics struct {
-	Query_id int `json:"query_id"`
+	Query_name string `json:"query_name"`
 }
 
 //easyjson:json

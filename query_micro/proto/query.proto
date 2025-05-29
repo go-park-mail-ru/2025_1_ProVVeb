@@ -24,7 +24,7 @@ message DeleteAnswerRequest {
   }
   
   message QueryStatsRequest {
-    int64 query_id = 1;
+    string query_name = 1;
   }
   
   message QueryStatsResponse {

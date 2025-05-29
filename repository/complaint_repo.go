@@ -297,7 +297,7 @@ func (cr *ComplaintRepo) HandleComplaint(complaint_id int, new_status int) error
 const getStatisticsQuery = `
 	SELECT
 		COUNT(*) AS total_complaints,
-		COUNT(*) FILTER (WHERE status = 0) AS rejected,
+		COUNT(*) FILTER (WHERE status = -1) AS rejected,
 		COUNT(*) FILTER (WHERE status = 1) AS pending,
 		COUNT(*) FILTER (WHERE status = 2) AS approved,
 		COUNT(*) FILTER (WHERE status = 3) AS closed,
