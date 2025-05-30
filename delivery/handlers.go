@@ -2852,6 +2852,14 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+		"hello":      input,
+	}).Info("Gts request started")
+
 	fmt.Println("Here are ", input)
 
 	complaints, err := ch.FindCompaintUC.FindComplaint(
@@ -2862,6 +2870,13 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		input.Complaint_type,
 		input.Status,
 	)
+	ch.Logger.WithFields(&logrus.Fields{
+		"method":     r.Method,
+		"path":       r.URL.Path,
+		"request_id": r.Header.Get("request_id"),
+		"ip":         r.RemoteAddr,
+		"cccc":       complaints,
+	}).Info("Gts request started")
 	if err != nil {
 		MakeEasyJSONResponse(w, http.StatusInternalServerError,
 			&model.ErrorResponse{Message: fmt.Sprintf("Error getting complaints: %v", err)},
