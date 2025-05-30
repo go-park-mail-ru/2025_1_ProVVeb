@@ -2409,7 +2409,7 @@ func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_id)
+	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_name)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": userID,
