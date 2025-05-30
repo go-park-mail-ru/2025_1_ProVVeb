@@ -10,8 +10,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: Run tests
       run: |
-        if [ "${{ github.ref }}" == "refs/heads/ci" ]; then
-          echo "TESTING AHAHAHHAHAH"
+        if [ "${{ github.ref }}" == "refs/heads/ci" || "${{ github.ref }}" == "refs/heads/dev" ]; then
+          echo "TESTING"
         else
           make test
         fi       
@@ -26,7 +26,7 @@ jobs:
         version: v2.1
     - name: Mock linter for CI
       if: github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
-      run: echo "LINTerING AHAHAHHAHAH"
+      run: echo "LINTerING"
   build:
     needs: [ test, lint ]
     runs-on: ubuntu-latest
