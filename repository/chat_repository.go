@@ -86,7 +86,7 @@ func (cr *ChatRepo) GetChatParticipants(chatID int) (int, int, error) {
 
 const (
 	GetChatsQuery = `
-	SELECT 
+	SELECT DISTINCT ON (c.chat_id) 
     c.chat_id, 
     c.first_profile_id, 
     c.second_profile_id, 

@@ -158,7 +158,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 	notifications, err := mh.GetNotificationsUC.GetNotifications(int(profileId))
 	if err != nil {
 		mh.Logger.Error("Failed to load initial notifications: ", err)
-		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial notifications"})
+		conn.WriteJSON(map[string]interface{}{"error": fmt.Sprintf("Failed to load initial notifications %v", err)})
 		return
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_notifications", "notifications": notifications})
@@ -180,7 +180,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			case <-pubsub.Channel():
 				newNotifications, err := mh.GetCurrentNotificationsUC.GetCurrentNotifications(int(profileId))
 				if err != nil {
-					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
+					mh.Logger.Error("Failed to get messages from cache (ticker):", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
 					continue
 				}
@@ -1505,7 +1505,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	profileId, err := uh.SignupUC.SaveUserProfile(profile)
 	if err != nil {
 		MakeEasyJSONResponse(w, http.StatusInternalServerError,
-			&model.ErrorResponse{Message: "Failed to save user profile"},
+			&model.ErrorResponse{Message: fmt.Sprintf("Failed to save user profile %v", err)},
 		)
 		return
 	}

@@ -1127,14 +1127,15 @@ WITH filtered_profiles AS (
           )
       )
 )
-SELECT DISTINCT
+SELECT DISTINCT ON (profile_id)
     profile_id AS "IDUser",
     avatar AS "FirstImg",
     firstname || ' ' || lastname AS "Fullname",
     FLOOR(DATE_PART('year', AGE(CURRENT_DATE, birthday)))::int AS "Age",
     goal AS "Goal"
 FROM filtered_profiles
-ORDER BY profile_id;
+ORDER BY profile_id
+LIMIT 20;
 
 
 `
