@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: forus809/postgre:latest
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: app_user
       POSTGRES_HOST: postgres
