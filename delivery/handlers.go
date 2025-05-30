@@ -296,6 +296,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 					if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"}); err2 != nil {
 						mh.Logger.Error("Failed to write error message: ", err, err2)
 					}
+					return
 					
 				}
 				if err2 := conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId}); err2 != nil {
