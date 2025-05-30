@@ -153,22 +153,39 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			&model.ErrorResponse{Message: "Failed to establish WebSocket connection"},
 		)
 	}
-	defer conn.Close()
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			mh.Logger.Error("Failed to close WebSocket connection: ", err)
+		}
+	}()
 
 	notifications, err := mh.GetNotificationsUC.GetNotifications(int(profileId))
 	if err != nil {
 		mh.Logger.Error("Failed to load initial notifications: ", err)
-		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial notifications"})
+		if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial notifications"}); err2 != nil {
+			mh.Logger.Error("Failed to write initial notifications: ", err, err2)
+			return
+		}
 		return
 	}
-	conn.WriteJSON(map[string]interface{}{"type": "init_notifications", "notifications": notifications})
+
+	if err = conn.WriteJSON(map[string]interface{}{"type": "init_notifications", "notifications": notifications}); err != nil {
+		mh.Logger.Error("Failed to write initial notifications: ", err)
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	channelName := fmt.Sprintf("user:%d notifications", profileId)
 	pubsub := mh.Subscriber.Subscribe(ctx, channelName)
-	defer pubsub.Close()
+	// defer pubsub.Close()
+	defer func() {
+		if err := pubsub.Close(); err != nil {
+			mh.Logger.Error("Failed to close pubsub: ", err)
+		}
+	}()
 
 	done := make(chan struct{})
 
@@ -181,11 +198,16 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 				newNotifications, err := mh.GetCurrentNotificationsUC.GetCurrentNotifications(int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
-					conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
+					if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"}); err2 != nil {
+						mh.Logger.Error("Failed to write messages: ", err, err2)
+					}
 					continue
 				}
 				if len(newNotifications) > 0 {
-					conn.WriteJSON(map[string]interface{}{"type": "new_notifications", "notifications": newNotifications})
+
+					if err2 := conn.WriteJSON(map[string]interface{}{"type": "new_notifications", "notifications": newNotifications}); err2 != nil {
+						mh.Logger.Error("Failed to write messages: ", err, err2)
+					}
 				}
 			}
 		}
@@ -195,7 +217,10 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		_, msgData, err := conn.ReadMessage()
 		if err != nil {
 			mh.Logger.Error("Error reading message from WebSocket: ", err)
-			conn.WriteJSON(map[string]interface{}{"error": "Error reading message"})
+
+			if err2 := conn.WriteJSON(map[string]interface{}{"error": "Error reading message"}); err2 != nil {
+				mh.Logger.Error("Failed to write error message: ", err, err2)
+			}
 			close(done)
 			break
 		}
@@ -203,7 +228,9 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 		var wsMessage model.WSMessage
 		if err := easyjson.Unmarshal(msgData, &wsMessage); err != nil {
 			mh.Logger.Error("Failed to unmarshal WSMessage: ", err)
-			conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"})
+			if err2 := conn.WriteJSON(map[string]interface{}{"error": "Invalid message format"}); err2 != nil {
+				mh.Logger.Error("Failed to write error message: ", err, err2)
+			}
 			continue
 		}
 
@@ -213,7 +240,9 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			var payload model.FlowersPayload
 			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal payload: ", err)
-				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
+				if err2 := conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
 				break
 			}
 			go func(payload model.FlowersPayload) {
@@ -227,11 +256,15 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 				err := mh.Subscriber.Publish(context.Background(), channel, data).Err()
 				if err != nil {
 					mh.Logger.Error("Failed to publish flowers notification: ", err)
-					conn.WriteJSON(map[string]interface{}{"error": "Failed to notify"})
+					if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to notify"}); err2 != nil {
+						mh.Logger.Error("Failed to write error message: ", err, err2)
+					}
 					return
 				}
-				conn.WriteJSON(map[string]interface{}{"type": "SentFlowersTo", "user": payload.UserID})
-
+				if err2 := conn.WriteJSON(map[string]interface{}{"type": "SentFlowersTo", "user": payload.UserID}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
+				
 				redisKey := fmt.Sprintf("CACHE:user:%dnotifications", payload.UserID)
 
 				jsonNotif, err := json.Marshal(notif)
@@ -251,24 +284,32 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			var payload model.DeleteNotifPayload
 			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal ReadPayload: ", err)
-				conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"})
+				if err2 := conn.WriteJSON(map[string]interface{}{"error": "Invalid read payload"}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
 				break
 			}
 			go func(payload model.DeleteNotifPayload) {
 				err := mh.DeleteNotificationUC.DeleteNotifications(payload.NotifID, int(profileId))
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
-					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
-					return
+					if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"}); err2 != nil {
+						mh.Logger.Error("Failed to write error message: ", err, err2)
+					}
+					
 				}
-				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
+				if err2 := conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
 			}(payload)
 
 		case "read":
 			var payload model.ReadNotifPayload
 			if err := easyjson.Unmarshal(wsMessage.Payload, &payload); err != nil {
 				mh.Logger.Error("Failed to unmarshal payload: ", err)
-				conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"})
+				if err2 := conn.WriteJSON(map[string]interface{}{"error": "Invalid payload"}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
 				break
 			}
 			messageReceived.WithLabelValues().Inc()
@@ -276,15 +317,21 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 				err := mh.UpdateNotificationStatusUC.UpdateNotificatons(int(profileId), payload.NotifType)
 				if err != nil {
 					mh.Logger.Error("Failed to update message status: ", err)
-					conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"})
+					if err2 := conn.WriteJSON(map[string]interface{}{"error": "Failed to update message status"}); err2 != nil {
+						mh.Logger.Error("Failed to write error message: ", err, err2)
+					}
 					return
 				}
-				conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId})
+				if err2 := conn.WriteJSON(map[string]interface{}{"type": "status_updated", "user": profileId}); err2 != nil {
+					mh.Logger.Error("Failed to write error message: ", err, err2)
+				}
 			}(payload)
 
 		default:
 			mh.Logger.Warn("Unknown action: ", wsMessage.Type)
-			conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"})
+			if err2 := conn.WriteJSON(map[string]interface{}{"error": "Unknown action type"}); err2 != nil {
+				mh.Logger.Error("Failed to write error message: ", err, err2)
+			}
 		}
 	}
 }

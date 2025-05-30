@@ -48,25 +48,42 @@ func Run() {
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to query_micro: %v", err))
 	}
-	defer queryCon.Close()
+	defer func() {
+		if queryCon.Close() != nil {
+			fmt.Println(fmt.Errorf("not able to close query_micro connection: %v", err))
+		}
+	}()
 
 	authCon, err := grpc.NewClient("auth_micro:8082", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to auth_micro: %v", err))
 	}
-	defer authCon.Close()
+	defer func() {
+		if authCon.Close() != nil {
+			fmt.Println(fmt.Errorf("not able to close auth_micro connection: %v", err))
+		}
+	}()
 
 	profilesCon, err := grpc.NewClient("profiles_micro:8083", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to profiles_micro: %v", err))
 	}
-	defer profilesCon.Close()
+	defer func() {
+		if profilesCon.Close() != nil {
+			fmt.Println(fmt.Errorf("not able to close profiles_micro connection: %v", err))
+		}
+	}()
 
 	usersCon, err := grpc.NewClient("users_micro:8085", grpcOpts...)
 	if err != nil {
 		fmt.Println(fmt.Errorf("not able to connect to users_micro: %v", err))
 	}
-	defer usersCon.Close()
+	// defer usersCon.Close()
+	defer func() {
+		if usersCon.Close() != nil {
+			fmt.Println(fmt.Errorf("not able to close users_micro connection: %v", err))
+		}
+	}()
 
 	logger, err := logger.NewLogrusLogger("/backend/logs/access.log")
 	if err != nil {
@@ -272,7 +289,11 @@ func Run() {
 		EnableOpenMetrics: true,
 	}))
 
-	go http.ListenAndServe(":8099", rmetrics)
+	go func() {
+		if err := http.ListenAndServe(":8099", rmetrics); err != nil {
+			fmt.Printf("HTTP server error: %v", err)
+		}
+	}()
 	go func() {
 		for {
 			updateSyscallMetrics()

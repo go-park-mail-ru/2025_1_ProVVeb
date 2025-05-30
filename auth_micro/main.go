@@ -17,8 +17,20 @@ func main() {
 		fmt.Println(fmt.Errorf("not able to work with redisClient: %v", err))
 		return
 	}
-	defer sessionRepo.CloseRepo()
-	defer auth.ClosePostgresConnection(sessionRepo.DB)
+
+	// defer sessionRepo.CloseRepo()
+	defer func() {
+		if err := sessionRepo.CloseRepo(); err != nil {
+			fmt.Printf("error closing session repo: %v", err)
+		}
+	}()
+
+	// defer auth.ClosePostgresConnection(sessionRepo.DB)
+	defer func() {
+		if err := auth.ClosePostgresConnection(sessionRepo.DB); err != nil {
+			fmt.Printf("error closing postgres connection: %v", err)
+		}
+	}()
 
 	lis, err := net.Listen("tcp", ":8082")
 	if err != nil {
