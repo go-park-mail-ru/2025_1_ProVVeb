@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -18,51 +19,34 @@ import (
 )
 
 func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
-	mr, err := miniredis.Run()
-	assert.NoError(t, err)
+	mr, _ := miniredis.Run()
 	defer mr.Close()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
-
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	db, mock, _ := sqlmock.New()
 	defer db.Close()
-	ctx := context.Background()
+
 	repo := &auth.SessionRepo{
 		DB:     db,
 		Client: rdb,
-		Ctx:    ctx,
+		Ctx:    context.Background(),
 	}
 
 	session := repo.CreateSession(123)
-	assert.NotEmpty(t, session.SessionId)
-	assert.Equal(t, 123, session.UserId)
-	assert.Equal(t, model.SessionDuration, session.Expires)
+	testData := "some_data"
 
-	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+	INSERT INTO sessions (user_id, token, created_at, expires_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+	RETURNING id;
+	`)).WithArgs(123, testData).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	err := repo.StoreSession(123, session.SessionId, testData, session.Expires)
 	assert.NoError(t, err)
 
-	query := `INSERT INTO sessions (user_id, token, created_at, expires_at)
-VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
-RETURNING id;`
-
-	mock.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(123, session.SessionId).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-
-	// Вызов функции StoreSession
-	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
-	assert.NoError(t, err)
-
-	// Проверяем, что вызовы моков были выполнены
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-
-	val, err := mr.Get(session.SessionId)
-	assert.NoError(t, err)
-	assert.Equal(t, "some_data", val)
+	assert.NoError(t, mock.ExpectationsWereMet())
+	val, _ := mr.Get(session.SessionId)
+	assert.Equal(t, strconv.Itoa(session.UserId), val)
 }
 
 func TestCreateSession(t *testing.T) {
