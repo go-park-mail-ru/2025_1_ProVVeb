@@ -1774,7 +1774,7 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		"user_id": userId,
 	}).Info("user deleted successfully")
 
-	MakeEasyJSONResponse(w, http.StatusInternalServerError,
+	MakeEasyJSONResponse(w, http.StatusOK,
 		&model.ErrorResponse{Message: fmt.Sprintf("User with ID %d deleted", userId)},
 	)
 }
