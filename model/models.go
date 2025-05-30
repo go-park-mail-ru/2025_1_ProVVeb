@@ -442,8 +442,8 @@ type LoginResponse struct {
 
 //easyjson:json
 type UploadResponse struct {
-	Message       string   `json:"message"`
-	FailedUploads []string `json:"failed_uploads"`
+	Message          string   `json:"message"`
+	SucessfulUploads []string `json:"sucessful_uploads"`
 }
 
 //easyjson:json

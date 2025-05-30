@@ -1304,8 +1304,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 
 		MakeEasyJSONResponse(w, http.StatusInternalServerError, &model.UploadResponse{
-			Message:       "Some uploads failed",
-			FailedUploads: failedUploads,
+			Message:          "Some uploads failed",
+			SucessfulUploads: failedUploads,
 		})
 		return
 	}
@@ -1316,8 +1316,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}).Info("all files uploaded successfully")
 
 	MakeEasyJSONResponse(w, http.StatusOK, &model.UploadResponse{
-		Message:       "All files uploaded",
-		FailedUploads: successUploads,
+		Message:          "All files uploaded",
+		SucessfulUploads: successUploads,
 	})
 }
 
