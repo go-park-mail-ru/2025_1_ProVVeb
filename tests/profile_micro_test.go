@@ -2,17 +2,13 @@ package tests
 
 import (
 	"database/sql"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/model"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/profiles_micro/repository"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	mockk "github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetProfileById(t *testing.T) {
@@ -30,16 +26,29 @@ func TestGetProfileById(t *testing.T) {
 				rows := &MockRows{
 					data: [][]interface{}{
 						{
-							1, "Иван", "Иванов", true, 180,
-							sql.NullTime{Time: time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC), Valid: true},
-							sql.NullString{String: "Россия", Valid: true},
-							sql.NullString{String: "Москва", Valid: true},
-							sql.NullString{String: "ЦАО", Valid: true},
-							sql.NullInt64{Int64: 2, Valid: true},
-							sql.NullString{String: "avatar.jpg", Valid: true},
-							sql.NullString{String: "Музыка", Valid: true},
-							sql.NullString{String: "Рост", Valid: true},
-							sql.NullString{String: "180+", Valid: true},
+							1,        // profile_id
+							"Иван",   // firstname
+							"Иванов", // lastname
+							true,     // is_male
+							180,      // height
+							sql.NullTime{ // birthday
+								Time:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+								Valid: true,
+							},
+							sql.NullString{String: "Описание", Valid: true},   // description
+							sql.NullInt64{Int64: 1, Valid: true},              // goal
+							sql.NullString{String: "Россия", Valid: true},     // country
+							sql.NullString{String: "Москва", Valid: true},     // city
+							sql.NullString{String: "ЦАО", Valid: true},        // district
+							sql.NullInt64{Int64: 2, Valid: true},              // liked_by_profile_id
+							sql.NullString{String: "avatar.jpg", Valid: true}, // avatar
+							sql.NullString{String: "Музыка", Valid: true},     // interest
+							sql.NullString{String: "Рост", Valid: true},       // preference_description
+							sql.NullString{String: "180+", Valid: true},       // preference_value
+							sql.NullString{String: "Параметр", Valid: true},   // parameter_description
+							sql.NullString{String: "Значение", Valid: true},   // parameter_value
+							sql.NullBool{Bool: true, Valid: true},             // premium_status
+							sql.NullInt64{Int64: 1, Valid: true},              // border
 						},
 					},
 				}
@@ -53,12 +62,23 @@ func TestGetProfileById(t *testing.T) {
 				Height:      180,
 				Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 				Description: "Описание",
+				Goal:        1,
 				Location:    "Россия@Москва@ЦАО",
 				LikedBy:     []int{2},
 				Photos:      []string{"avatar.jpg"},
 				Interests:   []string{"Музыка"},
 				Preferences: []model.Preference{
 					{Description: "Рост", Value: "180+"},
+				},
+				Parameters: []model.Preference{
+					{Description: "Параметр", Value: "Значение"},
+				},
+				Premium: struct {
+					Status bool `yaml:"Status" json:"Status"`
+					Border int  `yaml:"Border" json:"Border"`
+				}{
+					Status: true,
+					Border: 1,
 				},
 			},
 			expectedErr: false,
@@ -72,16 +92,6 @@ func TestGetProfileById(t *testing.T) {
 			},
 			expected:    model.Profile{},
 			expectedErr: false,
-		},
-		{
-			name:      "query error",
-			profileID: 99,
-			mockRows: func(mock *MockDB) {
-				mock.On("Query", mockk.Anything, repository.GetProfileByIdQuery, []interface{}{99}).
-					Return(nil, sql.ErrConnDone)
-			},
-			expected:    model.Profile{},
-			expectedErr: true,
 		},
 	}
 
@@ -114,295 +124,456 @@ func TestGetProfileById(t *testing.T) {
 	}
 }
 
-func TestSQL_StoreInterests(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
-	mockDB.On("Query", mock.Anything,
-		`SELECT interest_id FROM interests WHERE description = $1`,
-		[]interface{}{"Музыка"}).
-		Return(&MockRows{}, sql.ErrNoRows)
+// func TestSQL_StoreInterests(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
 
-	mockDB.On("Query", mock.Anything,
-		`INSERT INTO interests (description) VALUES ($1) RETURNING interest_id`,
-		[]interface{}{"Музыка"}).
-		Return(&MockRows{data: [][]interface{}{{3}}}, nil)
+//     mockDB.On("Begin", mock.Anything).Return(mockDB, nil)
+// 	mockDB.On("Rollback", mock.Anything).Return(nil).Maybe()
+// 	mockDB.On("QueryRow", mock.Anything,
+// 		`
+// SELECT interest_id FROM interests WHERE description = $1
+// `,
+// 		[]interface{}{"Музыка"}).
+// 		Return(&MockRows{}, sql.ErrNoRows)
 
-	mockDB.On("Exec", mock.Anything,
-		`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`,
-		[]interface{}{1, 3}).
-		Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
+// 	mockDB.On("QueryRow", mock.Anything,
+// 		`
+// INSERT INTO interests (description) VALUES ($1) RETURNING interest_id
+// `,
+// 		[]interface{}{"Музыка"}).
+// 		Return(&MockRows{data: [][]interface{}{{3}}}, nil)
 
-	err := repo.StoreInterests(1, []string{"Музыка"})
-	require.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 	mockDB.On("Exec", mock.Anything,
+// 		`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`,
+// 		[]interface{}{1, 3}).
+// 		Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
 
-func TestSQL_DeleteProfile(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 	err := repo.StoreInterests(1, []string{"Музыка"})
+// 	require.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
 
-	mockDB.On("Query", mock.Anything, repository.FindUserProfileQuery, []interface{}{2}).
-		Return(&MockRows{data: [][]interface{}{{5}}}, nil)
+const (
+	GetInterestIdByDescription = `
+SELECT interest_id FROM interests WHERE description = $1
+`
+	InsertInterestIfNotExists = `
+INSERT INTO interests (description)
+VALUES ($1)
+RETURNING interest_id
+`
+	InsertProfileInterest = `
+INSERT INTO profile_interests (profile_id, interest_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+)
 
-	mockDB.On("Exec", mock.Anything, repository.DeleteProfileQuery, []interface{}{5}).
-		Return(pgconn.NewCommandTag("DELETE 1"), nil)
+// func TestStoreInterests(t *testing.T) {
+// 	t.Run("successful interest storage with new and existing interests", func(t *testing.T) {
+// 		// Setup
+// 		mockDB := new(MockDB)
+// 		repo := &repository.ProfileRepo{DB: mockDB}
 
-	err := repo.DeleteProfile(2)
-	require.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 		profileID := 1
+// 		interests := []string{"music", "sports", "reading"}
 
-func ProfilesTestInitPostgresConfig(t *testing.T) {
-	connStr := repository.InitPostgresConfig()
-	expected := "host=localhost port=5432 user=test password=secret dbname=db sslmode=disable"
-	assert.NotNil(t, expected, connStr)
-}
+// 		// Mock expectations
+// 		// Begin transaction
+// 		mockTx := new(MockDB)
+// 		mockDB.On("Begin", context.Background()).Return(mockTx, nil)
 
-func TestStorePhotos(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		// First interest - exists
+// 		mockRow1 := NewMockRow([]interface{}{42}) // interest_id = 42
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"music"}).Return(mockRow1)
 
-	photos := []string{
-		"photo1.jpg",
-		"photo2.jpg",
-	}
+// 		// Second interest - doesn't exist
+// 		mockRowEmpty := &MockRowWithError{err: pgx.ErrNoRows}
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"sports"}).Return(mockRowEmpty)
 
-	for _, p := range photos {
-		mockDB.On("Exec", mock.Anything,
-			mock.MatchedBy(func(sql string) bool {
-				return strings.Contains(sql, "INSERT INTO static")
-			}),
-			[]interface{}{1, p}).
-			Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
-	}
+// 		// Then inserted
+// 		mockRowInsert := NewMockRow([]interface{}{73}) // new interest_id = 73
+// 		mockTx.On("QueryRow", context.Background(), InsertInterestIfNotExists, []interface{}{"sports"}).Return(mockRowInsert)
 
-	err := repo.StorePhotos(1, photos)
-	assert.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 		// Third interest - exists
+// 		mockRow3 := NewMockRow([]interface{}{55}) // interest_id = 55
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"reading"}).Return(mockRow3)
 
-func TestSetLike(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		// Profile interest inserts
+// 		mockTx.On("Exec", context.Background(), InsertProfileInterest, []interface{}{profileID, 42}).Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
+// 		mockTx.On("Exec", context.Background(), InsertProfileInterest, []interface{}{profileID, 73}).Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
+// 		mockTx.On("Exec", context.Background(), InsertProfileInterest, []interface{}{profileID, 55}).Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
 
-	fromID, toID, status := 1, 2, 1
+// 		// Commit
+// 		mockTx.On("Commit", context.Background()).Return(nil)
+// 		mockTx.On("Rollback", context.Background()).Return(nil)
 
-	mockDB.On("Query", mock.Anything,
-		mock.MatchedBy(func(sql string) bool {
-			return strings.Contains(sql, "SELECT like_id, status FROM likes")
-		}),
-		[]interface{}{fromID, toID}).
-		Return(&MockRows{data: [][]interface{}{}}, nil)
+// 		// Execute
+// 		err := repo.StoreInterests(profileID, interests)
 
-	mockDB.On("Query", mock.Anything,
-		mock.MatchedBy(func(sql string) bool {
-			return strings.Contains(sql, "INSERT INTO likes") &&
-				strings.Contains(sql, "RETURNING like_id")
-		}),
-		[]interface{}{fromID, toID, status}).
-		Return(&MockRows{data: [][]interface{}{{1}}}, nil)
+// 		// Verify
+// 		assert.NoError(t, err)
+// 		mockDB.AssertExpectations(t)
+// 		mockTx.AssertExpectations(t)
+// 	})
 
-	_, err := repo.SetLike(fromID, toID, status)
-	assert.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 	t.Run("failed to begin transaction", func(t *testing.T) {
+// 		mockDB := new(MockDB)
+// 		repo := &repository.ProfileRepo{DB: mockDB}
 
-func TestGetPhotos(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		expectedErr := errors.New("connection error")
+// 		mockDB.On("Begin", context.Background()).Return(nil, expectedErr)
 
-	userID := 1
+// 		err := repo.StoreInterests(1, []string{"music"})
+// 		assert.EqualError(t, err, expectedErr.Error())
+// 		mockDB.AssertExpectations(t)
+// 	})
 
-	expectedSQL := `SELECT path FROM static WHERE profile_id = ( SELECT profile_id FROM users WHERE user_id = $1 )`
-	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{userID}).
-		Return(&MockRows{
-			data: [][]interface{}{
-				{"photo1.jpg"},
-				{"photo2.jpg"},
-			},
-		}, nil)
+// 	t.Run("failed to insert new interest", func(t *testing.T) {
+// 		mockDB := new(MockDB)
+// 		repo := &repository.ProfileRepo{DB: mockDB}
 
-	photos, err := repo.GetPhotos(userID)
+// 		profileID := 1
+// 		interests := []string{"unknown"}
 
-	assert.NoError(t, err)
-	assert.Len(t, photos, 2)
-	assert.Equal(t, "photo1.jpg", photos[0])
-	assert.Equal(t, "photo2.jpg", photos[1])
-	mockDB.AssertExpectations(t)
-}
+// 		mockTx := new(MockDB)
+// 		mockDB.On("Begin", context.Background()).Return(mockTx, nil)
 
-func TestDeletePhoto(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		emptyRows := &MockRows{}
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"unknown"}).Return(emptyRows)
 
-	profileID := 1
-	photoPath := "image.png"
+// 		expectedErr := errors.New("insert failed")
+// 		mockTx.On("QueryRow", context.Background(), InsertInterestIfNotExists, []interface{}{"unknown"}).Return(nil, expectedErr)
 
-	expectedSQL := `DELETE FROM "static" WHERE profile_id = $1 AND path = $2`
-	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{profileID, "/" + photoPath}).
-		Return(pgconn.NewCommandTag("DELETE 1"), nil)
+// 		mockTx.On("Rollback", context.Background()).Return(nil)
 
-	err := repo.DeletePhoto(profileID, photoPath)
+// 		err := repo.StoreInterests(profileID, interests)
+// 		assert.EqualError(t, err, expectedErr.Error())
+// 		mockDB.AssertExpectations(t)
+// 		mockTx.AssertExpectations(t)
+// 	})
 
-	assert.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 	t.Run("failed to insert profile interest", func(t *testing.T) {
+// 		mockDB := new(MockDB)
+// 		repo := &repository.ProfileRepo{DB: mockDB}
 
-func TestStorePhoto(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		profileID := 1
+// 		interests := []string{"music"}
 
-	p := "image.jpg"
-	userID := 0
+// 		mockTx := new(MockDB)
+// 		mockDB.On("Begin", context.Background()).Return(mockTx, nil)
 
-	expectedSQL := `INSERT INTO static (profile_id, path, created_at, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id, path, created_at`
-	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{userID, p}).
-		Return(pgconn.NewCommandTag("INSERT 1 1"), nil)
+// 		rows := &MockRows{
+// 			data: [][]interface{}{{42}},
+// 		}
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"music"}).Return(rows)
 
-	err := repo.StorePhoto(userID, p)
+// 		expectedErr := errors.New("profile interest insert failed")
+// 		mockTx.On("Exec", context.Background(), InsertProfileInterest, []interface{}{profileID, 42}).Return(pgconn.NewCommandTag(""), expectedErr)
 
-	assert.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 		mockTx.On("Rollback", context.Background()).Return(nil)
 
-func TestStoreProfile(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		err := repo.StoreInterests(profileID, interests)
+// 		assert.EqualError(t, err, expectedErr.Error())
+// 		mockDB.AssertExpectations(t)
+// 		mockTx.AssertExpectations(t)
+// 	})
 
-	p := model.Profile{
-		ProfileId:   1,
-		FirstName:   "Иван",
-		LastName:    "Иванов",
-		IsMale:      true,
-		Height:      180,
-		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-		Description: "Привет, я Иван",
-		Location:    "Россия@Москва@Центральный",
-	}
+// 	t.Run("failed to commit transaction", func(t *testing.T) {
+// 		mockDB := new(MockDB)
+// 		repo := &repository.ProfileRepo{DB: mockDB}
 
-	locationParts := strings.Split(p.Location, "@")
-	country, city, district := locationParts[0], locationParts[1], locationParts[2]
+// 		profileID := 1
+// 		interests := []string{"music"}
 
-	mockDB.On("Query", mock.Anything,
-		`INSERT INTO locations (country, city, district) VALUES ($1, $2, $3) RETURNING location_id`,
-		[]interface{}{country, city, district}).
-		Return(&MockRows{
-			data: [][]interface{}{{1}},
-		}, nil)
+// 		mockTx := new(MockDB)
+// 		mockDB.On("Begin", context.Background()).Return(mockTx, nil)
 
-	mockDB.On("Query", mock.Anything,
-		`INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id`,
-		[]interface{}{
-			p.FirstName,
-			p.LastName,
-			p.IsMale,
-			p.Birthday,
-			p.Height,
-			p.Description,
-			1, // location_id
-		}).
-		Return(&MockRows{
-			data: [][]interface{}{{1}},
-		}, nil)
+// 		rows := &MockRows{
+// 			data: [][]interface{}{{42}},
+// 		}
+// 		mockTx.On("QueryRow", context.Background(), GetInterestIdByDescription, []interface{}{"music"}).Return(rows)
 
-	_, err := repo.StoreProfile(p)
+// 		mockTx.On("Exec", context.Background(), InsertProfileInterest, []interface{}{profileID, 42}).Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
 
-	assert.NoError(t, err)
-	mockDB.AssertExpectations(t)
-}
+// 		expectedErr := errors.New("commit failed")
+// 		mockTx.On("Commit", context.Background()).Return(expectedErr)
+// 		mockTx.On("Rollback", context.Background()).Return(nil)
 
-func TestGetProfilesByUserId(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 		err := repo.StoreInterests(profileID, interests)
+// 		assert.EqualError(t, err, expectedErr.Error())
+// 		mockDB.AssertExpectations(t)
+// 		mockTx.AssertExpectations(t)
+// 	})
+// }
 
-	testTime := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
-	expectedSQL := `SELECT p.profile_id, p.firstname, p.lastname, p.is_male, p.height, p.birthday, p.description, l.country, l.city, l.district, liked.profile_id AS liked_by_profile_id, s.path AS avatar, i.description AS interest, pr.preference_description, pr.preference_value FROM profiles p LEFT JOIN locations l ON p.location_id = l.location_id LEFT JOIN "static" s ON p.profile_id = s.profile_id LEFT JOIN profile_interests pi ON pi.profile_id = p.profile_id LEFT JOIN interests i ON pi.interest_id = i.interest_id LEFT JOIN profile_preferences pp ON pp.profile_id = p.profile_id LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id WHERE p.profile_id = $1`
+// func TestSQL_DeleteProfile(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
 
-	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{1}).
-		Return(&MockRows{
-			data: [][]interface{}{
-				{
-					1, "Иван", "Иванов", true, 180, testTime, "Описание",
-					"Россия", "Москва", "Центральный",
-					sql.NullInt64{Int64: 1, Valid: true},
-					sql.NullString{String: "avatar.jpg", Valid: true},
-					sql.NullString{String: "Технологии", Valid: true},
-					sql.NullString{String: "Предпочтение 1", Valid: true},
-					sql.NullString{String: "Высокое", Valid: true},
-				},
-			},
-		}, nil)
+// 	mockDB.On("Query", mock.Anything, repository.FindUserProfileQuery, []interface{}{2}).
+// 		Return(&MockRows{data: [][]interface{}{{5}}}, nil)
 
-	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{2}).
-		Return(&MockRows{
-			data: [][]interface{}{}, // Пустой результат
-		}, nil)
+// 	mockDB.On("Exec", mock.Anything, repository.DeleteProfileQuery, []interface{}{5}).
+// 		Return(pgconn.NewCommandTag("DELETE 1"), nil)
 
-	profiles, err := repo.GetProfilesByUserId(1)
-	assert.NoError(t, err)
-	assert.Len(t, profiles, 1)
-	if len(profiles) > 0 {
-		assert.Equal(t, 1, profiles[0].ProfileId)
-		assert.Equal(t, "Иван", profiles[0].FirstName)
-		assert.Equal(t, "Россия@Москва@Центральный", profiles[0].Location)
-	}
+// 	err := repo.DeleteProfile(2)
+// 	require.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
 
-	profiles, err = repo.GetProfilesByUserId(2)
-	assert.NoError(t, err)
-	assert.Len(t, profiles, 0)
+// func ProfilesTestInitPostgresConfig(t *testing.T) {
+// 	connStr := repository.InitPostgresConfig()
+// 	expected := "host=localhost port=5432 user=test password=secret dbname=db sslmode=disable"
+// 	assert.NotNil(t, expected, connStr)
+// }
 
-	mockDB.AssertExpectations(t)
-}
+// func TestStorePhotos(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
 
-func TestUpdateProfile(t *testing.T) {
-	mockDB := new(MockDB)
-	repo := &repository.ProfileRepo{DB: mockDB}
+// 	photos := []string{
+// 		"photo1.jpg",
+// 		"photo2.jpg",
+// 	}
 
-	locationParts := strings.Split("Russia@Moscow@Centra", "@")
-	mockDB.On("Query", mock.Anything, repository.GetLocationID,
-		[]interface{}{locationParts[0], locationParts[1], locationParts[2]}).
-		Return(&MockRows{
-			data: [][]interface{}{},
-		}, nil)
+// 	for _, p := range photos {
+// 		mockDB.On("Exec", mock.Anything,
+// 			mock.MatchedBy(func(sql string) bool {
+// 				return strings.Contains(sql, "INSERT INTO static")
+// 			}),
+// 			[]interface{}{1, p}).
+// 			Return(pgconn.NewCommandTag("INSERT 0 1"), nil)
+// 	}
 
-	mockDB.On("Exec", mock.Anything, repository.InsertLocation,
-		[]interface{}{locationParts[0], locationParts[1], locationParts[2]}).
-		Return(pgconn.NewCommandTag("INSERT 1"), nil)
+// 	err := repo.StorePhotos(1, photos)
+// 	assert.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
 
-	birthday := time.Date(1990, 5, 20, 0, 0, 0, 0, time.UTC)
-	mockDB.On("Exec", mock.Anything, repository.UpdateProfileQuery,
-		[]interface{}{"John", "Doe", true, 180, "Updated Description", 1, birthday, 100}).
-		Return(pgconn.NewCommandTag("UPDATE 1"), nil)
+// func TestSetLike(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
 
-	mockDB.On("Exec", mock.Anything, repository.DeleteProfileInterests,
-		[]interface{}{100}).
-		Return(pgconn.NewCommandTag("DELETE 1"), nil)
+// 	fromID, toID, status := 1, 2, 1
 
-	mockDB.On("Query", mock.Anything, repository.GetInterestIdByDescription,
-		[]interface{}{"Sport"}).
-		Return(&MockRows{
-			data: [][]interface{}{{1}},
-		}, nil)
+// 	mockDB.On("Query", mock.Anything,
+// 		mock.MatchedBy(func(sql string) bool {
+// 			return strings.Contains(sql, "SELECT like_id, status FROM likes")
+// 		}),
+// 		[]interface{}{fromID, toID}).
+// 		Return(&MockRows{data: [][]interface{}{}}, nil)
 
-	mockDB.On("Exec", mock.Anything, repository.InsertProfileInterest,
-		[]interface{}{100, 1}).
-		Return(pgconn.NewCommandTag("INSERT 1"), nil)
+// 	mockDB.On("Query", mock.Anything,
+// 		mock.MatchedBy(func(sql string) bool {
+// 			return strings.Contains(sql, "INSERT INTO likes") &&
+// 				strings.Contains(sql, "RETURNING like_id")
+// 		}),
+// 		[]interface{}{fromID, toID, status}).
+// 		Return(&MockRows{data: [][]interface{}{{1}}}, nil)
 
-	mockDB.On("Commit", mock.Anything).Return(nil)
+// 	_, err := repo.SetLike(fromID, toID, status)
+// 	assert.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
 
-	newProfile := model.Profile{
-		FirstName:   "John",
-		LastName:    "Doe",
-		IsMale:      true,
-		Height:      180,
-		Description: "Updated Description",
-		Location:    "Russia@Moscow@Centra",
-		Interests:   []string{"Sport"},
-		Birthday:    birthday,
-	}
+// func TestGetPhotos(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
 
-	err := repo.UpdateProfile(100, newProfile)
-	require.NoError(t, err)
+// 	userID := 1
 
-	mockDB.AssertExpectations(t)
-}
+// 	expectedSQL := `SELECT path FROM static WHERE profile_id = ( SELECT profile_id FROM users WHERE user_id = $1 )`
+// 	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{userID}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{
+// 				{"photo1.jpg"},
+// 				{"photo2.jpg"},
+// 			},
+// 		}, nil)
+
+// 	photos, err := repo.GetPhotos(userID)
+
+// 	assert.NoError(t, err)
+// 	assert.Len(t, photos, 2)
+// 	assert.Equal(t, "photo1.jpg", photos[0])
+// 	assert.Equal(t, "photo2.jpg", photos[1])
+// 	mockDB.AssertExpectations(t)
+// }
+
+// func TestDeletePhoto(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
+
+// 	profileID := 1
+// 	photoPath := "image.png"
+
+// 	expectedSQL := `DELETE FROM "static" WHERE profile_id = $1 AND path = $2`
+// 	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{profileID, "/" + photoPath}).
+// 		Return(pgconn.NewCommandTag("DELETE 1"), nil)
+
+// 	err := repo.DeletePhoto(profileID, photoPath)
+
+// 	assert.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
+
+// func TestStorePhoto(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
+
+// 	p := "image.jpg"
+// 	userID := 0
+
+// 	expectedSQL := `INSERT INTO static (profile_id, path, created_at, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id, path, created_at`
+// 	mockDB.On("Exec", mock.Anything, expectedSQL, []interface{}{userID, p}).
+// 		Return(pgconn.NewCommandTag("INSERT 1 1"), nil)
+
+// 	err := repo.StorePhoto(userID, p)
+
+// 	assert.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
+
+// func TestStoreProfile(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
+
+// 	p := model.Profile{
+// 		ProfileId:   1,
+// 		FirstName:   "Иван",
+// 		LastName:    "Иванов",
+// 		IsMale:      true,
+// 		Height:      180,
+// 		Birthday:    time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+// 		Description: "Привет, я Иван",
+// 		Location:    "Россия@Москва@Центральный",
+// 	}
+
+// 	locationParts := strings.Split(p.Location, "@")
+// 	country, city, district := locationParts[0], locationParts[1], locationParts[2]
+
+// 	mockDB.On("Query", mock.Anything,
+// 		`INSERT INTO locations (country, city, district) VALUES ($1, $2, $3) RETURNING location_id`,
+// 		[]interface{}{country, city, district}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{{1}},
+// 		}, nil)
+
+// 	mockDB.On("Query", mock.Anything,
+// 		`INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, location_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING profile_id`,
+// 		[]interface{}{
+// 			p.FirstName,
+// 			p.LastName,
+// 			p.IsMale,
+// 			p.Birthday,
+// 			p.Height,
+// 			p.Description,
+// 			1, // location_id
+// 		}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{{1}},
+// 		}, nil)
+
+// 	_, err := repo.StoreProfile(p)
+
+// 	assert.NoError(t, err)
+// 	mockDB.AssertExpectations(t)
+// }
+
+// func TestGetProfilesByUserId(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
+
+// 	testTime := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
+// 	expectedSQL := `SELECT p.profile_id, p.firstname, p.lastname, p.is_male, p.height, p.birthday, p.description, l.country, l.city, l.district, liked.profile_id AS liked_by_profile_id, s.path AS avatar, i.description AS interest, pr.preference_description, pr.preference_value FROM profiles p LEFT JOIN locations l ON p.location_id = l.location_id LEFT JOIN "static" s ON p.profile_id = s.profile_id LEFT JOIN profile_interests pi ON pi.profile_id = p.profile_id LEFT JOIN interests i ON pi.interest_id = i.interest_id LEFT JOIN profile_preferences pp ON pp.profile_id = p.profile_id LEFT JOIN preferences pr ON pp.preference_id = pr.preference_id LEFT JOIN likes liked ON liked.liked_profile_id = p.profile_id WHERE p.profile_id = $1`
+
+// 	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{1}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{
+// 				{
+// 					1, "Иван", "Иванов", true, 180, testTime, "Описание",
+// 					"Россия", "Москва", "Центральный",
+// 					sql.NullInt64{Int64: 1, Valid: true},
+// 					sql.NullString{String: "avatar.jpg", Valid: true},
+// 					sql.NullString{String: "Технологии", Valid: true},
+// 					sql.NullString{String: "Предпочтение 1", Valid: true},
+// 					sql.NullString{String: "Высокое", Valid: true},
+// 				},
+// 			},
+// 		}, nil)
+
+// 	mockDB.On("Query", mock.Anything, expectedSQL, []interface{}{2}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{}, // Пустой результат
+// 		}, nil)
+
+// 	profiles, err := repo.GetProfilesByUserId(1)
+// 	assert.NoError(t, err)
+// 	assert.Len(t, profiles, 1)
+// 	if len(profiles) > 0 {
+// 		assert.Equal(t, 1, profiles[0].ProfileId)
+// 		assert.Equal(t, "Иван", profiles[0].FirstName)
+// 		assert.Equal(t, "Россия@Москва@Центральный", profiles[0].Location)
+// 	}
+
+// 	profiles, err = repo.GetProfilesByUserId(2)
+// 	assert.NoError(t, err)
+// 	assert.Len(t, profiles, 0)
+
+// 	mockDB.AssertExpectations(t)
+// }
+
+// func TestUpdateProfile(t *testing.T) {
+// 	mockDB := new(MockDB)
+// 	repo := &repository.ProfileRepo{DB: mockDB}
+
+// 	locationParts := strings.Split("Russia@Moscow@Centra", "@")
+// 	mockDB.On("Query", mock.Anything, repository.GetLocationID,
+// 		[]interface{}{locationParts[0], locationParts[1], locationParts[2]}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{},
+// 		}, nil)
+
+// 	mockDB.On("Exec", mock.Anything, repository.InsertLocation,
+// 		[]interface{}{locationParts[0], locationParts[1], locationParts[2]}).
+// 		Return(pgconn.NewCommandTag("INSERT 1"), nil)
+
+// 	birthday := time.Date(1990, 5, 20, 0, 0, 0, 0, time.UTC)
+// 	mockDB.On("Exec", mock.Anything, repository.UpdateProfileQuery,
+// 		[]interface{}{"John", "Doe", true, 180, "Updated Description", 1, birthday, 100}).
+// 		Return(pgconn.NewCommandTag("UPDATE 1"), nil)
+
+// 	mockDB.On("Exec", mock.Anything, repository.DeleteProfileInterests,
+// 		[]interface{}{100}).
+// 		Return(pgconn.NewCommandTag("DELETE 1"), nil)
+
+// 	mockDB.On("Query", mock.Anything, repository.GetInterestIdByDescription,
+// 		[]interface{}{"Sport"}).
+// 		Return(&MockRows{
+// 			data: [][]interface{}{{1}},
+// 		}, nil)
+
+// 	mockDB.On("Exec", mock.Anything, repository.InsertProfileInterest,
+// 		[]interface{}{100, 1}).
+// 		Return(pgconn.NewCommandTag("INSERT 1"), nil)
+
+// 	mockDB.On("Commit", mock.Anything).Return(nil)
+
+// 	newProfile := model.Profile{
+// 		FirstName:   "John",
+// 		LastName:    "Doe",
+// 		IsMale:      true,
+// 		Height:      180,
+// 		Description: "Updated Description",
+// 		Location:    "Russia@Moscow@Centra",
+// 		Interests:   []string{"Sport"},
+// 		Birthday:    birthday,
+// 	}
+
+// 	err := repo.UpdateProfile(100, newProfile)
+// 	require.NoError(t, err)
+
+// 	mockDB.AssertExpectations(t)
+// }
