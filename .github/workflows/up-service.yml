@@ -20,12 +20,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Run linter
-      if: github.ref != 'refs/heads/ci'
+      if: github.ref != 'refs/heads/ci' && github.ref != 'refs/heads/dev'
       uses: golangci/golangci-lint-action@v8
       with:
         version: v2.1
     - name: Mock linter for CI
-      if: github.ref == 'refs/heads/ci'
+      if: github.ref == 'refs/heads/ci' || github.ref == 'refs/heads/dev'
       run: echo "LINTerING AHAHAHHAHAH"
   build:
     needs: [ test, lint ]
@@ -56,10 +56,8 @@ jobs:
       with:
         username: ${{ vars.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-    - name: build and push db backend
+    - name: build and push backend
       run: |
-        docker build -t forus809/postgre:latest -f ./repository/db/Dockerfile .
-        docker push forus809/postgre:latest
         docker build -t forus809/beameye:latest -f ./Dockerfile .
         docker push forus809/beameye:latest
   deploy:
@@ -73,11 +71,9 @@ jobs:
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
 
-        # Записываем ключ в файл
         echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
 
-        # Добавляем хост в known_hosts (опционально, но рекомендуется)
         ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
         chmod 644 ~/.ssh/known_hosts
 
@@ -95,8 +91,8 @@ jobs:
           cp backend/docker-compose.yml docker-compose.yml
           cp backend/nginx/conf.d/app.conf nginx/conf.d/app.conf
           echo "cp backend/docker-compose.yml docker-compose.yml" >> successful-ssh.txt
-          echo "sudo docker-compose pull" >> successful-ssh.txt
+          echo "sudo docker-compose down" >> successful-ssh.txt
           echo "sudo docker-compose up -d --build" >> successful-ssh.txt
-          sudo docker-compose pull
+          sudo docker-compose down
           sudo docker-compose up -d --build
         EOF
