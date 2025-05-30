@@ -2827,6 +2827,7 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
+	fmt.Println("body is ", body)
 
 	if len(body) == 0 {
 		complaints, err := ch.GetComplaintsUC.GetAllComplaints()
@@ -2851,6 +2852,8 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	fmt.Println("Here are ", input)
+
 	complaints, err := ch.FindCompaintUC.FindComplaint(
 		input.Complaint_by,
 		input.Name_by,
@@ -2865,6 +2868,8 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
+
+	fmt.Println("It's joever ", complaints)
 
 	MakeEasyJSONResponse(w, http.StatusOK, model.ComplaintsResponse{Complaints: complaints})
 }

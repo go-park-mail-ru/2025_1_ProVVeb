@@ -201,11 +201,13 @@ func (cr *ComplaintRepo) FindComplaint(
 	complaintType string,
 	status int,
 ) ([]model.ComplaintWithLogins, error) {
+	fmt.Println(complaintById, nameBy, complaintOnId, nameOn, complaintType, status)
 	rows, err := cr.DB.QueryContext(
 		context.Background(),
 		findComplaintsQuery,
 		complaintById, complaintOnId, complaintType, status, nameBy, nameOn,
 	)
+	fmt.Println(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +231,7 @@ func (cr *ComplaintRepo) FindComplaint(
 		}
 		result = append(result, row)
 	}
+	fmt.Println(result)
 	return result, nil
 }
 

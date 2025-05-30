@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -19,6 +20,7 @@ func MakeEasyJSONResponse(w http.ResponseWriter, statusCode int, v easyjson.Mars
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	fmt.Println("Catch this, motherfucker", data)
 	w.Write(data)
 }
 
