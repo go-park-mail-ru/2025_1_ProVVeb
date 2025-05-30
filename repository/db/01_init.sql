@@ -1,4 +1,13 @@
-CREATE DATABASE dev;
+DO $$
+BEGIN
+   IF NOT EXISTS (
+      SELECT FROM pg_database WHERE datname = 'dev'
+   ) THEN
+      CREATE DATABASE dev;
+   END IF;
+END
+$$;
+
 
 CREATE TABLE complaint_types (
     comp_type BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
