@@ -2827,7 +2827,6 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		)
 		return
 	}
-	fmt.Println("body is ", body)
 
 	if len(body) == 0 {
 		complaints, err := ch.GetComplaintsUC.GetAllComplaints()
@@ -2852,16 +2851,6 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ch.Logger.WithFields(&logrus.Fields{
-		"method":     r.Method,
-		"path":       r.URL.Path,
-		"request_id": r.Header.Get("request_id"),
-		"ip":         r.RemoteAddr,
-		"hello":      input,
-	}).Info("Gts request started")
-
-	fmt.Println("Here are ", input)
-
 	complaints, err := ch.FindCompaintUC.FindComplaint(
 		input.Complaint_by,
 		input.Name_by,
@@ -2870,21 +2859,12 @@ func (ch *ComplaintHandler) FindComplaint(w http.ResponseWriter, r *http.Request
 		input.Complaint_type,
 		input.Status,
 	)
-	ch.Logger.WithFields(&logrus.Fields{
-		"method":     r.Method,
-		"path":       r.URL.Path,
-		"request_id": r.Header.Get("request_id"),
-		"ip":         r.RemoteAddr,
-		"cccc":       complaints,
-	}).Info("Gts request started")
 	if err != nil {
 		MakeEasyJSONResponse(w, http.StatusInternalServerError,
 			&model.ErrorResponse{Message: fmt.Sprintf("Error getting complaints: %v", err)},
 		)
 		return
 	}
-
-	fmt.Println("It's joever ", complaints)
 
 	MakeEasyJSONResponse(w, http.StatusOK, model.ComplaintsResponse{Complaints: complaints})
 }
