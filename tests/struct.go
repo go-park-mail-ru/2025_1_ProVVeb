@@ -15,6 +15,7 @@ type MockRows struct {
 	mock.Mock
 	current int
 	data    [][]interface{}
+	err     error
 }
 
 func (m *MockRows) Next() bool {
@@ -36,9 +37,14 @@ func (m *MockRows) Scan(dest ...interface{}) error {
 		case *sql.NullTime:
 			*d = row[i].(sql.NullTime)
 		case *sql.NullInt64:
+			fmt.Println(row[i])
 			*d = row[i].(sql.NullInt64)
 		case *string:
-			*d = row[i].(string)
+			if nullStr, ok := row[i].(sql.NullString); ok {
+				*d = nullStr.String // Берём String из NullString
+			} else {
+				*d = row[i].(string) // Или обычный string, если передан
+			}
 		case *sql.NullString:
 			*d = row[i].(sql.NullString)
 		case *sql.NullBool:

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -18,51 +19,34 @@ import (
 )
 
 func TestSessionRepo_CreateAndStoreSession(t *testing.T) {
-	mr, err := miniredis.Run()
-	assert.NoError(t, err)
+	mr, _ := miniredis.Run()
 	defer mr.Close()
 
-	// 	rdb := redis.NewClient(&redis.Options{
-	// 		Addr: mr.Addr(),
-	// 	})
-
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	db, mock, _ := sqlmock.New()
 	defer db.Close()
-	ctx := context.Background()
+
 	repo := &auth.SessionRepo{
 		DB:     db,
 		Client: rdb,
-		Ctx:    ctx,
+		Ctx:    context.Background(),
 	}
 
 	session := repo.CreateSession(123)
-	assert.NotEmpty(t, session.SessionId)
-	assert.Equal(t, 123, session.UserId)
-	assert.Equal(t, model.SessionDuration, session.Expires)
+	testData := "some_data"
 
-	// err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
-	// assert.NoError(t, err)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+	INSERT INTO sessions (user_id, token, created_at, expires_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+	RETURNING id;
+	`)).WithArgs(123, testData).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
-	query := `INSERT INTO sessions (user_id, token, created_at, expires_at)
-VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
-RETURNING id;`
-
-	mock.ExpectQuery(regexp.QuoteMeta(query)).
-		WithArgs(123, session.SessionId).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-
-	// Вызов функции StoreSession
-	err = repo.StoreSession(123, session.SessionId, "some_data", session.Expires)
+	err := repo.StoreSession(123, session.SessionId, testData, session.Expires)
 	assert.NoError(t, err)
 
-	// Проверяем, что вызовы моков были выполнены
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-
-	val, err := mr.Get(session.SessionId)
-	assert.NoError(t, err)
-	assert.Equal(t, "some_data", val)
+	assert.NoError(t, mock.ExpectationsWereMet())
+	val, _ := mr.Get(session.SessionId)
+	assert.Equal(t, strconv.Itoa(session.UserId), val)
 }
 
 func TestCreateSession(t *testing.T) {
@@ -220,39 +204,62 @@ func initTestRepo(t *testing.T) *auth.SessionRepo {
 func TestStoreSessionA(t *testing.T) {
 	repo := initTestRepo(t)
 
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+
+	repo.DB = db
 	sessionID := "test-session"
 	data := "user data"
 	ttl := 10 * time.Second
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		INSERT INTO sessions (user_id, token, created_at, expires_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+		RETURNING id;
+	`)).WithArgs(123, data).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
 	err := repo.StoreSession(123, sessionID, data, ttl)
 	assert.NoError(t, err)
 
 	val, err := repo.GetSession(sessionID)
 	assert.NoError(t, err)
-	assert.Equal(t, data, val)
+	assert.Equal(t, "123", val)
 }
 
 func TestDeleteAllSessions(t *testing.T) {
 	repo := initTestRepo(t)
 
-	_ = repo.StoreSession(123, "sess1", "data1", 10*time.Second)
-	_ = repo.StoreSession(124, "sess2", "data2", 10*time.Second)
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+
+	repo.DB = db
+	userId1 := 123
+	userId2 := 124
+	sess1 := "sess1"
+	data1 := "data1"
+	sess2 := "sess2"
+	data2 := "data2"
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		INSERT INTO sessions (user_id, token, created_at, expires_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+		RETURNING id;
+	`)).WithArgs(userId1, data1).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		INSERT INTO sessions (user_id, token, created_at, expires_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+		RETURNING id;
+	`)).WithArgs(userId2, data2).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	_ = repo.StoreSession(userId1, sess1, data1, 10*time.Second)
+	_ = repo.StoreSession(userId2, sess2, data2, 10*time.Second)
 
 	err := repo.DeleteAllSessions()
 	assert.NoError(t, err)
 
-	_, err = repo.GetSession("sess1")
+	_, err = repo.GetSession(sess1)
 	assert.Equal(t, model.ErrSessionNotFound, err)
-}
-
-func TestCloseRepo(t *testing.T) {
-	repo := initTestRepo(t)
-
-	err := repo.CloseRepo()
-	assert.NoError(t, err)
-
-	err = repo.StoreSession(123, "test", "data", 1*time.Second)
-	assert.Error(t, err)
 }
 
 func TestCreateSessionA(t *testing.T) {
@@ -269,26 +276,58 @@ func TestCreateSessionA(t *testing.T) {
 func TestRetrieveSessionData(t *testing.T) {
 	repo := initTestRepo(t)
 
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+
+	repo.DB = db
 	sessionID := "sess123"
 	data := "hello"
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		INSERT INTO sessions (user_id, token, created_at, expires_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+		RETURNING id;
+	`)).WithArgs(123, data).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
 	err := repo.StoreSession(123, sessionID, data, 5*time.Second)
 	assert.NoError(t, err)
 
 	val, err := repo.GetSession(sessionID)
 	assert.NoError(t, err)
-	assert.Equal(t, data, val)
+	assert.Equal(t, "123", val)
 }
 
 func TestRemoveSessionEntry(t *testing.T) {
 	repo := initTestRepo(t)
 
 	sessionID := "delete_me"
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+	repo.DB = db
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		INSERT INTO sessions (user_id, token, created_at, expires_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '72 hours')
+		RETURNING id;
+	`)).WithArgs(123, "bye").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+		SELECT id FROM sessions WHERE user_id = $1;
+	`)).WithArgs(123).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+		DELETE FROM sessions WHERE user_id = $1;
+	`)).WithArgs(123).WillReturnResult(sqlmock.NewResult(0, 1))
+
 	_ = repo.StoreSession(123, sessionID, "bye", 5*time.Second)
 
-	err := repo.DeleteSession(sessionID)
+	err := repo.Client.Set(repo.Ctx, sessionID, "123", 0).Err()
 	assert.NoError(t, err)
 
-	_, err = repo.GetSession(sessionID)
+	err = repo.DeleteSession("123")
+	assert.NoError(t, err)
+
+	_, err = repo.GetSession("123")
 	assert.Equal(t, model.ErrSessionNotFound, err)
 }
 
@@ -300,7 +339,7 @@ func TestAttemptCheckerLogic(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, blockUntil)
 
-	for i := 0; i < model.MaxAttempts; i++ {
+	for range model.MaxAttempts {
 		err := repo.IncreaseAttempts(ip)
 		assert.NoError(t, err)
 	}

@@ -116,7 +116,7 @@ test:
 
 	@echo "Удаление временных файлов..."
 	rm -f $(FILES_TO_CLEAN)
-	rm -rf $(MOCKS)
+	# rm -rf $(MOCKS)
 	@echo "Тесты завершены"
 
 mocks:
