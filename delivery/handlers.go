@@ -1389,7 +1389,7 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
-	if err == pgx.ErrNoRows {
+	if strings.Contains(err.Error(), pgx.ErrNoRows.Error()) {
 		MakeEasyJSONResponse(w, http.StatusOK,
 			&model.ErrorResponse{Message: fmt.Sprintf("%v", err)},
 		)
