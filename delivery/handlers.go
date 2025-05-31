@@ -17,6 +17,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v5"
 	"github.com/mailru/easyjson"
 	"github.com/mailru/easyjson/jlexer"
 
@@ -1388,6 +1389,12 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
+	if err == pgx.ErrNoRows {
+		MakeEasyJSONResponse(w, http.StatusBadRequest,
+			&model.ErrorResponse{Message: fmt.Sprintf("%v", err)},
+		)
+		return
+	}
 
 	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{

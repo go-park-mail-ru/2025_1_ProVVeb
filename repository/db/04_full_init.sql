@@ -1,187 +1,187 @@
-INSERT INTO interests (description)
-SELECT unnest(ARRAY[
-  'Путешествия', 'Спорт', 'Чтение', 'Музыка', 'Кино',
-  'Готовка', 'Фотография', 'Программирование', 'Танцы', 'Йога',
-  'Арт', 'Настольные игры', 'Велоспорт', 'Плавание', 'Походы',
-  'Иностранные языки', 'Театр', 'Садоводство', 'Мода', 'Медитация'
-]);
+-- INSERT INTO interests (description)
+-- SELECT unnest(ARRAY[
+--   'Путешествия', 'Спорт', 'Чтение', 'Музыка', 'Кино',
+--   'Готовка', 'Фотография', 'Программирование', 'Танцы', 'Йога',
+--   'Арт', 'Настольные игры', 'Велоспорт', 'Плавание', 'Походы',
+--   'Иностранные языки', 'Театр', 'Садоводство', 'Мода', 'Медитация'
+-- ]);
 
 
-INSERT INTO preferences (preference_type, preference_description, preference_value)
-SELECT *
-FROM (
-  VALUES
-    (1, 'Курение', 'Нет'),
-    (1, 'Курение', 'Иногда'),
-    (1, 'Курение', 'Да'),
-    (2, 'Алкоголь', 'Нет'),
-    (2, 'Алкоголь', 'Иногда'),
-    (2, 'Алкоголь', 'Да'),
-    (3, 'Тип отношений', 'Дружба'),
-    (3, 'Тип отношений', 'Романтические'),
-    (3, 'Тип отношений', 'Брак'),
-    (4, 'Домашние животные', 'Кошки'),
-    (4, 'Домашние животные', 'Собаки'),
-    (4, 'Домашние животные', 'Нет'),
-    (5, 'Физическая активность', 'Высокая'),
-    (5, 'Физическая активность', 'Средняя'),
-    (5, 'Физическая активность', 'Низкая')
-) AS t(preference_type, preference_description, preference_value);
-
-
-
-
-INSERT INTO parameters (parameter_type, parameter_description, parameter_value)
-SELECT *
-FROM (
-  VALUES
-    (1, 'Курение', 'Нет'),
-    (1, 'Курение', 'Иногда'),
-    (1, 'Курение', 'Да'),
-    (2, 'Алкоголь', 'Нет'),
-    (2, 'Алкоголь', 'Иногда'),
-    (2, 'Алкоголь', 'Да'),
-    (3, 'Тип отношений', 'Дружба'),
-    (3, 'Тип отношений', 'Романтические'),
-    (3, 'Тип отношений', 'Брак'),
-    (4, 'Домашние животные', 'Кошки'),
-    (4, 'Домашние животные', 'Собаки'),
-    (4, 'Домашние животные', 'Нет'),
-    (5, 'Физическая активность', 'Высокая'),
-    (5, 'Физическая активность', 'Средняя'),
-    (5, 'Физическая активность', 'Низкая')
-) AS t(parameter_type, parameter_description, parameter_value);
-
-
-WITH firstnames AS (
-  SELECT unnest(ARRAY[
-    'Александр', 'Мария', 'Дмитрий', 'Анна', 'Сергей', 'Екатерина', 'Андрей', 'Ольга',
-    'Алексей', 'Наталья', 'Иван', 'Татьяна', 'Николай', 'Елена', 'Павел', 'Ирина',
-    'Максим', 'Юлия', 'Владимир', 'Светлана'
-  ]) AS firstname
-),
-lastnames AS (
-  SELECT unnest(ARRAY[
-    'Иванов', 'Петрова', 'Сидоров', 'Кузнецова', 'Смирнов', 'Попова', 'Васильев',
-    'Морозова', 'Новиков', 'Соколова', 'Лебедев', 'Козлова', 'Михайлов', 'Фёдорова',
-    'Белов', 'Семенова', 'Егоров', 'Тихонова', 'Громов', 'Зайцева'
-  ]) AS lastname
-),
-descriptions AS (
-  SELECT unnest(ARRAY[
-    'Люблю путешествовать и открывать новые места.',
-    'Увлекаюсь спортом и активным образом жизни.',
-    'Часто читаю и интересуюсь саморазвитием.',
-    'Слушаю музыку и играю на гитаре.',
-    'Обожаю готовить и пробовать новые рецепты.',
-    'Занимаюсь программированием и новыми технологиями.',
-    'Люблю проводить время на природе.',
-    'Интересуюсь искусством и театром.',
-    'Фотографирую и веду блог.',
-    'Ценю искренность и честность в людях.'
-  ]) AS description
-)
-INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, goal, location_id)
-SELECT 
-  (SELECT firstname FROM firstnames ORDER BY random() LIMIT 1),
-  (SELECT lastname FROM lastnames ORDER BY random() LIMIT 1),
-  (random() > 0.5)::boolean,
-  DATE '1980-01-01' + (random() * 15000)::INT,
-  (random() * 50 + 150)::INT,
-  (SELECT description FROM descriptions ORDER BY random() LIMIT 1),
-  (random() * 3 + 1)::int,
-  NULL
-FROM generate_series(1, 100000);
-
-DO $$
-DECLARE
-    i BIGINT;
-    count INT;
-BEGIN
-    FOR i IN 1..100000 LOOP
-        count := (random() * 2 + 1)::INT;
-        FOR j IN 1..count LOOP
-            BEGIN
-                INSERT INTO profile_interests (profile_id, interest_id)
-                VALUES (i, (SELECT interest_id FROM interests ORDER BY random() LIMIT 1))
-                ON CONFLICT DO NOTHING;
-            EXCEPTION WHEN OTHERS THEN
-                CONTINUE;
-            END;
-        END LOOP;
-    END LOOP;
-END $$;
+-- INSERT INTO preferences (preference_type, preference_description, preference_value)
+-- SELECT *
+-- FROM (
+--   VALUES
+--     (1, 'Курение', 'Нет'),
+--     (1, 'Курение', 'Иногда'),
+--     (1, 'Курение', 'Да'),
+--     (2, 'Алкоголь', 'Нет'),
+--     (2, 'Алкоголь', 'Иногда'),
+--     (2, 'Алкоголь', 'Да'),
+--     (3, 'Тип отношений', 'Дружба'),
+--     (3, 'Тип отношений', 'Романтические'),
+--     (3, 'Тип отношений', 'Брак'),
+--     (4, 'Домашние животные', 'Кошки'),
+--     (4, 'Домашние животные', 'Собаки'),
+--     (4, 'Домашние животные', 'Нет'),
+--     (5, 'Физическая активность', 'Высокая'),
+--     (5, 'Физическая активность', 'Средняя'),
+--     (5, 'Физическая активность', 'Низкая')
+-- ) AS t(preference_type, preference_description, preference_value);
 
 
 
-DO $$
-DECLARE
-    i BIGINT;
-    count INT;
-BEGIN
-    FOR i IN 1..100000 LOOP
-        count := (random() * 1 + 1)::INT;
-        FOR j IN 1..count LOOP
-            BEGIN
-                INSERT INTO profile_preferences (profile_id, preference_id)
-                VALUES (i, (SELECT preference_id FROM preferences ORDER BY random() LIMIT 1))
-                ON CONFLICT DO NOTHING;
-            EXCEPTION WHEN OTHERS THEN
-                CONTINUE;
-            END;
-        END LOOP;
-    END LOOP;
-END $$;
+
+-- INSERT INTO parameters (parameter_type, parameter_description, parameter_value)
+-- SELECT *
+-- FROM (
+--   VALUES
+--     (1, 'Курение', 'Нет'),
+--     (1, 'Курение', 'Иногда'),
+--     (1, 'Курение', 'Да'),
+--     (2, 'Алкоголь', 'Нет'),
+--     (2, 'Алкоголь', 'Иногда'),
+--     (2, 'Алкоголь', 'Да'),
+--     (3, 'Тип отношений', 'Дружба'),
+--     (3, 'Тип отношений', 'Романтические'),
+--     (3, 'Тип отношений', 'Брак'),
+--     (4, 'Домашние животные', 'Кошки'),
+--     (4, 'Домашние животные', 'Собаки'),
+--     (4, 'Домашние животные', 'Нет'),
+--     (5, 'Физическая активность', 'Высокая'),
+--     (5, 'Физическая активность', 'Средняя'),
+--     (5, 'Физическая активность', 'Низкая')
+-- ) AS t(parameter_type, parameter_description, parameter_value);
 
 
-DO $$
-DECLARE
-    i BIGINT;
-    count INT;
-BEGIN
-    FOR i IN 1..100000 LOOP
-        count := (random() * 1 + 1)::INT;
-        FOR j IN 1..count LOOP
-            BEGIN
-                INSERT INTO profile_parameter (profile_id, parameter_id)
-                VALUES (i, (SELECT parameter_id FROM parameters ORDER BY random() LIMIT 1))
-                ON CONFLICT DO NOTHING;
-            EXCEPTION WHEN OTHERS THEN
-                CONTINUE;
-            END;
-        END LOOP;
-    END LOOP;
-END $$;
+-- WITH firstnames AS (
+--   SELECT unnest(ARRAY[
+--     'Александр', 'Мария', 'Дмитрий', 'Анна', 'Сергей', 'Екатерина', 'Андрей', 'Ольга',
+--     'Алексей', 'Наталья', 'Иван', 'Татьяна', 'Николай', 'Елена', 'Павел', 'Ирина',
+--     'Максим', 'Юлия', 'Владимир', 'Светлана'
+--   ]) AS firstname
+-- ),
+-- lastnames AS (
+--   SELECT unnest(ARRAY[
+--     'Иванов', 'Петрова', 'Сидоров', 'Кузнецова', 'Смирнов', 'Попова', 'Васильев',
+--     'Морозова', 'Новиков', 'Соколова', 'Лебедев', 'Козлова', 'Михайлов', 'Фёдорова',
+--     'Белов', 'Семенова', 'Егоров', 'Тихонова', 'Громов', 'Зайцева'
+--   ]) AS lastname
+-- ),
+-- descriptions AS (
+--   SELECT unnest(ARRAY[
+--     'Люблю путешествовать и открывать новые места.',
+--     'Увлекаюсь спортом и активным образом жизни.',
+--     'Часто читаю и интересуюсь саморазвитием.',
+--     'Слушаю музыку и играю на гитаре.',
+--     'Обожаю готовить и пробовать новые рецепты.',
+--     'Занимаюсь программированием и новыми технологиями.',
+--     'Люблю проводить время на природе.',
+--     'Интересуюсь искусством и театром.',
+--     'Фотографирую и веду блог.',
+--     'Ценю искренность и честность в людях.'
+--   ]) AS description
+-- )
+-- INSERT INTO profiles (firstname, lastname, is_male, birthday, height, description, goal, location_id)
+-- SELECT 
+--   (SELECT firstname FROM firstnames ORDER BY random() LIMIT 1),
+--   (SELECT lastname FROM lastnames ORDER BY random() LIMIT 1),
+--   (random() > 0.5)::boolean,
+--   DATE '1980-01-01' + (random() * 15000)::INT,
+--   (random() * 50 + 150)::INT,
+--   (SELECT description FROM descriptions ORDER BY random() LIMIT 1),
+--   (random() * 3 + 1)::int,
+--   NULL
+-- FROM generate_series(1, 100000);
+
+-- DO $$
+-- DECLARE
+--     i BIGINT;
+--     count INT;
+-- BEGIN
+--     FOR i IN 1..100000 LOOP
+--         count := (random() * 2 + 1)::INT;
+--         FOR j IN 1..count LOOP
+--             BEGIN
+--                 INSERT INTO profile_interests (profile_id, interest_id)
+--                 VALUES (i, (SELECT interest_id FROM interests ORDER BY random() LIMIT 1))
+--                 ON CONFLICT DO NOTHING;
+--             EXCEPTION WHEN OTHERS THEN
+--                 CONTINUE;
+--             END;
+--         END LOOP;
+--     END LOOP;
+-- END $$;
 
 
-WITH img_paths AS (
-  SELECT unnest(ARRAY[
-    '/anatolini.jpg',
-    '/eva.png',
-    '/katya.png',
-    '/dima.jpg',
-    '/anton.jpg',
-    '/fernando.jpg',
-    '/kamilla.jpg',
-    '/georgio.jpg',
-    '/liza.jpg',
-    '/nona.jpg'
-  ]) AS path,
-  generate_series(1, 10) AS id
-)
-INSERT INTO static (profile_id, path)
-SELECT
-  gs,
-  (SELECT path FROM img_paths ORDER BY random() LIMIT 1)
-FROM generate_series(1, 100000) AS gs;
+
+-- DO $$
+-- DECLARE
+--     i BIGINT;
+--     count INT;
+-- BEGIN
+--     FOR i IN 1..100000 LOOP
+--         count := (random() * 1 + 1)::INT;
+--         FOR j IN 1..count LOOP
+--             BEGIN
+--                 INSERT INTO profile_preferences (profile_id, preference_id)
+--                 VALUES (i, (SELECT preference_id FROM preferences ORDER BY random() LIMIT 1))
+--                 ON CONFLICT DO NOTHING;
+--             EXCEPTION WHEN OTHERS THEN
+--                 CONTINUE;
+--             END;
+--         END LOOP;
+--     END LOOP;
+-- END $$;
 
 
-INSERT INTO users (profile_id, status, login, email, phone, password)
-SELECT 
-    gs,
-    (RANDOM() * 3)::INT,
-    'user_' || gs,
-    'user_' || gs || '@mail.com',
-    '+7' || (7000000000 + gs)::TEXT,
-    'Password_' || gs || '#'
-FROM generate_series(1, 100000) AS gs;
+-- DO $$
+-- DECLARE
+--     i BIGINT;
+--     count INT;
+-- BEGIN
+--     FOR i IN 1..100000 LOOP
+--         count := (random() * 1 + 1)::INT;
+--         FOR j IN 1..count LOOP
+--             BEGIN
+--                 INSERT INTO profile_parameter (profile_id, parameter_id)
+--                 VALUES (i, (SELECT parameter_id FROM parameters ORDER BY random() LIMIT 1))
+--                 ON CONFLICT DO NOTHING;
+--             EXCEPTION WHEN OTHERS THEN
+--                 CONTINUE;
+--             END;
+--         END LOOP;
+--     END LOOP;
+-- END $$;
+
+
+-- WITH img_paths AS (
+--   SELECT unnest(ARRAY[
+--     '/anatolini.jpg',
+--     '/eva.png',
+--     '/katya.png',
+--     '/dima.jpg',
+--     '/anton.jpg',
+--     '/fernando.jpg',
+--     '/kamilla.jpg',
+--     '/georgio.jpg',
+--     '/liza.jpg',
+--     '/nona.jpg'
+--   ]) AS path,
+--   generate_series(1, 10) AS id
+-- )
+-- INSERT INTO static (profile_id, path)
+-- SELECT
+--   gs,
+--   (SELECT path FROM img_paths ORDER BY random() LIMIT 1)
+-- FROM generate_series(1, 100000) AS gs;
+
+
+-- INSERT INTO users (profile_id, status, login, email, phone, password)
+-- SELECT 
+--     gs,
+--     (RANDOM() * 3)::INT,
+--     'user_' || gs,
+--     'user_' || gs || '@mail.com',
+--     '+7' || (7000000000 + gs)::TEXT,
+--     'Password_' || gs || '#'
+-- FROM generate_series(1, 100000) AS gs;
