@@ -6,7 +6,7 @@ MOCKS="mocks"
 
 
 RATE ?= 100
-DURATION ?= 60s
+DURATION ?= 30s
 
 TARGETS_FILE = docs/perf_test/get-profile-targets.txt
 TARGETS_FILE_CREATE = docs/perf_test/create-user-targets.txt
@@ -116,7 +116,7 @@ test:
 
 	@echo "Удаление временных файлов..."
 	rm -f $(FILES_TO_CLEAN)
-	rm -rf $(MOCKS)
+	# rm -rf $(MOCKS)
 	@echo "Тесты завершены"
 
 mocks:

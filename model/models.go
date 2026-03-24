@@ -396,7 +396,7 @@ type CreateComplaintRequest struct {
 
 //easyjson:json
 type GetAnswerStatistics struct {
-	Query_id int `json:"query_id"`
+	Query_name string `json:"query_name"`
 }
 
 //easyjson:json
@@ -442,8 +442,8 @@ type LoginResponse struct {
 
 //easyjson:json
 type UploadResponse struct {
-	Message       string   `json:"message"`
-	FailedUploads []string `json:"failed_uploads"`
+	Message          string   `json:"message"`
+	SucessfulUploads []string `json:"sucessful_uploads"`
 }
 
 //easyjson:json

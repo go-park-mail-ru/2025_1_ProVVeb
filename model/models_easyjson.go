@@ -403,25 +403,25 @@ func easyjsonD2b7633eDecodeGithubComGoParkMailRu20251ProVVebModel4(in *jlexer.Le
 		switch key {
 		case "message":
 			out.Message = string(in.String())
-		case "failed_uploads":
+		case "sucessful_uploads":
 			if in.IsNull() {
 				in.Skip()
-				out.FailedUploads = nil
+				out.SucessfulUploads = nil
 			} else {
 				in.Delim('[')
-				if out.FailedUploads == nil {
+				if out.SucessfulUploads == nil {
 					if !in.IsDelim(']') {
-						out.FailedUploads = make([]string, 0, 4)
+						out.SucessfulUploads = make([]string, 0, 4)
 					} else {
-						out.FailedUploads = []string{}
+						out.SucessfulUploads = []string{}
 					}
 				} else {
-					out.FailedUploads = (out.FailedUploads)[:0]
+					out.SucessfulUploads = (out.SucessfulUploads)[:0]
 				}
 				for !in.IsDelim(']') {
 					var v1 string
 					v1 = string(in.String())
-					out.FailedUploads = append(out.FailedUploads, v1)
+					out.SucessfulUploads = append(out.SucessfulUploads, v1)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -446,13 +446,13 @@ func easyjsonD2b7633eEncodeGithubComGoParkMailRu20251ProVVebModel4(out *jwriter.
 		out.String(string(in.Message))
 	}
 	{
-		const prefix string = ",\"failed_uploads\":"
+		const prefix string = ",\"sucessful_uploads\":"
 		out.RawString(prefix)
-		if in.FailedUploads == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+		if in.SucessfulUploads == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v2, v3 := range in.FailedUploads {
+			for v2, v3 := range in.SucessfulUploads {
 				if v2 > 0 {
 					out.RawByte(',')
 				}
@@ -3328,8 +3328,8 @@ func easyjsonD2b7633eDecodeGithubComGoParkMailRu20251ProVVebModel32(in *jlexer.L
 			continue
 		}
 		switch key {
-		case "query_id":
-			out.Query_id = int(in.Int())
+		case "query_name":
+			out.Query_name = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -3345,9 +3345,9 @@ func easyjsonD2b7633eEncodeGithubComGoParkMailRu20251ProVVebModel32(out *jwriter
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"query_id\":"
+		const prefix string = ",\"query_name\":"
 		out.RawString(prefix[1:])
-		out.Int(int(in.Query_id))
+		out.String(string(in.Query_name))
 	}
 	out.RawByte('}')
 }

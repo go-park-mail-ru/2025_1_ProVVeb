@@ -6,7 +6,7 @@ import (
 )
 
 var PageSize = 10
-var SearchLimit = 100
+var SearchLimit = 20
 
 type Preference struct {
 	Description string `yaml:"preference_description" json:"preference_description"`

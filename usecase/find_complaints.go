@@ -25,7 +25,7 @@ func (uc *FindComplaint) FindComplaint(complaint_by int, name_by string, complai
 	if err != nil {
 		uc.logger.Error("FindComplaint", "complaints", complaints, "error", err)
 	} else {
-		uc.logger.WithFields(&logrus.Fields{"complaints": complaints})
+		uc.logger.WithFields(&logrus.Fields{"complaints": complaints}).Info("Found complaints")
 	}
 	return complaints, err
 }

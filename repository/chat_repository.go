@@ -86,14 +86,21 @@ func (cr *ChatRepo) GetChatParticipants(chatID int) (int, int, error) {
 
 const (
 	GetChatsQuery = `
-	SELECT 
-		chat_id, 
-		first_profile_id, 
-		second_profile_id, 
-		last_message,
-		last_sender 
-	FROM chats 
-	WHERE (first_profile_id = $1 OR second_profile_id = $1)
+	SELECT DISTINCT ON (c.chat_id) 
+    c.chat_id, 
+    c.first_profile_id, 
+    c.second_profile_id, 
+    c.last_message,
+    c.last_sender 
+FROM chats c
+JOIN users u1 ON u1.profile_id = c.first_profile_id
+JOIN users u2 ON u2.profile_id = c.second_profile_id
+LEFT JOIN blacklist b1 ON b1.user_id = u1.user_id
+LEFT JOIN blacklist b2 ON b2.user_id = u2.user_id
+WHERE 
+    (c.first_profile_id = $1 OR c.second_profile_id = $1)
+    AND b1.user_id IS NULL
+    AND b2.user_id IS NULL;
 	`
 
 	GetProfileParams = `

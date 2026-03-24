@@ -234,11 +234,13 @@ SELECT
     AVG(score) AS average_score,
     MIN(score) AS min_score,
     MAX(score) AS max_score
-FROM user_answer
-WHERE query_id = $1;
+FROM user_answer ua
+JOIN queries q ON ua.query_id = q.query_id
+WHERE ($1 = '' OR q.name = $1);
+
 `
 
-func (qr *QueryRepo) GetStatistics(queryID int64) (config.QueryStats, error) {
+func (qr *QueryRepo) GetStatistics(queryName string) (config.QueryStats, error) {
 	var (
 		totalAnswers int64
 		avgScore     sql.NullFloat64
@@ -246,7 +248,7 @@ func (qr *QueryRepo) GetStatistics(queryID int64) (config.QueryStats, error) {
 		maxScore     sql.NullInt64
 	)
 
-	row := qr.DB.QueryRowContext(context.Background(), getStatisticsQuery, queryID)
+	row := qr.DB.QueryRowContext(context.Background(), getStatisticsQuery, queryName)
 	err := row.Scan(&totalAnswers, &avgScore, &minScore, &maxScore)
 	if err != nil {
 		return config.QueryStats{}, fmt.Errorf("failed to get statistics: %w", err)

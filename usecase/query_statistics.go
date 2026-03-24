@@ -23,10 +23,10 @@ func NewGetStatisticsUseCase(
 	return &GetStatistics{QueryService: queryService, logger: logger}, nil
 }
 
-func (g *GetStatistics) GetStatistics(query_id int) (model.QueryStats, error) {
-	g.logger.Info("GetStatistics", "query_id", query_id)
+func (g *GetStatistics) GetStatistics(query_name string) (model.QueryStats, error) {
+	g.logger.Info("GetStatistics", "query_name", query_name)
 	req := &querypb.QueryStatsRequest{
-		QueryId: int64(query_id),
+		QueryName: query_name,
 	}
 	var Stats model.QueryStats
 

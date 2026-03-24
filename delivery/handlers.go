@@ -17,6 +17,7 @@ import (
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/repository"
 	"github.com/go-park-mail-ru/2025_1_ProVVeb/usecase"
 	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v5"
 	"github.com/mailru/easyjson"
 	"github.com/mailru/easyjson/jlexer"
 
@@ -158,7 +159,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 	notifications, err := mh.GetNotificationsUC.GetNotifications(int(profileId))
 	if err != nil {
 		mh.Logger.Error("Failed to load initial notifications: ", err)
-		conn.WriteJSON(map[string]interface{}{"error": "Failed to load initial notifications"})
+		conn.WriteJSON(map[string]interface{}{"error": fmt.Sprintf("Failed to load initial notifications %v", err)})
 		return
 	}
 	conn.WriteJSON(map[string]interface{}{"type": "init_notifications", "notifications": notifications})
@@ -180,7 +181,7 @@ func (mh *NotificationsHandler) GetNotifications(w http.ResponseWriter, r *http.
 			case <-pubsub.Channel():
 				newNotifications, err := mh.GetCurrentNotificationsUC.GetCurrentNotifications(int(profileId))
 				if err != nil {
-					mh.Logger.Error("Failed to get messages from cache (ticker): ", err)
+					mh.Logger.Error("Failed to get messages from cache (ticker):", err)
 					conn.WriteJSON(map[string]interface{}{"error": "Failed to get messages"})
 					continue
 				}
@@ -1304,8 +1305,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 
 		MakeEasyJSONResponse(w, http.StatusInternalServerError, &model.UploadResponse{
-			Message:       "Some uploads failed",
-			FailedUploads: failedUploads,
+			Message:          "Some uploads failed",
+			SucessfulUploads: failedUploads,
 		})
 		return
 	}
@@ -1316,8 +1317,8 @@ func (ph *ProfilesHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}).Info("all files uploaded successfully")
 
 	MakeEasyJSONResponse(w, http.StatusOK, &model.UploadResponse{
-		Message:       "All files uploaded",
-		FailedUploads: successUploads,
+		Message:          "All files uploaded",
+		SucessfulUploads: successUploads,
 	})
 }
 
@@ -1388,6 +1389,13 @@ func (sh *SessionHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		Login:    input.Login,
 		Password: input.Password,
 	})
+	// if strings.Contains(err.Error(), pgx.ErrNoRows.Error()) {
+	if err == pgx.ErrNoRows {
+		MakeEasyJSONResponse(w, http.StatusOK,
+			&model.ErrorResponse{Message: fmt.Sprintf("%v", err)},
+		)
+		return
+	}
 
 	if err != nil {
 		sh.Logger.WithFields(&logrus.Fields{
@@ -1505,7 +1513,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	profileId, err := uh.SignupUC.SaveUserProfile(profile)
 	if err != nil {
 		MakeEasyJSONResponse(w, http.StatusInternalServerError,
-			&model.ErrorResponse{Message: "Failed to save user profile"},
+			&model.ErrorResponse{Message: fmt.Sprintf("Failed to save user profile %v", err)},
 		)
 		return
 	}
@@ -1774,7 +1782,7 @@ func (uh *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		"user_id": userId,
 	}).Info("user deleted successfully")
 
-	MakeEasyJSONResponse(w, http.StatusInternalServerError,
+	MakeEasyJSONResponse(w, http.StatusOK,
 		&model.ErrorResponse{Message: fmt.Sprintf("User with ID %d deleted", userId)},
 	)
 }
@@ -2409,7 +2417,7 @@ func (qh *QueryHandler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_id)
+	stats, err := qh.GetStatisticsUC.GetStatistics(answer.Query_name)
 	if err != nil {
 		qh.Logger.WithFields(&logrus.Fields{
 			"user_id": userID,

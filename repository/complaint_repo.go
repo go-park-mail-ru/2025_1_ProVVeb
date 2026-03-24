@@ -201,11 +201,12 @@ func (cr *ComplaintRepo) FindComplaint(
 	complaintType string,
 	status int,
 ) ([]model.ComplaintWithLogins, error) {
+	var closedAt sql.NullTime
 	rows, err := cr.DB.QueryContext(
 		context.Background(),
 		findComplaintsQuery,
-		complaintById, complaintOnId, complaintType, status, nameBy, nameOn,
-	)
+		complaintById, complaintOnId, complaintType, status, nameBy, nameOn)
+	fmt.Println(rows)
 	if err != nil {
 		return nil, err
 	}
@@ -223,12 +224,19 @@ func (cr *ComplaintRepo) FindComplaint(
 			&row.Text,
 			&row.Status,
 			&row.CreatedAt,
-			&row.ClosedAt,
+			&closedAt,
 		); err != nil {
 			return nil, err
 		}
+		if closedAt.Valid {
+			row.ClosedAt = &closedAt.Time
+		} else {
+			row.ClosedAt = nil
+		}
+
 		result = append(result, row)
 	}
+	fmt.Println(result)
 	return result, nil
 }
 
@@ -297,7 +305,7 @@ func (cr *ComplaintRepo) HandleComplaint(complaint_id int, new_status int) error
 const getStatisticsQuery = `
 	SELECT
 		COUNT(*) AS total_complaints,
-		COUNT(*) FILTER (WHERE status = 0) AS rejected,
+		COUNT(*) FILTER (WHERE status = -1) AS rejected,
 		COUNT(*) FILTER (WHERE status = 1) AS pending,
 		COUNT(*) FILTER (WHERE status = 2) AS approved,
 		COUNT(*) FILTER (WHERE status = 3) AS closed,

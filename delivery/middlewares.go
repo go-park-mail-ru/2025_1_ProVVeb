@@ -63,6 +63,7 @@ func AuthWithCSRFMiddleware(tokenValidator *repository.JwtToken, sessionHandler 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sessionCookie, err := r.Cookie("session_id")
+			fmt.Println("Request headers:", r.Header)
 			if err != nil {
 				fmt.Println("no cookie for", r.URL.Path)
 				http.Redirect(w, r, "/", http.StatusFound)
